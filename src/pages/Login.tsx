@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
 
 interface LoginFormData {
@@ -7,6 +8,7 @@ interface LoginFormData {
 }
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -26,10 +28,15 @@ const Login: React.FC = () => {
   const handleLoginSubmit = async (): Promise<void> => {
     setIsLoading(true);
     
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Login data:', loginData);
-      alert('Login realizado com sucesso!');
+    try {      
+      // Validação básica
+      if (loginData.email && loginData.password) {
+        console.log('Login data:', loginData);
+        // Redireciona para o dashboard
+        navigate('/dashboard');
+      } else {
+        alert('Por favor, preencha todos os campos.');
+      }
     } catch (error) {
       console.error('Erro no login:', error);
       alert('Erro ao fazer login. Tente novamente.');
