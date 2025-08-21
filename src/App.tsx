@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import './index.css';
 import Dashboard from './pages/Dashboard';
+import Operations from './pages/Operations';
 
 const App: React.FC = () => {
   return (
@@ -12,6 +13,7 @@ const App: React.FC = () => {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/operations" element={<Operations />} />
         <Route path="*" element={<Login />} />
       </Routes> 
     </Router>

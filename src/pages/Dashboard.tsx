@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart3, Package, Eye } from 'lucide-react';
-import Sidebar from '../components/Sidebar'; // Importando o componente Sidebar
+import Sidebar from '../components/Sidebar';
 
 // Interfaces
 interface User {
@@ -28,12 +29,41 @@ interface Operation {
 
 // Componente Dashboard Principal
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedPeriod, setSelectedPeriod] = useState<string>('7 dias');
-  const [currentPage, setCurrentPage] = useState<string>('dashboard');
   
   const user: User = {
     name: 'Carlos Oliveira',
     role: 'Administrador'
+  };
+
+  // Função para lidar com navegação da Sidebar
+  const handlePageChange = (pageId: string): void => {
+    switch(pageId) {
+      case 'dashboard':
+        navigate('/dashboard');
+        break;
+      case 'operations':  // Usando 'operations' conforme o ID na Sidebar
+        navigate('/operations');
+        break;
+      case 'usuarios':
+        navigate('/users');
+        break;
+      case 'relatorios':
+        navigate('/reports');
+        break;
+      case 'cadastrar':
+        navigate('/register-inspector');
+        break;
+      case 'logout':
+        // Implementar lógica de logout
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+        break;
+      default:
+        break;
+    }
   };
 
   const statsData: StatData[] = [
@@ -106,10 +136,6 @@ const Dashboard: React.FC = () => {
     }
   ];
 
-  const handlePageChange = (pageId: string): void => {
-    setCurrentPage(pageId);
-  };
-
   const handlePeriodChange = (period: string): void => {
     setSelectedPeriod(period);
   };
@@ -117,24 +143,29 @@ const Dashboard: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar 
-        currentPage={currentPage}
+        currentPage="dashboard"  // Dashboard está selecionado
         onPageChange={handlePageChange}
         user={user}
       />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-white border-b border-gray-200 h-20">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between h-full px-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-sm text-gray-600">Monitoramento centralizado</p>
+            </div>
+            
             <div className="flex items-center gap-4">
-                {/* Perfil do Usuário */}
-                <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-7 py-4 transition-colors">
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.role}</div>
-                  </div>
-                  <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                    {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                  </div>
+              {/* Perfil do Usuário */}
+              <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
+                <div className="text-right">
+                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                  <div className="text-xs text-gray-500">{user.role}</div>
+                </div>
+                <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                </div>
               </div>
             </div>
           </div>

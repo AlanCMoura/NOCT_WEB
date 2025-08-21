@@ -23,7 +23,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) => {
   const sidebarItems: SidebarItem[] = [
     { id: 'dashboard', icon: <BarChart3 className="w-5 h-5" />, label: 'Dashboard' },
-    { id: 'operacoes', icon: <FileText className="w-5 h-5" />, label: 'Operações' }
+    { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' }
   ];
 
   const managementItems: SidebarItem[] = [
