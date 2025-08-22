@@ -372,11 +372,9 @@ const Operations: React.FC = () => {
   };
 
   const handleViewDetails = (operationId: string): void => {
-    console.log('Visualizando detalhes da operação:', operationId);
-    // Navegar para página de detalhes
-    // navigate(`/operations/${operationId}`);
-    alert(`Visualizando detalhes da operação: ${operationId}`);
+    navigate(`/operations/${encodeURIComponent(operationId)}`);
   };
+
 
   const handleEdit = (operationId: string): void => {
     console.log('Editando operação:', operationId);
