@@ -114,7 +114,7 @@ const OperationDetails: React.FC = () => {
         <main className="flex-1 p-6 overflow-auto space-y-6">
           <section className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">Operações Estruturadas&aacute;rias</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Informações da Operação</h2>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
               <div>
