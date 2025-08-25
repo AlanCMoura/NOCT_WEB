@@ -136,6 +136,16 @@ const ContainerDetails: React.FC = () => {
     setInfo(prev => ({ ...prev, [name]: value }));
   };
 
+  const formatWeight = (value: string) => {
+    const num = parseFloat(value.replace(/\D/g, ''));
+    return new Intl.NumberFormat('pt-BR').format(num);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR');
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
@@ -162,109 +172,227 @@ const ContainerDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 py-10 px-28 overflow-auto">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-8 space-y-8 pb-8 mb-8">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleImageUpload}
-            />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleImageUpload}
+          />
 
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Dados do Container</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade de Sacaria</label>
-                  <input
-                    type="text"
-                    name="quantidade"
-                    value={info.quantidade}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
+          {/* Dados do Container */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
+            <div className="px-8 py-6 border-b border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tara (Tons)</label>
-                  <input
-                    type="text"
-                    name="tara"
-                    value={info.tara}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Peso Líquido (kg)</label>
-                  <input
-                    type="text"
-                    name="pesoLiquido"
-                    value={info.pesoLiquido}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto (kg)</label>
-                  <input
-                    type="text"
-                    name="pesoBruto"
-                    value={info.pesoBruto}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Lacres</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lacre Agência</label>
-                  <input
-                    type="text"
-                    name="lacreAgencia"
-                    value={info.lacreAgencia}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Retirada Terminal</label>
-                  <input
-                    type="text"
-                    name="dataRetirada"
-                    value={info.dataRetirada}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lacres Outros</label>
-                  <textarea
-                    name="lacreOutros"
-                    value={info.lacreOutros}
-                    onChange={handleChange}
-                    readOnly={!isEditing}
-                    rows={3}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
-                  />
-                </div>
-              </div>
-              
-            </section>
+                Dados do Container
+              </h2>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-8 space-y-8 pb-8">
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 mt-6">Imagens do Container</h2>
+            
+            <div className="p-8">
+              {isEditing ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade de Sacaria</label>
+                    <input
+                      type="text"
+                      name="quantidade"
+                      value={info.quantidade}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tara (kg)</label>
+                    <input
+                      type="text"
+                      name="tara"
+                      value={info.tara}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Peso Líquido (kg)</label>
+                    <input
+                      type="text"
+                      name="pesoLiquido"
+                      value={info.pesoLiquido}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto (kg)</label>
+                    <input
+                      type="text"
+                      name="pesoBruto"
+                      value={info.pesoBruto}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lacre Agência</label>
+                    <input
+                      type="text"
+                      name="lacreAgencia"
+                      value={info.lacreAgencia}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data Retirada Terminal</label>
+                    <input
+                      type="text"
+                      name="dataRetirada"
+                      value={info.dataRetirada}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="lg:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lacres Outros</label>
+                    <textarea
+                      name="lacreOutros"
+                      value={info.lacreOutros}
+                      onChange={handleChange}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-4 border border-teal-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-teal-700 uppercase tracking-wide">Quantidade</p>
+                        <p className="text-2xl font-bold text-teal-900">{formatWeight(info.quantidade)}</p>
+                        <p className="text-xs text-teal-700">sacas</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16l-3-9m3 9l3-9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-700 uppercase tracking-wide">Tara</p>
+                        <p className="text-2xl font-bold text-slate-900">{formatWeight(info.tara)}</p>
+                        <p className="text-xs text-slate-700">kg</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-700 uppercase tracking-wide">Peso Líquido</p>
+                        <p className="text-2xl font-bold text-slate-900">{formatWeight(info.pesoLiquido)}</p>
+                        <p className="text-xs text-slate-700">kg</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-700 uppercase tracking-wide">Peso Bruto</p>
+                        <p className="text-2xl font-bold text-slate-900">{formatWeight(info.pesoBruto)}</p>
+                        <p className="text-xs text-slate-700">kg</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-4 border border-teal-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-teal-700 uppercase tracking-wide">Lacre Agência</p>
+                        <p className="text-2xl font-bold text-teal-900">{info.lacreAgencia}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-4 border border-teal-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 6v6m0-6a2 2 0 012 2h4a2 2 0 012-2v-2a2 2 0 00-2-2h-4a2 2 0 00-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-teal-700 uppercase tracking-wide">Data Retirada</p>
+                        <p className="text-2xl font-bold text-teal-900">{formatDate(info.dataRetirada)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-3 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-4 border border-teal-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center mt-1">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-teal-700 uppercase tracking-wide mb-1">Lacres Outros</p>
+                        <p className="text-lg font-bold text-teal-900 leading-relaxed">{info.lacreOutros}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Imagens */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
+            <div className="px-8 py-6 border-b border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                Imagens do Container
+                <span className="ml-auto text-sm font-normal text-gray-500">
+                  {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+                </span>
+              </h2>
+            </div>
+            
+            <div className="p-8">
               {isEditing ? (
                 <div
                   onDragOver={e => e.preventDefault()}
@@ -326,49 +454,71 @@ const ContainerDetails: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {images.map((img, idx) => (
-                    <img
-                      key={idx}
-                      src={img.url}
-                      alt={`Imagem ${idx + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
+                    <div key={idx} className="group relative">
+                      <div className="aspect-w-16 aspect-h-12 bg-gray-100 rounded-lg overflow-hidden">
+                        <img
+                          src={img.url}
+                          alt={`Imagem ${idx + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity cursor-pointer"
+                        />
+                      </div>
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="bg-white rounded-full p-2 shadow-lg">
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
+                    </div>
                   ))}
                 </div>
               )}
-            </section>
+            </div>
+          </div>
 
-            <div className="flex justify-end gap-4">
-              {isEditing ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
-                  >
-                    Salvar Container
-                  </button>
-                </>
-              ) : (
+          {/* Botões de Ação */}
+          <div className="flex justify-end gap-4 mb-8">
+            {isEditing ? (
+              <>
                 <button
                   type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
+                  onClick={handleCancel}
+                  className="px-6 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
-                  Editar Container
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Cancelar
                 </button>
-              )}
-            </div>
-            </div>
-          
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Salvar Container
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar Container
+              </button>
+            )}
+          </div>
         </main>
       </div>
     </div>
