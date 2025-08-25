@@ -17,6 +17,11 @@ interface ContainerInfo {
   lacreOutros: string;
 }
 
+interface ImageItem {
+  file?: File;
+  url: string;
+}
+
 const initialInfo: ContainerInfo = {
   quantidade: '540',
   tara: '2220',
@@ -27,45 +32,73 @@ const initialInfo: ContainerInfo = {
   lacreOutros: 'Múltiplos lacres'
 };
 
+const initialImages: ImageItem[] = [
+  { url: 'https://via.placeholder.com/200?text=Container+1' },
+  { url: 'https://via.placeholder.com/200?text=Container+2' }
+];
+
 const ContainerDetails: React.FC = () => {
   const { containerId, operationId } = useParams();
   const decodedContainerId = containerId ? decodeURIComponent(containerId) : '';
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const [info, setInfo] = useState<ContainerInfo>(initialInfo);
-  const [images, setImages] = useState<File[]>([]);
+  const [images, setImages] = useState<ImageItem[]>(initialImages);
+  const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
+    if (!isEditing) return;
     const files = Array.from(e.dataTransfer.files);
     if (files.length) {
-      setImages(prev => [...prev, ...files]);
+      setImages(prev => [
+        ...prev,
+        ...files.map(file => ({ file, url: URL.createObjectURL(file) }))
+      ]);
     }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    if (!isEditing) return;
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setImages(prev => [...prev, ...files]);
+      setImages(prev => [
+        ...prev,
+        ...files.map(file => ({ file, url: URL.createObjectURL(file) }))
+      ]);
     }
   };
 
   const handleImageButtonClick = (): void => {
-    fileInputRef.current?.click();
+    if (isEditing) {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleRemoveImage = (index: number): void => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    if (!isEditing) return;
+    setImages(prev => {
+      const newImages = [...prev];
+      const [removed] = newImages.splice(index, 1);
+      if (removed?.file) {
+        URL.revokeObjectURL(removed.url);
+      }
+      return newImages;
+    });
   };
 
   const handleCancel = (): void => {
-    navigate(-1);
+    setInfo(initialInfo);
+    setImages(initialImages);
+    setIsEditing(false);
   };
 
   const handleSave = (): void => {
     alert('Salvar informações em breve!');
+    setIsEditing(false);
   };
+
   const user: User = {
     name: 'Carlos Oliveira',
     role: 'Administrador'
@@ -98,7 +131,7 @@ const ContainerDetails: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const { name, value } = e.target;
     setInfo(prev => ({ ...prev, [name]: value }));
   };
@@ -128,8 +161,8 @@ const ContainerDetails: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-8 space-y-8">
+        <main className="flex-1 py-10 px-28 overflow-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-8 space-y-8 pb-8 mb-8">
             <input
               ref={fileInputRef}
               type="file"
@@ -149,7 +182,8 @@ const ContainerDetails: React.FC = () => {
                     name="quantidade"
                     value={info.quantidade}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    readOnly={!isEditing}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
                   />
                 </div>
                 <div>
@@ -159,17 +193,8 @@ const ContainerDetails: React.FC = () => {
                     name="tara"
                     value={info.tara}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto (kg)</label>
-                  <input
-                    type="text"
-                    name="pesoBruto"
-                    value={info.pesoBruto}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    readOnly={!isEditing}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
                   />
                 </div>
                 <div>
@@ -179,11 +204,23 @@ const ContainerDetails: React.FC = () => {
                     name="pesoLiquido"
                     value={info.pesoLiquido}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    readOnly={!isEditing}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto (kg)</label>
+                  <input
+                    type="text"
+                    name="pesoBruto"
+                    value={info.pesoBruto}
+                    onChange={handleChange}
+                    readOnly={!isEditing}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
                   />
                 </div>
               </div>
-              </section>
+            </section>
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Lacres</h2>
@@ -195,7 +232,8 @@ const ContainerDetails: React.FC = () => {
                     name="lacreAgencia"
                     value={info.lacreAgencia}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    readOnly={!isEditing}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
                   />
                 </div>
                 <div>
@@ -205,102 +243,132 @@ const ContainerDetails: React.FC = () => {
                     name="dataRetirada"
                     value={info.dataRetirada}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    readOnly={!isEditing}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
                   />
                 </div>
-                <div className="md:col-span-2 mb-8">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Lacres Outros</label>
-                  <input
-                    type="text"
+                  <textarea
                     name="lacreOutros"
                     value={info.lacreOutros}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    readOnly={!isEditing}
+                    rows={3}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent${!isEditing ? ' bg-gray-50' : ''}`}
                   />
                 </div>
               </div>
-              </section>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8 mt-5">
-              <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Imagens do Container</h2>
-              <div
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"
-              >
-                {images.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-gray-500">
-                    <svg
-                      className="w-10 h-10 text-gray-400 mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v13a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9-5 9 5M3 7h18" />
-                    </svg>
-                    <p className="text-sm">
-                      Faça upload das imagens
-                      <br />
-                      Arraste e solte imagens aqui ou clique para selecionar
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleImageButtonClick}
-                      className="mt-4 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Selecionar Imagens
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {images.map((img, idx) => (
-                        <div key={idx} className="relative group">
-                          <img
-                            src={URL.createObjectURL(img)}
-                            alt={`Imagem ${idx + 1}`}
-                            className="w-full h-32 object-cover rounded-lg border"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(idx)}
-                            className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-xs text-gray-600 hover:bg-red-100 hover:text-red-500"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleImageButtonClick}
-                      className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Adicionar Mais Imagens
-                    </button>
-                  </div>
-                )}
-              </div>
+              
             </section>
-               <div className="flex justify-end gap-4">
-              <button
-              type="button"
-              onClick={handleCancel}
-              className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-              type="button"
-                onClick={handleSave}
-                className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
-              >
-                Salvar Container
-              </button>
             </div>
-          </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-8 space-y-8 pb-8">
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 mt-6">Imagens do Container</h2>
+              {isEditing ? (
+                <div
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"
+                >
+                  {images.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-gray-500">
+                      <svg
+                        className="w-10 h-10 text-gray-400 mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v13a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9-5 9 5M3 7h18" />
+                      </svg>
+                      <p className="text-sm">
+                        Faça upload das imagens
+                        <br />
+                        Arraste e solte imagens aqui ou clique para selecionar
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleImageButtonClick}
+                        className="mt-4 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Selecionar Imagens
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {images.map((img, idx) => (
+                          <div key={idx} className="relative group">
+                            <img
+                              src={img.url}
+                              alt={`Imagem ${idx + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(idx)}
+                              className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-xs text-gray-600 hover:bg-red-100 hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleImageButtonClick}
+                        className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Adicionar Mais Imagens
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {images.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={img.url}
+                      alt={`Imagem ${idx + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border"
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className="flex justify-end gap-4">
+              {isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
+                  >
+                    Salvar Container
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
+                >
+                  Editar Container
+                </button>
+              )}
+            </div>
+            </div>
+          
         </main>
       </div>
     </div>
