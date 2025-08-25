@@ -11,7 +11,6 @@ interface User {
 
 interface Operation {
   id: string;
-  containerId: string;
   shipName: string;
   inspector: string;
   date: string;
@@ -31,7 +30,6 @@ interface Filters {
 const mockOperations: Operation[] = [
   {
     id: "AMV-12345/25",
-    containerId: "ABCD 123456-1",
     shipName: "MSC Fantasia",
     inspector: "João Silva",
     date: "2025-08-15T14:30:00Z",
@@ -41,7 +39,6 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12346/25",
-    containerId: "EFGH 789012-3",
     shipName: "Maersk Line",
     inspector: "Maria Santos",
     date: "2025-08-15T10:15:00Z",
@@ -51,7 +48,6 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12344/25",
-    containerId: "IJKL 345678-9",
     shipName: "Hamburg Süd",
     inspector: "Carlos Souza",
     date: "2025-08-14T16:45:00Z",
@@ -61,7 +57,6 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12343/25",
-    containerId: "MNOP 567890-2",
     shipName: "CMA CGM",
     inspector: "Ana Costa",
     date: "2025-08-14T09:20:00Z",
@@ -71,7 +66,6 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12342/25",
-    containerId: "QRST 234567-8",
     shipName: "Evergreen Marine",
     inspector: "Pedro Oliveira",
     date: "2025-08-13T15:10:00Z",
@@ -81,7 +75,6 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12341/25",
-    containerId: "UVWX 678901-4",
     shipName: "COSCO Shipping",
     inspector: "Fernanda Lima",
     date: "2025-08-13T11:30:00Z",
@@ -272,7 +265,6 @@ const useOperations = () => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(op =>
         op.id.toLowerCase().includes(query) ||
-        op.containerId.toLowerCase().includes(query) ||
         op.shipName.toLowerCase().includes(query)
       );
     }
@@ -446,7 +438,7 @@ const Operations: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                placeholder="Pesquisar por AMV, container ou navio..."
+                placeholder="Pesquisar por AMV, ou navio..."
               />
             </div>
             
@@ -509,16 +501,15 @@ const Operations: React.FC = () => {
                   <p className="text-sm text-gray-400 mt-1">Tente ajustar os filtros ou buscar por outros termos</p>
                 </div>
               ) : (
-                <table className="w-full">
+                <table className="w-full text-center">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AMV</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Container</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AMV</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -526,9 +517,6 @@ const Operations: React.FC = () => {
                       <tr key={operation.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {operation.id}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {operation.containerId}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {operation.shipName}
@@ -542,8 +530,8 @@ const Operations: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <StatusBadge status={operation.status} />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex items-center gap-2">
+                        <td className="px-4 py-4 whitespace-nowrap text-sm ">
+                          <div className="flex items-center gap-2 justify-center">
                             <button 
                               onClick={() => handleViewDetails(operation.id)}
                               className="text-teal-600 hover:text-teal-800 transition-colors font-medium"
