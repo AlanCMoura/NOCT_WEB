@@ -37,6 +37,17 @@ const initialImages: ImageItem[] = [
   { url: 'https://via.placeholder.com/200?text=Container+2' }
 ];
 
+const useCarousel = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const scrollLeft = () => {
+    ref.current?.scrollBy({ left: -300, behavior: 'smooth' });
+  };
+  const scrollRight = () => {
+    ref.current?.scrollBy({ left: 300, behavior: 'smooth' });
+  };
+  return { ref, scrollLeft, scrollRight };
+};
+
 const ContainerDetails: React.FC = () => {
   const { containerId, operationId } = useParams();
   const decodedContainerId = containerId ? decodeURIComponent(containerId) : '';
@@ -46,6 +57,10 @@ const ContainerDetails: React.FC = () => {
   const [images, setImages] = useState<ImageItem[]>(initialImages);
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const carousel1 = useCarousel();
+  const carousel2 = useCarousel();
+  const carousel3 = useCarousel();
+  const carousel4 = useCarousel();
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
@@ -87,6 +102,7 @@ const ContainerDetails: React.FC = () => {
       return newImages;
     });
   };
+
 
   const handleCancel = (): void => {
     setInfo(initialInfo);
@@ -454,27 +470,41 @@ const ContainerDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {images.map((img, idx) => (
-                  <div key={idx} className="group relative">
-                    <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        src={img.url}
-                        alt={`Imagem ${idx + 1}`}
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors duration-300 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={carousel1.scrollLeft}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ‹
+                  </button>
+                  <div
+                    ref={carousel1.ref}
+                    className="flex overflow-x-auto space-x-4 hide-scrollbar"
+                  >
+                    {images.map((img, idx) => (
+                      <div key={idx} className="flex-none w-64">
+                        <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={img.url}
+                            alt={`Imagem ${idx + 1}`}
+                            className="w-full h-48 object-cover"
+                          />
+                        </div>
+                        <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
                       </div>
-                    </div>
-                    <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                  <button
+                    type="button"
+                    onClick={carousel1.scrollRight}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
           </div>
           </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
@@ -554,24 +584,38 @@ const ContainerDetails: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {images.map((img, idx) => (
-                  <div key={idx} className="group relative">
-                    <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        src={img.url}
-                        alt={`Imagem ${idx + 1}`}
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors duration-300 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={carousel2.scrollLeft}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                >
+                  ‹
+                </button>
+                <div
+                  ref={carousel2.ref}
+                  className="flex overflow-x-auto space-x-4 hide-scrollbar"
+                >
+                  {images.map((img, idx) => (
+                    <div key={idx} className="flex-none w-64">
+                      <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={img.url}
+                          alt={`Imagem ${idx + 1}`}
+                          className="w-full h-48 object-cover"
+                        />
                       </div>
+                      <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
                     </div>
-                    <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={carousel2.scrollRight}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                >
+                  ›
+                </button>
               </div>
             )}
           </div>
@@ -653,24 +697,38 @@ const ContainerDetails: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {images.map((img, idx) => (
-                  <div key={idx} className="group relative">
-                    <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        src={img.url}
-                        alt={`Imagem ${idx + 1}`}
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors duration-300 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={carousel3.scrollLeft}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                >
+                  ‹
+                </button>
+                <div
+                  ref={carousel3.ref}
+                  className="flex overflow-x-auto space-x-4 hide-scrollbar"
+                >
+                  {images.map((img, idx) => (
+                    <div key={idx} className="flex-none w-64">
+                      <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={img.url}
+                          alt={`Imagem ${idx + 1}`}
+                          className="w-full h-48 object-cover"
+                        />
                       </div>
+                      <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
                     </div>
-                    <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={carousel3.scrollRight}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                >
+                  ›
+                </button>
               </div>
             )}
           </div>
@@ -751,27 +809,41 @@ const ContainerDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {images.map((img, idx) => (
-                  <div key={idx} className="group relative">
-                    <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        src={img.url}
-                        alt={`Imagem ${idx + 1}`}
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors duration-300 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={carousel4.scrollLeft}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ‹
+                  </button>
+                  <div
+                    ref={carousel4.ref}
+                    className="flex overflow-x-auto space-x-4 hide-scrollbar"
+                  >
+                    {images.map((img, idx) => (
+                      <div key={idx} className="flex-none w-64">
+                        <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={img.url}
+                            alt={`Imagem ${idx + 1}`}
+                            className="w-full h-48 object-cover"
+                          />
+                        </div>
+                        <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
                       </div>
-                    </div>
-                    <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                  <button
+                    type="button"
+                    onClick={carousel4.scrollRight}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
           </div>
           </div>
           {/* Botões de Ação */}
