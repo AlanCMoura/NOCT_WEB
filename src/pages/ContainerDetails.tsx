@@ -182,6 +182,7 @@ const ContainerDetails: React.FC = () => {
           />
 
           {/* Dados do Container */}
+          
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
             <div className="px-8 py-6 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">

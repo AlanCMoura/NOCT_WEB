@@ -19,7 +19,6 @@ interface StatData {
 
 interface Operation {
   ctv: string;
-  container: string;
   navio: string;
   inspetor: string;
   data: string;
@@ -100,7 +99,6 @@ const Dashboard: React.FC = () => {
   const recentOperations: Operation[] = [
     {
       ctv: 'CTV-12345/25',
-      container: 'ABCD 123456-1',
       navio: 'MSC Fantasia',
       inspetor: 'João Silva',
       data: '15/08/2025 14:30',
@@ -109,7 +107,6 @@ const Dashboard: React.FC = () => {
     },
     {
       ctv: 'CTV-12346/25',
-      container: 'EFGH 789012-3',
       navio: 'Maersk Line',
       inspetor: 'Maria Santos',
       data: '15/08/2025 10:15',
@@ -118,7 +115,6 @@ const Dashboard: React.FC = () => {
     },
     {
       ctv: 'CTV-12344/25',
-      container: 'IJKL 345678-9',
       navio: 'Hamburg Süd',
       inspetor: 'Carlos Souza',
       data: '14/08/2025 16:45',
@@ -127,7 +123,6 @@ const Dashboard: React.FC = () => {
     },
     {
       ctv: 'CTV-12343/25',
-      container: 'MNOP 567890-2',
       navio: 'CMA CGM',
       inspetor: 'Ana Costa',
       data: '14/08/2025 09:20',
@@ -197,23 +192,21 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-center">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CTV</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Container</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CTV</th>                    
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {recentOperations.map((operation: Operation, index: number) => (
                     <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{operation.ctv}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.container}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{operation.ctv}</td>                      
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.navio}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.inspetor}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.data}</td>

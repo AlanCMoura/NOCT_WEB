@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Plus, MoreVertical, FileText, Trash2, Edit } from 'lucide-react';
+import { Search, Filter, Download, Upload, Plus, MoreVertical, FileText, Trash2, Edit } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 
 // Interfaces
@@ -447,8 +447,7 @@ const Operations: React.FC = () => {
                 onClick={() => setIsFilterModalOpen(true)}
                 className="inline-flex items-center px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors relative"
               >
-                <Filter className="w-4 h-4 mr-2" />
-                Filtros
+                <Filter className="w-4 h-4" />
                 {activeFiltersCount > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-teal-500 rounded-full">
                     {activeFiltersCount}
@@ -461,6 +460,13 @@ const Operations: React.FC = () => {
                 className="inline-flex items-center px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <Download className="w-4 h-4 mr-2" />
+                Importar
+              </button>
+              <button
+                onClick={handleExport}
+                className="inline-flex items-center px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
                 Exportar
               </button>
               
