@@ -396,7 +396,7 @@ const Operations: React.FC = () => {
   const activeFiltersCount = Object.values(filters).filter(v => v).length;
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar 
         currentPage="operations" 
         onPageChange={handlePageChange}

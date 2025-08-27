@@ -90,7 +90,18 @@ const imagesSections: Record<string, ImageItem[]> = {
     { url: 'https://via.placeholder.com/400x300/e3f2fd/1565c0?text=Outros+6' },
     { url: 'https://via.placeholder.com/400x300/fff8e1/fbc02d?text=Outros+7' },
     { url: 'https://via.placeholder.com/400x300/ffebee/d32f2f?text=Outros+8' }
+  ],
+  'Cheio/Aberto': [
+    { url: 'https://via.placeholder.com/400x300/e0f7fa/00838f?text=Aberto+1' },
+    { url: 'https://via.placeholder.com/400x300/f9fbe7/827717?text=Aberto+2' },
+    { url: 'https://via.placeholder.com/400x300/fdf2e9/d84315?text=Aberto+3' },
+    { url: 'https://via.placeholder.com/400x300/f3e5f5/7b1fa2?text=Aberto+4' },
+    { url: 'https://via.placeholder.com/400x300/e8f5e8/388e3c?text=Aberto+5' },
+    { url: 'https://via.placeholder.com/400x300/e3f2fd/1565c0?text=Aberto+6' },
+    { url: 'https://via.placeholder.com/400x300/fff8e1/fbc02d?text=Aberto+7' },
+    { url: 'https://via.placeholder.com/400x300/ffebee/d32f2f?text=Aberto+8' }
   ]
+  
 };
 
 const ContainerDetails: React.FC = () => {
@@ -435,7 +446,7 @@ const ContainerDetails: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
 
       <div className="flex-1 flex flex-col">
@@ -624,14 +635,15 @@ const ContainerDetails: React.FC = () => {
               )}
             </div>
           </div>
-
+          
           {renderImageSection('Vazio/Forrado')}
           {renderImageSection('Fiada')}
           {renderImageSection('Meia Porta')}
           {renderImageSection('Lacrado/Fechado')}
           {renderImageSection('Lacre Principal')}
           {renderImageSection('Lacre Outros')}
-
+          {renderImageSection('Cheio/Aberto')} 
+          
        </main>
      </div>
 

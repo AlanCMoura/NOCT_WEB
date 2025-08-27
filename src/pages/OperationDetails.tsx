@@ -87,7 +87,7 @@ const OperationDetails: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
 
       <div className="flex-1 flex flex-col">
