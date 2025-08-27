@@ -9,38 +9,42 @@ interface User {
 }
 
 interface OperationInfo {
-  opid: string;
+  id: string;
   local: string;
+  reserva: string;
   deadline: string;
   ship: string;
+  cliente: string;
   exporter: string;
-  origin: string;
   destination: string;
   navio: string;
   data: string;
+  entrega: string;
 }
 
 interface Container {
   id: string;
-  status: 'Pendente' | 'Inspecionado';
+  status: 'Aberto' | 'Fechado';
   pesoBruto: string;
 }
 
 const mockOperation: OperationInfo = {
-  opid: 'RF010',
+  id: 'OP-01',
   local: 'Terminal Portuário Santos',
+  reserva: 'COD123',
+  cliente: 'MSC',
   deadline: '20/07/2025',
   ship: 'AMV-12345/25',
   exporter: 'Empresa Exportadora S.A.',
-  origin: 'Porto de Roterdã',
   destination: 'Destino',
   navio: 'MSC Fantasia',
-  data: '15/09/2025'
-};
+  data: '15/09/2025',
+  entrega: '20/08/2025'
+};  
 
 const mockContainers: Container[] = [
-  { id: 'ABCD 123456-1', status: 'Pendente', pesoBruto: '27081kg' },
-  { id: 'EFGH 789012-3', status: 'Inspecionado', pesoBruto: '28959kg' }
+  { id: 'ABCD 123456-1', status: 'Aberto', pesoBruto: '27081kg' },
+  { id: 'EFGH 789012-3', status: 'Fechado', pesoBruto: '28959kg' }
 ];
 
 const OperationDetails: React.FC = () => {
@@ -116,30 +120,22 @@ const OperationDetails: React.FC = () => {
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">Informações da Operação</h2>
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
-                <span className="text-gray-500 block">OPID</span>
-                <span className="text-gray-900 font-medium">{mockOperation.opid}</span>
-              </div>
-              <div>
-                <span className="text-gray-500 block">Local (Terminal)</span>
-                <span className="text-gray-900 font-medium">{mockOperation.local}</span>
-              </div>
-              <div>
-                <span className="text-gray-500 block">Deadline Draft</span>
-                <span className="text-gray-900 font-medium">{mockOperation.deadline}</span>
+                <span className="text-gray-500 block">ID</span>
+                <span className="text-gray-900 font-medium">{mockOperation.id}</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Operação</span>
                 <span className="text-gray-900 font-medium">{mockOperation.ship}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Exportador</span>
-                <span className="text-gray-900 font-medium">{mockOperation.exporter}</span>
+                <span className="text-gray-500 block">Reserva</span>
+                <span className="text-gray-900 font-medium">{mockOperation.reserva}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Origem</span>
-                <span className="text-gray-900 font-medium">{mockOperation.origin}</span>
+                <span className="text-gray-500 block">Local (Terminal)</span>
+                <span className="text-gray-900 font-medium">{mockOperation.local}</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Destino</span>
@@ -150,8 +146,24 @@ const OperationDetails: React.FC = () => {
                 <span className="text-gray-900 font-medium">{mockOperation.navio}</span>
               </div>
               <div>
+                <span className="text-gray-500 block">Exportador</span>
+                <span className="text-gray-900 font-medium">{mockOperation.exporter}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Deadline Draft</span>
+                <span className="text-gray-900 font-medium">{mockOperation.deadline}</span>
+              </div>
+              <div>
                 <span className="text-gray-500 block">Data</span>
                 <span className="text-gray-900 font-medium">{mockOperation.data}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Deadline de Entrega</span>
+                <span className="text-gray-900 font-medium">{mockOperation.entrega}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Cliente</span>
+                <span className="text-gray-900 font-medium">{mockOperation.cliente}</span>
               </div>
             </div>
           </section>
@@ -190,7 +202,7 @@ const OperationDetails: React.FC = () => {
                   </div>
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      container.status === 'Pendente'
+                      container.status === 'Aberto'
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-green-100 text-green-800'
                     }`}

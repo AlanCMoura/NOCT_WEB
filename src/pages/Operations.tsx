@@ -15,7 +15,7 @@ interface Operation {
   Reserva: string;
   inspector: string;
   date: string;
-  status: 'aberta' | 'pendente' | 'finalizada';
+  status: 'Aberta' | 'Fechada' | 'Parcial';
   totalPhotos: number;
   requiredPhotos: number;
 }
@@ -35,7 +35,7 @@ const mockOperations: Operation[] = [
     shipName: "MSC Fantasia",
     inspector: "João Silva",
     date: "2025-08-15T14:30:00Z",
-    status: "aberta",
+    status: "Aberta",
     totalPhotos: 8,
     requiredPhotos: 6
   },
@@ -45,7 +45,7 @@ const mockOperations: Operation[] = [
     shipName: "Maersk Line",
     inspector: "Maria Santos",
     date: "2025-08-15T10:15:00Z",
-    status: "pendente",
+    status: "Parcial",
     totalPhotos: 4,
     requiredPhotos: 6
   },
@@ -55,7 +55,7 @@ const mockOperations: Operation[] = [
     shipName: "Hamburg Süd",
     inspector: "Carlos Souza",
     date: "2025-08-14T16:45:00Z",
-    status: "finalizada",
+    status: "Fechada",
     totalPhotos: 6,
     requiredPhotos: 6
   },
@@ -65,7 +65,7 @@ const mockOperations: Operation[] = [
     shipName: "CMA CGM",
     inspector: "Ana Costa",
     date: "2025-08-14T09:20:00Z",
-    status: "finalizada",
+    status: "Fechada",
     totalPhotos: 6,
     requiredPhotos: 6
   },
@@ -75,7 +75,7 @@ const mockOperations: Operation[] = [
     shipName: "Evergreen Marine",
     inspector: "Pedro Oliveira",
     date: "2025-08-13T15:10:00Z",
-    status: "aberta",
+    status: "Aberta",
     totalPhotos: 5,
     requiredPhotos: 6
   },
@@ -85,7 +85,7 @@ const mockOperations: Operation[] = [
     Reserva: "COD123",
     inspector: "Fernanda Lima",
     date: "2025-08-13T11:30:00Z",
-    status: "pendente",
+    status: "Parcial",
     totalPhotos: 3,
     requiredPhotos: 6
   }
@@ -105,16 +105,16 @@ const formatDate = (dateString: string): string => {
 // Componente de Badge de Status
 const StatusBadge: React.FC<{ status: Operation['status'] }> = ({ status }) => {
   const statusConfig = {
-    aberta: {
+    Aberta: {
       label: 'Aberta',
       className: 'bg-green-100 text-green-800'
     },
-    pendente: {
-      label: 'Pendente',
+    Parcial: {
+      label: 'Parcial',
       className: 'bg-yellow-100 text-yellow-800'
     },
-    finalizada: {
-      label: 'Finalizada',
+    Fechada: {
+      label: 'Fechada',
       className: 'bg-blue-100 text-blue-800'
     }
   };
@@ -170,9 +170,9 @@ const FilterModal: React.FC<{
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="">Todos</option>
-                <option value="aberta">Aberta</option>
-                <option value="pendente">Pendente</option>
-                <option value="finalizada">Finalizada</option>
+                <option value="Aberta">Aberta</option>
+                <option value="Parcial">Parcial</option>
+                <option value="Fechada">Fechada</option>
               </select>
             </div>
 
