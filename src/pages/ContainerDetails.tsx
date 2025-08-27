@@ -12,9 +12,11 @@ interface ContainerInfo {
   tara: string;
   pesoBruto: string;
   pesoLiquido: string;
+  container: string;
   lacreAgencia: string;
   dataRetirada: string;
   lacreOutros: string;
+  dataEstufagem: string;
 }
 
 interface ImageItem {
@@ -24,12 +26,14 @@ interface ImageItem {
 
 const initialInfo: ContainerInfo = {
   quantidade: '540',
+  container: 'ABCD 123456-1',
   tara: '2220',
   pesoBruto: '27081',
   pesoLiquido: '27000',
   lacreAgencia: 'MQ45314',
   dataRetirada: '2025-07-01',
-  lacreOutros: 'Múltiplos lacres'
+  lacreOutros: 'Múltiplos lacres',
+  dataEstufagem: '2025-08-04'
 };
 
 // Seções separadas com imagens específicas para cada uma
@@ -533,6 +537,16 @@ const ContainerDetails: React.FC = () => {
               {isEditing ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Container</label>
+                    <input
+                      type="text"
+                      name="container"
+                      value={info.container}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade de Sacaria</label>
                     <input
                       type="text"
@@ -602,9 +616,23 @@ const ContainerDetails: React.FC = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Estufagem</label>
+                    <input
+                      type="text"
+                      name="container"
+                      value={info.dataEstufagem}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 text-sm ">
+                  <div>
+                    <span className="text-gray-500 block">Container</span>
+                    <span className="text-gray-900 font-medium">{info.container}</span>
+                  </div>
                   <div>
                     <span className="text-gray-500 block">Quantidade de Sacaria</span>
                     <span className="text-gray-900 font-medium">{formatWeight(info.quantidade)} sacas</span>
@@ -629,9 +657,13 @@ const ContainerDetails: React.FC = () => {
                     <span className="text-gray-500 block">Data Retirada Terminal</span>
                     <span className="text-gray-900 font-medium">{formatDate(info.dataRetirada)}</span>
                   </div>
-                  <div className="lg:col-span-3">
+                  <div>
                     <span className="text-gray-500 block">Lacres Outros</span>
                     <span className="text-gray-900 font-medium">{info.lacreOutros}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Data de Estufagem</span>
+                    <span className="text-gray-900 font-medium">{info.dataEstufagem}</span>
                   </div>
                 </div>
               )}
