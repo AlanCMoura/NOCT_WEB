@@ -9,7 +9,7 @@ interface User {
 }
 
 interface OperationInfo {
-  rfid: string;
+  opid: string;
   local: string;
   deadline: string;
   ship: string;
@@ -27,7 +27,7 @@ interface Container {
 }
 
 const mockOperation: OperationInfo = {
-  rfid: 'RF010',
+  opid: 'RF010',
   local: 'Terminal Portuário Santos',
   deadline: '20/07/2025',
   ship: 'AMV-12345/25',
@@ -118,8 +118,8 @@ const OperationDetails: React.FC = () => {
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
               <div>
-                <span className="text-gray-500 block">RFID</span>
-                <span className="text-gray-900 font-medium">{mockOperation.rfid}</span>
+                <span className="text-gray-500 block">OPID</span>
+                <span className="text-gray-900 font-medium">{mockOperation.opid}</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Local (Terminal)</span>

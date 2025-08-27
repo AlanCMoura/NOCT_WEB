@@ -12,6 +12,7 @@ interface User {
 interface Operation {
   id: string;
   shipName: string;
+  Reserva: string;
   inspector: string;
   date: string;
   status: 'aberta' | 'pendente' | 'finalizada';
@@ -30,6 +31,7 @@ interface Filters {
 const mockOperations: Operation[] = [
   {
     id: "AMV-12345/25",
+    Reserva: "COD123",
     shipName: "MSC Fantasia",
     inspector: "João Silva",
     date: "2025-08-15T14:30:00Z",
@@ -39,6 +41,7 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12346/25",
+    Reserva: "COD123",
     shipName: "Maersk Line",
     inspector: "Maria Santos",
     date: "2025-08-15T10:15:00Z",
@@ -48,6 +51,7 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12344/25",
+    Reserva: "COD123",
     shipName: "Hamburg Süd",
     inspector: "Carlos Souza",
     date: "2025-08-14T16:45:00Z",
@@ -57,6 +61,7 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12343/25",
+    Reserva: "COD123",
     shipName: "CMA CGM",
     inspector: "Ana Costa",
     date: "2025-08-14T09:20:00Z",
@@ -66,6 +71,7 @@ const mockOperations: Operation[] = [
   },
   {
     id: "AMV-12342/25",
+    Reserva: "COD123",
     shipName: "Evergreen Marine",
     inspector: "Pedro Oliveira",
     date: "2025-08-13T15:10:00Z",
@@ -76,6 +82,7 @@ const mockOperations: Operation[] = [
   {
     id: "AMV-12341/25",
     shipName: "COSCO Shipping",
+    Reserva: "COD123",
     inspector: "Fernanda Lima",
     date: "2025-08-13T11:30:00Z",
     status: "pendente",
@@ -266,6 +273,14 @@ const useOperations = () => {
       filtered = filtered.filter(op =>
         op.id.toLowerCase().includes(query) ||
         op.shipName.toLowerCase().includes(query)
+      );
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(op =>
+        op.id.toLowerCase().includes(query) ||
+        op.Reserva.toLowerCase().includes(query)
       );
     }
 
@@ -510,7 +525,8 @@ const Operations: React.FC = () => {
                 <table className="w-full text-center">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AMV</th>
+                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AMV</th>
+                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Reserva</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
@@ -523,6 +539,9 @@ const Operations: React.FC = () => {
                       <tr key={operation.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {operation.id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {operation.Reserva}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {operation.shipName}
