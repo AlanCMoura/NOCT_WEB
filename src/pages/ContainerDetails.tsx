@@ -40,17 +40,13 @@ const initialImages: ImageItem[] = [
   { url: 'https://via.placeholder.com/200?text=Container+5' },
   { url: 'https://via.placeholder.com/200?text=Container+6' },
   { url: 'https://via.placeholder.com/200?text=Container+7' },
-  { url: 'https://via.placeholder.com/200?text=Container+8' }
+  { url: 'https://via.placeholder.com/200?text=Container+8' },
 ];
 
 const useCarousel = () => {
   const ref = useRef<HTMLDivElement>(null);
-  const scrollLeft = () => {
-    ref.current?.scrollBy({ left: -300, behavior: 'smooth' });
-  };
-  const scrollRight = () => {
-    ref.current?.scrollBy({ left: 300, behavior: 'smooth' });
-  };
+  const scrollLeft = () => ref.current?.scrollBy({ left: -300, behavior: 'smooth' });
+  const scrollRight = () => ref.current?.scrollBy({ left: 300, behavior: 'smooth' });
   return { ref, scrollLeft, scrollRight };
 };
 
@@ -67,6 +63,18 @@ const ContainerDetails: React.FC = () => {
   const carousel2 = useCarousel();
   const carousel3 = useCarousel();
   const carousel4 = useCarousel();
+
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [currentImage, setCurrentImage] = useState(0);
+
+  const openViewer = (index: number) => {
+    setCurrentImage(index);
+    setViewerOpen(true);
+  };
+
+  const closeViewer = () => setViewerOpen(false);
+  const nextImage = () => setCurrentImage(prev => (prev + 1) % images.length);
+  const prevImage = () => setCurrentImage(prev => (prev - 1 + images.length) % images.length);
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
@@ -108,7 +116,6 @@ const ContainerDetails: React.FC = () => {
       return newImages;
     });
   };
-
 
   const handleCancel = (): void => {
     setInfo(initialInfo);
@@ -193,7 +200,7 @@ const ContainerDetails: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 py-10 px-28 overflow-auto">
+        <main className="flex-1 p-6 overflow-auto space-y-6">
           <input
             ref={fileInputRef}
             type="file"
@@ -205,19 +212,12 @@ const ContainerDetails: React.FC = () => {
 
           {/* Dados do Container */}
           
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
-            <div className="px-8 py-6 border-b border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                Dados do Container
-              </h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Dados do Container</h2>
             </div>
-            
-            <div className="p-8">
+
+            <div className="p-6">
               {isEditing ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
@@ -292,135 +292,55 @@ const ContainerDetails: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Quantidade</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatWeight(info.quantidade)}</p>
-                        <p className="text-xs text-gray-700">sacas</p>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                  <div>
+                    <span className="text-gray-500 block">Quantidade de Sacaria</span>
+                    <span className="text-gray-900 font-medium">{formatWeight(info.quantidade)} sacas</span>
                   </div>
-
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16l-3-9m3 9l3-9" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Tara</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatWeight(info.tara)}</p>
-                        <p className="text-xs text-gray-700">kg</p>
-                      </div>
-                    </div>
+                  <div>
+                    <span className="text-gray-500 block">Tara</span>
+                    <span className="text-gray-900 font-medium">{formatWeight(info.tara)} kg</span>
                   </div>
-
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Peso Líquido</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatWeight(info.pesoLiquido)}</p>
-                        <p className="text-xs text-gray-700">kg</p>
-                      </div>
-                    </div>
+                  <div>
+                    <span className="text-gray-500 block">Peso Líquido</span>
+                    <span className="text-gray-900 font-medium">{formatWeight(info.pesoLiquido)} kg</span>
                   </div>
-
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Peso Bruto</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatWeight(info.pesoBruto)}</p>
-                        <p className="text-xs text-gray-700">kg</p>
-                      </div>
-                    </div>
+                  <div>
+                    <span className="text-gray-500 block">Peso Bruto</span>
+                    <span className="text-gray-900 font-medium">{formatWeight(info.pesoBruto)} kg</span>
                   </div>
-
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Lacre Agência</p>
-                        <p className="text-2xl font-bold text-gray-900">{info.lacreAgencia}</p>
-                      </div>
-                    </div>
+                  <div>
+                    <span className="text-gray-500 block">Lacre Agência</span>
+                    <span className="text-gray-900 font-medium">{info.lacreAgencia}</span>
                   </div>
-
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 6v6m0-6a2 2 0 012 2h4a2 2 0 012-2v-2a2 2 0 00-2-2h-4a2 2 0 00-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Data Retirada</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatDate(info.dataRetirada)}</p>
-                      </div>
-                    </div>
+                  <div>
+                    <span className="text-gray-500 block">Data Retirada Terminal</span>
+                    <span className="text-gray-900 font-medium">{formatDate(info.dataRetirada)}</span>
                   </div>
-
-                  <div className="lg:col-span-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center mt-1">
-                        <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-1">Lacres Outros</p>
-                        <p className="text-lg font-bold text-gray-900 leading-relaxed">{info.lacreOutros}</p>
-                      </div>
-                    </div>
+                  <div className="lg:col-span-3">
+                    <span className="text-gray-500 block">Lacres Outros</span>
+                    <span className="text-gray-900 font-medium">{info.lacreOutros}</span>
                   </div>
                 </div>
               )}
             </div>
-            </div>
+          </div>
 
           {/* Imagens */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
-          <div className="px-8 py-6 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              VAZIO/FORRADO
-              <span className="ml-auto text-sm font-normal text-gray-500">
-                {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
-              </span>
-            </h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">VAZIO/FORRADO</h2>
+            <span className="text-sm font-normal text-gray-500">
+              {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+            </span>
           </div>
-          
-          <div className="p-8">
+
+          <div className="p-6">
             {isEditing ? (
               <div
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"
               >
                 {images.length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-gray-500">
@@ -476,7 +396,7 @@ const ContainerDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-              ) : (
+            ) : (
                 <div className="relative w-full">
                   <button
                     type="button"
@@ -495,7 +415,8 @@ const ContainerDetails: React.FC = () => {
                           <img
                             src={img.url}
                             alt={`Imagem ${idx + 1}`}
-                            className="w-full h-48 object-cover"
+                            className="w-full h-48 object-cover cursor-pointer"
+                            onClick={() => openViewer(idx)}
                           />
                         </div>
                         <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
@@ -510,25 +431,20 @@ const ContainerDetails: React.FC = () => {
                     ›
                   </button>
                 </div>
-              )}
-          </div>
-          </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
-          <div className="px-8 py-6 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+              ))}
               </div>
-              FIADA
-              <span className="ml-auto text-sm font-normal text-gray-500">
-                {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
-              </span>
-            </h2>
+            )}
           </div>
-          
-          <div className="p-8">
+          </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">FIADA</h2>
+            <span className="text-sm font-normal text-gray-500">
+              {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+            </span>
+          </div>
+
+          <div className="p-6">
             {isEditing ? (
               <div
                 onDragOver={e => e.preventDefault()}
@@ -590,38 +506,41 @@ const ContainerDetails: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="relative w-full">
-                <button
-                  type="button"
-                  onClick={carousel2.scrollLeft}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
-                >
-                  ‹
-                </button>
-                <div
-                  ref={carousel2.ref}
-                  className="flex w-full overflow-x-auto space-x-4 hide-scrollbar"
-                >
-                  {images.map((img, idx) => (
-                    <div key={idx} className="flex-none w-64">
-                      <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                        <img
-                          src={img.url}
-                          alt={`Imagem ${idx + 1}`}
-                          className="w-full h-48 object-cover"
-                        />
+                <div className="relative w-full">
+                  <button
+                    type="button"
+                    onClick={carousel2.scrollLeft}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ‹
+                  </button>
+                  <div
+                    ref={carousel2.ref}
+                    className="flex w-full overflow-x-auto space-x-4 hide-scrollbar"
+                  >
+                    {images.map((img, idx) => (
+                      <div key={idx} className="flex-none w-64">
+                        <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={img.url}
+                            alt={`Imagem ${idx + 1}`}
+                            className="w-full h-48 object-cover cursor-pointer"
+                            onClick={() => openViewer(idx)}
+                          />
+                        </div>
+                        <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
                       </div>
-                      <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={carousel2.scrollRight}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ›
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={carousel2.scrollRight}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
-                >
-                  ›
-                </button>
+              ))}
               </div>
             )}
           </div>
@@ -703,38 +622,41 @@ const ContainerDetails: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="relative w-full">
-                <button
-                  type="button"
-                  onClick={carousel3.scrollLeft}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
-                >
-                  ‹
-                </button>
-                <div
-                  ref={carousel3.ref}
-                  className="flex w-full overflow-x-auto space-x-4 hide-scrollbar"
-                >
-                  {images.map((img, idx) => (
-                    <div key={idx} className="flex-none w-64">
-                      <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                        <img
-                          src={img.url}
-                          alt={`Imagem ${idx + 1}`}
-                          className="w-full h-48 object-cover"
-                        />
+                <div className="relative w-full">
+                  <button
+                    type="button"
+                    onClick={carousel3.scrollLeft}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ‹
+                  </button>
+                  <div
+                    ref={carousel3.ref}
+                    className="flex w-full overflow-x-auto space-x-4 hide-scrollbar"
+                  >
+                    {images.map((img, idx) => (
+                      <div key={idx} className="flex-none w-64">
+                        <div className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={img.url}
+                            alt={`Imagem ${idx + 1}`}
+                            className="w-full h-48 object-cover cursor-pointer"
+                            onClick={() => openViewer(idx)}
+                          />
+                        </div>
+                        <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
                       </div>
-                      <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={carousel3.scrollRight}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
+                  >
+                    ›
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={carousel3.scrollRight}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow p-2"
-                >
-                  ›
-                </button>
+              ))}
               </div>
             )}
           </div>
@@ -815,7 +737,7 @@ const ContainerDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-              ) : (
+            ) : (
                 <div className="relative w-full">
                   <button
                     type="button"
@@ -834,7 +756,8 @@ const ContainerDetails: React.FC = () => {
                           <img
                             src={img.url}
                             alt={`Imagem ${idx + 1}`}
-                            className="w-full h-48 object-cover"
+                            className="w-full h-48 object-cover cursor-pointer"
+                            onClick={() => openViewer(idx)}
                           />
                         </div>
                         <p className="mt-2 text-sm text-gray-600 text-center">Imagem {idx + 1}</p>
@@ -849,11 +772,21 @@ const ContainerDetails: React.FC = () => {
                     ›
                   </button>
                 </div>
-              )}
+              ))}
+              </div>
+            )}
           </div>
           </div>
+          {viewerOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+              <button onClick={closeViewer} className="absolute top-4 right-4 text-white text-2xl">×</button>
+              <button onClick={prevImage} className="absolute left-4 text-white text-4xl">‹</button>
+              <img src={images[currentImage].url} alt={`Imagem ${currentImage + 1}`} className="max-h-[90%] max-w-[90%] object-contain" />
+              <button onClick={nextImage} className="absolute right-4 text-white text-4xl">›</button>
+            </div>
+          )}
           {/* Botões de Ação */}
-          <div className="flex justify-end gap-4 mb-8">
+          <div className="flex justify-end gap-4">
             {isEditing ? (
               <>
                 <button
