@@ -8,6 +8,7 @@ import Operations from './pages/Operations';
 import OperationDetails from './pages/OperationDetails';
 import ContainerDetails from './pages/ContainerDetails';
 import NewOperation from './pages/NewOperation';
+import NewContainer from './pages/NewContainer';
 
 const App: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ const App: React.FC = () => {
         <Route path="/operations" element={<Operations />} />
         <Route path="/operations/new" element={<NewOperation />} />
         <Route path="/operations/:operationId" element={<OperationDetails />} />
+        <Route path="/operations/:operationId/containers/new" element={<NewContainer />} />
         <Route path="/operations/:operationId/containers/:containerId" element={<ContainerDetails />} />
         <Route path="*" element={<Login />} />
       </Routes> 

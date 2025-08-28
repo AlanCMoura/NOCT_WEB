@@ -232,7 +232,7 @@ const OperationDetails: React.FC = () => {
                       navigate('/operations');
                     }
                   }}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-400 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Operação
@@ -254,7 +254,7 @@ const OperationDetails: React.FC = () => {
                   />
                 </div>
                 <button
-                  onClick={() => alert('Funcionalidade de novo container em breve!')}
+                  onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/containers/new`)}
                   className="inline-flex items-center px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-2" />
