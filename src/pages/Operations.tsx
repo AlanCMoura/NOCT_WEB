@@ -453,7 +453,7 @@ const Operations: React.FC = () => {
               </button>
               
               <button
-                onClick={handleNewOperation}
+                onClick={() => navigate('/operations/new')}
                 className="inline-flex items-center px-4 py-2.5 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
               >
                 <Plus className="w-4 h-4 mr-2" />

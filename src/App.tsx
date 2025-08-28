@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Operations from './pages/Operations';
 import OperationDetails from './pages/OperationDetails';
 import ContainerDetails from './pages/ContainerDetails';
+import NewOperation from './pages/NewOperation';
 
 const App: React.FC = () => {
   return (
@@ -16,6 +17,7 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/operations" element={<Operations />} />
+        <Route path="/operations/new" element={<NewOperation />} />
         <Route path="/operations/:operationId" element={<OperationDetails />} />
         <Route path="/operations/:operationId/containers/:containerId" element={<ContainerDetails />} />
         <Route path="*" element={<Login />} />
