@@ -49,13 +49,13 @@ const imagesSections: Record<string, ImageItem[]> = {
     { url: 'https://via.placeholder.com/400x300/e0f2f1/00695c?text=Vazio+6' },
     { url: 'https://via.placeholder.com/400x300/fff8e1/f57f17?text=Vazio+7' }
   ],
-  'Fiada': [
-    { url: 'https://via.placeholder.com/400x300/ffebee/c62828?text=Fiada+1' },
-    { url: 'https://via.placeholder.com/400x300/e1f5fe/0277bd?text=Fiada+2' },
-    { url: 'https://via.placeholder.com/400x300/f1f8e9/689f38?text=Fiada+3' },
-    { url: 'https://via.placeholder.com/400x300/fafafa/424242?text=Fiada+4' },
-    { url: 'https://via.placeholder.com/400x300/e8eaf6/5e35b1?text=Fiada+5' },
-    { url: 'https://via.placeholder.com/400x300/fff3e0/ef6c00?text=Fiada+6' }
+  'Parcial': [
+    { url: 'https://via.placeholder.com/400x300/ffebee/c62828?text=Parcial+1' },
+    { url: 'https://via.placeholder.com/400x300/e1f5fe/0277bd?text=Parcial+2' },
+    { url: 'https://via.placeholder.com/400x300/f1f8e9/689f38?text=Parcial+3' },
+    { url: 'https://via.placeholder.com/400x300/fafafa/424242?text=Parcial+4' },
+    { url: 'https://via.placeholder.com/400x300/e8eaf6/5e35b1?text=Parcial+5' },
+    { url: 'https://via.placeholder.com/400x300/fff3e0/ef6c00?text=Parcial+6' }
   ],
   'Meia Porta': [
     { url: 'https://via.placeholder.com/400x300/e0f7fa/00838f?text=Porta+1' },
@@ -519,18 +519,31 @@ const ContainerDetails: React.FC = () => {
             onNext={() => nextImages('Vazio/Forrado')}
           />
           <ContainerImageSection
-            title="Fiada"
-            images={imageSections['Fiada'] || []}
+            title="Parcial"
+            images={imageSections['Parcial'] || []}
             isEditing={isEditing}
-            startIndex={carouselIndex['Fiada'] ?? 0}
+            startIndex={carouselIndex['Parcial'] ?? 0}
             imagesPerView={IMAGES_PER_VIEW}
-            onDrop={(e) => handleDrop(e, 'Fiada')}
-            onSelectImages={() => handleImageButtonClick('Fiada')}
-            onRemoveImage={(idx) => handleRemoveImage('Fiada', idx)}
-            onOpenModal={(idx) => openImageModal('Fiada', idx)}
-            onPrev={() => prevImages('Fiada')}
-            onNext={() => nextImages('Fiada')}
+            onDrop={(e) => handleDrop(e, 'Parcial')}
+            onSelectImages={() => handleImageButtonClick('Parcial')}
+            onRemoveImage={(idx) => handleRemoveImage('Parcial', idx)}
+            onOpenModal={(idx) => openImageModal('Parcial', idx)}
+            onPrev={() => prevImages('Parcial')}
+            onNext={() => nextImages('Parcial')}
           />
+          <ContainerImageSection
+            title="Cheio Aberto"
+            images={imageSections['Cheio/Aberto'] || []}
+            isEditing={isEditing}
+            startIndex={carouselIndex['Cheio/Aberto'] ?? 0}
+            imagesPerView={IMAGES_PER_VIEW}
+            onDrop={(e) => handleDrop(e, 'Cheio/Aberto')}
+            onSelectImages={() => handleImageButtonClick('Cheio/Aberto')}
+            onRemoveImage={(idx) => handleRemoveImage('Cheio/Aberto', idx)}
+            onOpenModal={(idx) => openImageModal('Cheio/Aberto', idx)}
+            onPrev={() => prevImages('Cheio/Aberto')}
+            onNext={() => nextImages('Cheio/Aberto')}
+          /> 
           <ContainerImageSection
             title="Meia Porta"
             images={imageSections['Meia Porta'] || []}
@@ -545,20 +558,7 @@ const ContainerDetails: React.FC = () => {
             onNext={() => nextImages('Meia Porta')}
           />
           <ContainerImageSection
-            title="Lacrado/Fechado"
-            images={imageSections['Lacrado/Fechado'] || []}
-            isEditing={isEditing}
-            startIndex={carouselIndex['Lacrado/Fechado'] ?? 0}
-            imagesPerView={IMAGES_PER_VIEW}
-            onDrop={(e) => handleDrop(e, 'Lacrado/Fechado')}
-            onSelectImages={() => handleImageButtonClick('Lacrado/Fechado')}
-            onRemoveImage={(idx) => handleRemoveImage('Lacrado/Fechado', idx)}
-            onOpenModal={(idx) => openImageModal('Lacrado/Fechado', idx)}
-            onPrev={() => prevImages('Lacrado/Fechado')}
-            onNext={() => nextImages('Lacrado/Fechado')}
-          />
-          <ContainerImageSection
-            title="Lacre Principal"
+            title="Lacres"
             images={imageSections['Lacre Principal'] || []}
             isEditing={isEditing}
             startIndex={carouselIndex['Lacre Principal'] ?? 0}
@@ -570,32 +570,6 @@ const ContainerDetails: React.FC = () => {
             onPrev={() => prevImages('Lacre Principal')}
             onNext={() => nextImages('Lacre Principal')}
           />
-          <ContainerImageSection
-            title="Lacre Outros"
-            images={imageSections['Lacre Outros'] || []}
-            isEditing={isEditing}
-            startIndex={carouselIndex['Lacre Outros'] ?? 0}
-            imagesPerView={IMAGES_PER_VIEW}
-            onDrop={(e) => handleDrop(e, 'Lacre Outros')}
-            onSelectImages={() => handleImageButtonClick('Lacre Outros')}
-            onRemoveImage={(idx) => handleRemoveImage('Lacre Outros', idx)}
-            onOpenModal={(idx) => openImageModal('Lacre Outros', idx)}
-            onPrev={() => prevImages('Lacre Outros')}
-            onNext={() => nextImages('Lacre Outros')}
-          />
-          <ContainerImageSection
-            title="Cheio/Aberto"
-            images={imageSections['Cheio/Aberto'] || []}
-            isEditing={isEditing}
-            startIndex={carouselIndex['Cheio/Aberto'] ?? 0}
-            imagesPerView={IMAGES_PER_VIEW}
-            onDrop={(e) => handleDrop(e, 'Cheio/Aberto')}
-            onSelectImages={() => handleImageButtonClick('Cheio/Aberto')}
-            onRemoveImage={(idx) => handleRemoveImage('Cheio/Aberto', idx)}
-            onOpenModal={(idx) => openImageModal('Cheio/Aberto', idx)}
-            onPrev={() => prevImages('Cheio/Aberto')}
-            onNext={() => nextImages('Cheio/Aberto')}
-          /> 
           
        </main>
      </div>

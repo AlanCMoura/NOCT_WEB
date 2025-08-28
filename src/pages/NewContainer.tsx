@@ -48,12 +48,12 @@ const NewContainer: React.FC = () => {
   // Seções de imagens do container
   const SECTION_TITLES = [
     'Vazio/Forrado',
-    'Fiada',
+    'Fiadas',
     'Meia Porta',
     'Lacrado/Fechado',
     'Lacre Principal',
     'Lacre Outros',
-    'Cheio/Aberto'
+    'Cheio Aberto'
   ];
 
   const [imageSections, setImageSections] = useState<Record<string, SectionImageItem[]>>(
@@ -310,7 +310,7 @@ const NewContainer: React.FC = () => {
                 onPrev={() => {}}
                 onNext={() => {}}
                 footerActions={
-                  title === 'Cheio/Aberto' ? (
+                  title === 'Cheio Aberto' ? (
                     <div className="flex gap-2">
                       <button
                         type="button"
