@@ -20,7 +20,6 @@ interface StatData {
 interface Operation {
   ctv: string;
   navio: string;
-  inspetor: string;
   data: string;
   status: string;
   statusColor: string;
@@ -100,7 +99,6 @@ const Dashboard: React.FC = () => {
     {
       ctv: 'CTV-12345/25',
       navio: 'MSC Fantasia',
-      inspetor: 'João Silva',
       data: '15/08/2025 14:30',
       status: 'Ativo',
       statusColor: 'bg-green-100 text-green-800'
@@ -108,7 +106,6 @@ const Dashboard: React.FC = () => {
     {
       ctv: 'CTV-12346/25',
       navio: 'Maersk Line',
-      inspetor: 'Maria Santos',
       data: '15/08/2025 10:15',
       status: 'Pendente',
       statusColor: 'bg-yellow-100 text-yellow-800'
@@ -116,7 +113,6 @@ const Dashboard: React.FC = () => {
     {
       ctv: 'CTV-12344/25',
       navio: 'Hamburg Süd',
-      inspetor: 'Carlos Souza',
       data: '14/08/2025 16:45',
       status: 'Finalizado',
       statusColor: 'bg-blue-100 text-blue-800'
@@ -124,7 +120,6 @@ const Dashboard: React.FC = () => {
     {
       ctv: 'CTV-12343/25',
       navio: 'CMA CGM',
-      inspetor: 'Ana Costa',
       data: '14/08/2025 09:20',
       status: 'Finalizado',
       statusColor: 'bg-blue-100 text-blue-800'
@@ -197,7 +192,6 @@ const Dashboard: React.FC = () => {
                   <tr>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CTV</th>                    
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
@@ -208,7 +202,6 @@ const Dashboard: React.FC = () => {
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{operation.ctv}</td>                      
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.navio}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.inspetor}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{operation.data}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${operation.statusColor}`}>

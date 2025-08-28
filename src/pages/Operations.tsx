@@ -13,7 +13,6 @@ interface Operation {
   id: string;
   shipName: string;
   Reserva: string;
-  inspector: string;
   date: string;
   status: 'Aberta' | 'Fechada' | 'Parcial';
   totalPhotos: number;
@@ -22,7 +21,6 @@ interface Operation {
 
 interface Filters {
   status: string;
-  inspector: string;
   startDate: string;
   endDate: string;
 }
@@ -33,7 +31,6 @@ const mockOperations: Operation[] = [
     id: "AMV-12345/25",
     Reserva: "COD123",
     shipName: "MSC Fantasia",
-    inspector: "João Silva",
     date: "2025-08-15T14:30:00Z",
     status: "Aberta",
     totalPhotos: 8,
@@ -43,7 +40,6 @@ const mockOperations: Operation[] = [
     id: "AMV-12346/25",
     Reserva: "COD123",
     shipName: "Maersk Line",
-    inspector: "Maria Santos",
     date: "2025-08-15T10:15:00Z",
     status: "Parcial",
     totalPhotos: 4,
@@ -53,7 +49,6 @@ const mockOperations: Operation[] = [
     id: "AMV-12344/25",
     Reserva: "COD123",
     shipName: "Hamburg Süd",
-    inspector: "Carlos Souza",
     date: "2025-08-14T16:45:00Z",
     status: "Fechada",
     totalPhotos: 6,
@@ -63,7 +58,6 @@ const mockOperations: Operation[] = [
     id: "AMV-12343/25",
     Reserva: "COD123",
     shipName: "CMA CGM",
-    inspector: "Ana Costa",
     date: "2025-08-14T09:20:00Z",
     status: "Fechada",
     totalPhotos: 6,
@@ -73,7 +67,6 @@ const mockOperations: Operation[] = [
     id: "AMV-12342/25",
     Reserva: "COD123",
     shipName: "Evergreen Marine",
-    inspector: "Pedro Oliveira",
     date: "2025-08-13T15:10:00Z",
     status: "Aberta",
     totalPhotos: 5,
@@ -83,7 +76,6 @@ const mockOperations: Operation[] = [
     id: "AMV-12341/25",
     shipName: "COSCO Shipping",
     Reserva: "COD123",
-    inspector: "Fernanda Lima",
     date: "2025-08-13T11:30:00Z",
     status: "Parcial",
     totalPhotos: 3,
@@ -175,26 +167,6 @@ const FilterModal: React.FC<{
                 <option value="Fechada">Fechada</option>
               </select>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Inspetor
-              </label>
-              <select
-                value={filters.inspector}
-                onChange={(e) => setFilters({...filters, inspector: e.target.value})}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="">Todos</option>
-                <option value="João Silva">João Silva</option>
-                <option value="Maria Santos">Maria Santos</option>
-                <option value="Carlos Souza">Carlos Souza</option>
-                <option value="Ana Costa">Ana Costa</option>
-                <option value="Pedro Oliveira">Pedro Oliveira</option>
-                <option value="Fernanda Lima">Fernanda Lima</option>
-              </select>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Data Inicial
@@ -223,7 +195,7 @@ const FilterModal: React.FC<{
           <div className="mt-6 flex gap-3">
             <button
               onClick={() => {
-                const cleanFilters = { status: '', inspector: '', startDate: '', endDate: '' };
+                const cleanFilters = { status: '', startDate: '', endDate: '' };
                 setFilters(cleanFilters);
                 onApply(cleanFilters);
               }}
@@ -251,7 +223,6 @@ const useOperations = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filters, setFilters] = useState<Filters>({
     status: '',
-    inspector: '',
     startDate: '',
     endDate: ''
   });
@@ -286,10 +257,6 @@ const useOperations = () => {
 
     if (filters.status) {
       filtered = filtered.filter(op => op.status === filters.status);
-    }
-
-    if (filters.inspector) {
-      filtered = filtered.filter(op => op.inspector === filters.inspector);
     }
 
     if (filters.startDate) {
@@ -528,7 +495,6 @@ const Operations: React.FC = () => {
                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AMV</th>
                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Reserva</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Navio</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Inspetor</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
@@ -547,9 +513,6 @@ const Operations: React.FC = () => {
                           {operation.shipName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {operation.inspector}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {formatDate(operation.date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -563,36 +526,6 @@ const Operations: React.FC = () => {
                             >
                               Ver Detalhes
                             </button>
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowActionsMenu(showActionsMenu === operation.id ? null : operation.id);
-                                }}
-                                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-                              
-                              {showActionsMenu === operation.id && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                  <button 
-                                    onClick={() => handleEdit(operation.id)}
-                                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    Editar
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDelete(operation.id)}
-                                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Excluir
-                                  </button>
-                                </div>
-                              )}
-                            </div>
                           </div>
                         </td>
                       </tr>
