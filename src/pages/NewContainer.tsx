@@ -325,7 +325,7 @@ const NewContainer: React.FC = () => {
                         disabled={saving}
                         className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60"
                       >
-                        {saving ? 'Salvando...' : 'Criar Container'}
+                        {saving ? 'Salvando...' : 'Salvar Container'}
                       </button>
                     </div>
                   ) : undefined

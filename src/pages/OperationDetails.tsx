@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+﻿import React, {useRef, useState} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Plus,Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
@@ -31,7 +31,7 @@ interface Container {
 
 const mockOperation: OperationInfo = {
   id: 'OP-01',
-  local: 'Terminal Portuário Santos',
+  local: 'Terminal PortuÃ¡rio Santos',
   reserva: 'COD123',
   cliente: 'MSC',
   deadline: '20/07/2025',
@@ -53,9 +53,11 @@ const OperationDetails: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
+  const [opInfo, setOpInfo] = useState<OperationInfo>(mockOperation);
+  const opBackupRef = useRef<OperationInfo>(mockOperation);
 
-  // Sacaria - imagens e navegação do carrossel
-  const [sacariaImages] = useState<SectionImageItem[]>([
+  // Sacaria - imagens e navegaÃ§Ã£o do carrossel
+  const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([
     { url: 'https://via.placeholder.com/400x300/e3f2fd/1976d2?text=Sacaria+1' },
     { url: 'https://via.placeholder.com/400x300/e8f5e9/4caf50?text=Sacaria+2' },
     { url: 'https://via.placeholder.com/400x300/fff3e0/ff9800?text=Sacaria+3' },
@@ -67,6 +69,7 @@ const OperationDetails: React.FC = () => {
   ]);
   const [sacariaIndex, setSacariaIndex] = useState<number>(0);
   const SACARIA_PER_VIEW = 5;
+  const sacariaInputRef = useRef<HTMLInputElement | null>(null);
 
   const nextSacaria = () => {
     const maxIndex = Math.max(0, sacariaImages.length - SACARIA_PER_VIEW);
@@ -75,6 +78,49 @@ const OperationDetails: React.FC = () => {
 
   const prevSacaria = () => {
     setSacariaIndex(prev => Math.max(0, prev - SACARIA_PER_VIEW));
+  };
+
+  const handleSacariaDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) {
+      setSacariaImages(prev => ([...prev, ...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))]));
+    }
+  };
+
+  const handleSacariaSelect = () => {
+    if (!isEditing) return;
+    sacariaInputRef.current?.click();
+  };
+
+  const handleSacariaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isEditing || !e.target.files) return;
+    const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) {
+      setSacariaImages(prev => ([...prev, ...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))]));
+    }
+    e.target.value = '';
+  };
+
+  const handleSacariaRemove = (index: number) => {
+    if (!isEditing) return;
+    setSacariaImages(prev => {
+      const list = [...prev];
+      const [removed] = list.splice(index, 1);
+      if (removed && (removed as any).file) URL.revokeObjectURL(removed.url);
+      return list;
+    });
+  };
+
+  const startEdit = () => {
+    opBackupRef.current = opInfo;
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setOpInfo(opBackupRef.current);
+    setIsEditing(false);
   };
 
   const user: User = {
@@ -124,7 +170,7 @@ const OperationDetails: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Operação {decodedOperationId}</h1>
-              <p className="text-sm text-gray-600">Detalhes da operação portuária</p>
+              <p className="text-sm text-gray-600">Detalhes da Operação</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
@@ -143,72 +189,120 @@ const OperationDetails: React.FC = () => {
         <main className="flex-1 p-6 overflow-auto space-y-6">
           <section className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className=" border-b border-gray-100 flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              {/* Botões de Ação */}
+              {/* BotÃµes de AÃ§Ã£o */}
             <div className="p-6 border-b border-gray-100">
                 <div className="flex justify-between gap-4">
-                   <h2 className="mt-1 text-lg font-semibold text-gray-900">Informações da Operação</h2>
+                   <h2 className="mt-1 text-lg font-semibold text-gray-900">Informações da operação</h2>
             </div>
             
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
                 <span className="text-gray-500 block">ID</span>
-                <span className="text-gray-900 font-medium">{mockOperation.id}</span>
+                <span className="text-gray-900 font-medium">{opInfo.id}</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Operação</span>
-                <span className="text-gray-900 font-medium">{mockOperation.ship}</span>
+                {isEditing ? (
+                  <input value={opInfo.ship} onChange={e=>setOpInfo({...opInfo, ship: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.ship}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Reserva</span>
-                <span className="text-gray-900 font-medium">{mockOperation.reserva}</span>
+                {isEditing ? (
+                  <input value={opInfo.reserva} onChange={e=>setOpInfo({...opInfo, reserva: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.reserva}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Local (Terminal)</span>
-                <span className="text-gray-900 font-medium">{mockOperation.local}</span>
+                {isEditing ? (
+                  <input value={opInfo.local} onChange={e=>setOpInfo({...opInfo, local: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.local}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Destino</span>
-                <span className="text-gray-900 font-medium">{mockOperation.destination}</span>
+                {isEditing ? (
+                  <input value={opInfo.destination} onChange={e=>setOpInfo({...opInfo, destination: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.destination}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Navio</span>
-                <span className="text-gray-900 font-medium">{mockOperation.navio}</span>
+                {isEditing ? (
+                  <input value={opInfo.navio} onChange={e=>setOpInfo({...opInfo, navio: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.navio}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Exportador</span>
-                <span className="text-gray-900 font-medium">{mockOperation.exporter}</span>
+                {isEditing ? (
+                  <input value={opInfo.exporter} onChange={e=>setOpInfo({...opInfo, exporter: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.exporter}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Deadline Draft</span>
-                <span className="text-gray-900 font-medium">{mockOperation.deadline}</span>
+                {isEditing ? (
+                  <input value={opInfo.deadline} onChange={e=>setOpInfo({...opInfo, deadline: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.deadline}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Data</span>
-                <span className="text-gray-900 font-medium">{mockOperation.data}</span>
+                {isEditing ? (
+                  <input value={opInfo.data} onChange={e=>setOpInfo({...opInfo, data: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.data}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Deadline de Entrega</span>
-                <span className="text-gray-900 font-medium">{mockOperation.entrega}</span>
+                {isEditing ? (
+                  <input value={opInfo.entrega} onChange={e=>setOpInfo({...opInfo, entrega: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.entrega}</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block">Cliente</span>
-                <span className="text-gray-900 font-medium">{mockOperation.cliente}</span>
+                {isEditing ? (
+                  <input value={opInfo.cliente} onChange={e=>setOpInfo({...opInfo, cliente: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                ) : (
+                  <span className="text-gray-900 font-medium">{opInfo.cliente}</span>
+                )}
               </div>
             </div>
             </div>
           </section>
+          <input
+            type="file"
+            ref={sacariaInputRef}
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleSacariaUpload}
+          />
 
           {/* Carrossel Sacaria */}
           <ContainerImageSection
             title="Sacaria"
             images={sacariaImages}
-            isEditing={false}
+            isEditing={isEditing}
             startIndex={sacariaIndex}
             imagesPerView={SACARIA_PER_VIEW}
-            onDrop={() => {}}
-            onSelectImages={() => {}}
-            onRemoveImage={() => {}}
+            onDrop={handleSacariaDrop}
+            onSelectImages={handleSacariaSelect}
+            onRemoveImage={(idx) => handleSacariaRemove(idx)}
             onOpenModal={() => {}}
             onPrev={prevSacaria}
             onNext={nextSacaria}
@@ -217,7 +311,7 @@ const OperationDetails: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -226,13 +320,27 @@ const OperationDetails: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setIsEditing(false)}
+                  className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { alert('Operação atualizada!'); setIsEditing(false); }}
+                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
+                >
+                  Salvar Operação
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
-                    if (window.confirm(`Tem certeza que deseja excluir a operação ${decodedOperationId}?`)) {
+                    if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
                       alert(`Operação ${decodedOperationId} excluída!`);
                       navigate('/operations');
                     }
                   }}
-                  className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
+                  className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Operação
@@ -293,3 +401,4 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
+
