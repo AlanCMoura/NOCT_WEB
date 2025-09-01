@@ -133,6 +133,9 @@ const NewContainer: React.FC = () => {
       case 'operations':
         navigate('/operations');
         break;
+      case 'perfil':
+        navigate('/profile');
+        break;
       case 'usuarios':
         navigate('/users');
         break;
@@ -164,7 +167,7 @@ const NewContainer: React.FC = () => {
               <p className="text-sm text-gray-600">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-900">{user.name}</div>
                   <div className="text-xs text-gray-500">{user.role}</div>

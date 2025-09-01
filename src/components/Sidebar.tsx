@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, FileText, Users, FileBarChart, UserPlus, LogOut } from 'lucide-react';
+import { BarChart3, FileText, Users, FileBarChart, LogOut, User as UserIcon } from 'lucide-react';
 
 // Interfaces
 interface User {
@@ -32,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
   ];
 
   const systemItems: SidebarItem[] = [
-    { id: 'cadastrar', icon: <UserPlus className="w-5 h-5" />, label: 'Cadastrar Inspetor' },
+    { id: 'perfil', icon: <UserIcon className="w-5 h-5" />, label: 'Meu Perfil' },
     { id: 'logout', icon: <LogOut className="w-5 h-5" />, label: 'Logout' }
   ];
   

@@ -136,6 +136,9 @@ const OperationDetails: React.FC = () => {
       case 'operations':
         navigate('/operations');
         break;
+      case 'perfil':
+        navigate('/profile');
+        break;
       case 'usuarios':
         navigate('/users');
         break;
@@ -173,7 +176,7 @@ const OperationDetails: React.FC = () => {
               <p className="text-sm text-gray-600">Detalhes da Operação</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-900">{user.name}</div>
                   <div className="text-xs text-gray-500">{user.role}</div>
@@ -189,12 +192,51 @@ const OperationDetails: React.FC = () => {
         <main className="flex-1 p-6 overflow-auto space-y-6">
           <section className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className=" border-b border-gray-100 flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              {/* BotÃµes de AÃ§Ã£o */}
+              {/* BotÃµes de Ação */}
             <div className="p-6 border-b border-gray-100">
                 <div className="flex justify-between gap-4">
                    <h2 className="mt-1 text-lg font-semibold text-gray-900">Informações da operação</h2>
             </div>
             
+            </div>
+            <div className="px-6 pt-4 justify-end gap-2 hidden">
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar Operação
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { alert('Opera��o atualizada!'); setIsEditing(false); }}
+                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
+              >
+                Salvar Operação
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
+                    alert(`Opera��o ${decodedOperationId} excluída!`);
+                    navigate('/operations');
+                  }
+                }}
+                className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir Operação
+              </button>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
@@ -282,6 +324,45 @@ const OperationDetails: React.FC = () => {
                 )}
               </div>
             </div>
+            <div className="px-6 pb-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar Operação
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { alert('Operação atualizada!'); setIsEditing(false); }}
+                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
+              >
+                Salvar Operação
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
+                    alert(`Opera??o ${decodedOperationId} exclu?da!`);
+                    navigate('/operations');
+                  }
+                }}
+                className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir Operação
+              </button>
+            </div>
             </div>
           </section>
           <input
@@ -293,61 +374,6 @@ const OperationDetails: React.FC = () => {
             onChange={handleSacariaUpload}
           />
 
-          {/* Carrossel Sacaria */}
-          <ContainerImageSection
-            title="Sacaria"
-            images={sacariaImages}
-            isEditing={isEditing}
-            startIndex={sacariaIndex}
-            imagesPerView={SACARIA_PER_VIEW}
-            onDrop={handleSacariaDrop}
-            onSelectImages={handleSacariaSelect}
-            onRemoveImage={(idx) => handleSacariaRemove(idx)}
-            onOpenModal={() => {}}
-            onPrev={prevSacaria}
-            onNext={nextSacaria}
-            footerActions={
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Editar Operação
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { alert('Operação atualizada!'); setIsEditing(false); }}
-                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
-                >
-                  Salvar Operação
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
-                      alert(`Operação ${decodedOperationId} excluída!`);
-                      navigate('/operations');
-                    }
-                  }}
-                  className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Excluir Operação
-                </button>
-              </div>
-            }
-          />
 
           <section className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
@@ -371,6 +397,16 @@ const OperationDetails: React.FC = () => {
               </div>
             </div>
             <div className="divide-y divide-gray-100">
+              {/* Item especial: Sacaria (como se fosse um container) */}
+              <div
+                className="p-4 flex items-center justify-between cursor-pointer transition-colors bg-teal-50/60 hover:bg-teal-50 border-l-4 border-teal-500"
+                onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/sacaria`)}
+              >
+                <div>
+                  <div className="text-sm font-semibold text-teal-800">Sacaria</div>
+                  <div className="text-xs text-gray-500">Carrossel de imagens da sacaria</div>
+                </div>
+              </div>
               {mockContainers.map(container => (
                 <div
                   key={container.id}
