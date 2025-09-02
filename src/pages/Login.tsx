@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
 
 interface LoginFormData {
-  email: string;
+  cpf: string;
   password: string;
 }
 
@@ -13,12 +13,25 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [loginData, setLoginData] = useState<LoginFormData>({
-    email: '',
+    cpf: '',
     password: ''
   });
 
+  const formatCPF = (value: string): string => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9)
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
+    if (name === 'cpf') {
+      setLoginData(prev => ({ ...prev, cpf: formatCPF(value) }));
+      return;
+    }
     setLoginData(prev => ({
       ...prev,
       [name]: value
@@ -30,12 +43,13 @@ const Login: React.FC = () => {
     
     try {      
       // Validação básica
-      if (loginData.email && loginData.password) {
-        console.log('Login data:', loginData);
+      const cpfDigits = loginData.cpf.replace(/\D/g, '');
+      if (cpfDigits.length === 11 && loginData.password) {
+        console.log('Login data:', { cpf: cpfDigits, password: loginData.password });
         // Redireciona para o dashboard
         navigate('/dashboard');
       } else {
-        alert('Por favor, preencha todos os campos.');
+        alert('Informe um CPF válido (11 dígitos) e a senha.');
       }
     } catch (error) {
       console.error('Erro no login:', error);
@@ -182,23 +196,25 @@ const Login: React.FC = () => {
 
             {/* Formulário de Login */}
             <div className="space-y-6">
-              {/* Email */}
+              {/* CPF */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  E-mail
+                  CPF
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
+                    <User className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    name="email"
-                    type="email"
+                    name="cpf"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={14}
                     required
-                    value={loginData.email}
+                    value={loginData.cpf}
                     onChange={handleLoginChange}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-gray-900"
-                    placeholder="Digite seu e-mail"
+                    placeholder="Digite seu CPF"
                   />
                 </div>
               </div>
