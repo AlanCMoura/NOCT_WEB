@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
@@ -31,8 +32,13 @@ const Sacaria: React.FC = () => {
     role: 'Supervisor'
   };
 
-  const [images] = useState<SectionImageItem[]>(initialSacaria);
+  const [images, setImages] = useState<SectionImageItem[]>(initialSacaria);
   const [startIndex, setStartIndex] = useState<number>(0);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const imagesBackupRef = useRef<SectionImageItem[]>(initialSacaria);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [marcacao, setMarcacao] = useState<string>('');
+  const marcacaoBackupRef = useRef<string>('');
 
   const [modal, setModal] = useState<{ index: number } | null>(null);
 
@@ -49,6 +55,66 @@ const Sacaria: React.FC = () => {
   const closeModal = () => setModal(null);
   const prevInModal = () => setModal((m) => (m ? { index: Math.max(0, m.index - 1) } : m));
   const nextInModal = () => setModal((m) => (m ? { index: Math.min(images.length - 1, m.index + 1) } : m));
+
+  // Upload e gestão de imagens (edição)
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) {
+      setImages(prev => ([...prev, ...files.map(file => ({ file, url: URL.createObjectURL(file) }))]));
+    }
+  };
+
+  const handleSelectImages = () => {
+    if (!isEditing) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isEditing || !e.target.files) return;
+    const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) {
+      setImages(prev => ([...prev, ...files.map(file => ({ file, url: URL.createObjectURL(file) }))]));
+    }
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = (index: number) => {
+    if (!isEditing) return;
+    setImages(prev => {
+      const list = [...prev];
+      const [removed] = list.splice(index, 1);
+      if (removed && (removed as any).file) URL.revokeObjectURL(removed.url);
+      return list;
+    });
+  };
+
+  const saveEdit = () => {
+    // Aqui você pode integrar a chamada à API se necessário
+    alert('Sacaria atualizada!');
+    setIsEditing(false);
+  };
+
+  const startEdit = () => {
+    imagesBackupRef.current = images;
+    marcacaoBackupRef.current = marcacao;
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setImages(imagesBackupRef.current);
+    setMarcacao(marcacaoBackupRef.current);
+    setIsEditing(false);
+  };
+
+  const deleteSacaria = () => {
+    if (window.confirm('Tem certeza que deseja excluir todas as imagens da sacaria?')) {
+      images.forEach(img => { if ((img as any).file) URL.revokeObjectURL(img.url); });
+      setImages([]);
+      alert('Sacaria excluída!');
+    }
+  };
 
   const handlePageChange = (pageId: string): void => {
     switch (pageId) {
@@ -109,16 +175,79 @@ const Sacaria: React.FC = () => {
           <ContainerImageSection
             title="Sacaria"
             images={images}
-            isEditing={false}
+            isEditing={isEditing}
             startIndex={startIndex}
             imagesPerView={IMAGES_PER_VIEW}
-            onDrop={(e) => { e.preventDefault(); }}
-            onSelectImages={() => { /* noop */ }}
-            onRemoveImage={(_idx) => { /* noop */ }}
+            onDrop={handleDrop}
+            onSelectImages={handleSelectImages}
+            onRemoveImage={handleRemoveImage}
             onOpenModal={(idx) => openModal(idx)}
             onPrev={prev}
             onNext={next}
+            footerActions={
+              <>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? 'hidden' : ''}`}
+                >
+                  Editar Sacaria
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
+                >
+                  Salvar Sacaria
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteSacaria}
+                  className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir Sacaria
+                </button>
+              </>
+            }
           />
+
+          {/* input oculto para upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleUpload}
+          />
+
+          {/* Campo de texto: Marcação da sacaria */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Marcação da sacaria</label>
+              {isEditing ? (
+                <textarea
+                  value={marcacao}
+                  onChange={(e) => setMarcacao(e.target.value)}
+                  rows={3}
+                  placeholder="Digite a marcação da sacaria..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              ) : (
+                <p className="text-sm text-gray-900 whitespace-pre-line bg-gray-50 border border-gray-100 rounded-lg p-3 min-h-[3.5rem]">
+                  {marcacao || '—'}
+                </p>
+              )}
+            </div>
+          </section>
         </main>
       </div>
 
