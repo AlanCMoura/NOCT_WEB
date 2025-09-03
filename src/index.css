@@ -12,3 +12,53 @@
            transform: translateY(0) scale(1);
          }
        }
+
+/* Theme tokens via CSS variables */
+:root {
+  --bg: #f5f7fb;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --primary: #14b8a6;
+  --on-primary: #ffffff;
+  --hover: #f1f5f9;
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #e2e8f0;
+  --sidebar-muted: #94a3b8;
+}
+
+[data-theme="noturno"] {
+  --bg: #0b1220;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #1f2937;
+  --surface: #0f172a;
+  --primary: #14b8a6;
+  --on-primary: #0b1220;
+  --hover: #1e293b;
+  --sidebar-bg: #0b1220;
+  --sidebar-text: #e2e8f0;
+  --sidebar-muted: #64748b;
+}
+
+/* Base application background and text using tokens */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Utility helpers to bridge Tailwind with variables */
+.bg-app {
+  background: var(--bg);
+}
+.text-app {
+  color: var(--text);
+}
+.border-app {
+  border-color: var(--border);
+}

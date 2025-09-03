@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
@@ -282,21 +282,21 @@ const ContainerDetails: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-app">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
 
       <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-200 h-20">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Container {decodedContainerId}</h1>
-              <p className="text-sm text-gray-600">Operação {decodedOperationId}</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Container {decodedContainerId}</h1>
+              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
+                  <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
+                  <div className="text-xs text-[var(--muted)]">{user.role}</div>
                 </div>
                 <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
@@ -320,9 +320,9 @@ const ContainerDetails: React.FC = () => {
           />
 
           {/* Dados do Container */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-            <div className="flex p-6 border-b border-gray-100 justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Dados do Container</h2>
+          <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mb-6">
+            <div className="flex p-6 border-b border-[var(--border)] justify-between">
+              <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
               {/* Botões de Ação */}
                 <div className="flex justify-end gap-4">
                   {isEditing ? (
@@ -330,7 +330,7 @@ const ContainerDetails: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleCancel}
-                        className="px-6 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -340,7 +340,7 @@ const ContainerDetails: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleSave}
-                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                        className="px-6 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -353,7 +353,7 @@ const ContainerDetails: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsEditing(true)}
-                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                        className="px-6 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -361,7 +361,7 @@ const ContainerDetails: React.FC = () => {
                         Editar Container
                       </button>
                       <button 
-                        className="px-6 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
+                        className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
                       >
                         <Trash2 className="w-4 h-4" />
                         Excluir Container
@@ -375,133 +375,133 @@ const ContainerDetails: React.FC = () => {
               {isEditing ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Container</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Container</label>
                     <input
                       type="text"
                       name="container"
                       value={info.container}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade de Sacaria</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Quantidade de Sacaria</label>
                     <input
                       type="text"
                       name="quantidade"
                       value={info.quantidade}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tara (kg)</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Tara (kg)</label>
                     <input
                       type="text"
                       name="tara"
                       value={info.tara}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Peso Líquido (kg)</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Líquido (kg)</label>
                     <input
                       type="text"
                       name="pesoLiquido"
                       value={info.pesoLiquido}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto (kg)</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Bruto (kg)</label>
                     <input
                       type="text"
                       name="pesoBruto"
                       value={info.pesoBruto}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Lacre Agência</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacre Agência</label>
                     <input
                       type="text"
                       name="lacreAgencia"
                       value={info.lacreAgencia}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data Retirada Terminal</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Data Retirada Terminal</label>
                     <input
                       type="text"
                       name="dataRetirada"
                       value={info.dataRetirada}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div className="lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Lacres Outros</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacres Outros</label>
                     <textarea
                       name="lacreOutros"
                       value={info.lacreOutros}
                       onChange={handleChange}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Estufagem</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Data de Estufagem</label>
                     <input
                       type="text"
                       name="container"
                       value={info.dataEstufagem}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                     />
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 text-sm ">
                   <div>
-                    <span className="text-gray-500 block">Container</span>
-                    <span className="text-gray-900 font-medium">{info.container}</span>
+                    <span className="text-[var(--muted)] block">Container</span>
+                    <span className="text-[var(--text)] font-medium">{info.container}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Quantidade de Sacaria</span>
-                    <span className="text-gray-900 font-medium">{formatWeight(info.quantidade)} sacas</span>
+                    <span className="text-[var(--muted)] block">Quantidade de Sacaria</span>
+                    <span className="text-[var(--text)] font-medium">{formatWeight(info.quantidade)} sacas</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Tara</span>
-                    <span className="text-gray-900 font-medium">{formatWeight(info.tara)} kg</span>
+                    <span className="text-[var(--muted)] block">Tara</span>
+                    <span className="text-[var(--text)] font-medium">{formatWeight(info.tara)} kg</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Peso Líquido</span>
-                    <span className="text-gray-900 font-medium">{formatWeight(info.pesoLiquido)} kg</span>
+                    <span className="text-[var(--muted)] block">Peso Líquido</span>
+                    <span className="text-[var(--text)] font-medium">{formatWeight(info.pesoLiquido)} kg</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Peso Bruto</span>
-                    <span className="text-gray-900 font-medium">{formatWeight(info.pesoBruto)} kg</span>
+                    <span className="text-[var(--muted)] block">Peso Bruto</span>
+                    <span className="text-[var(--text)] font-medium">{formatWeight(info.pesoBruto)} kg</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Lacre Agência</span>
-                    <span className="text-gray-900 font-medium">{info.lacreAgencia}</span>
+                    <span className="text-[var(--muted)] block">Lacre Agência</span>
+                    <span className="text-[var(--text)] font-medium">{info.lacreAgencia}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Data Retirada Terminal</span>
-                    <span className="text-gray-900 font-medium">{formatDate(info.dataRetirada)}</span>
+                    <span className="text-[var(--muted)] block">Data Retirada Terminal</span>
+                    <span className="text-[var(--text)] font-medium">{formatDate(info.dataRetirada)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Lacres Outros</span>
-                    <span className="text-gray-900 font-medium">{info.lacreOutros}</span>
+                    <span className="text-[var(--muted)] block">Lacres Outros</span>
+                    <span className="text-[var(--text)] font-medium">{info.lacreOutros}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Data de Estufagem</span>
-                    <span className="text-gray-900 font-medium">{info.dataEstufagem}</span>
+                    <span className="text-[var(--muted)] block">Data de Estufagem</span>
+                    <span className="text-[var(--text)] font-medium">{info.dataEstufagem}</span>
                   </div>
                 </div>
               )}
@@ -641,3 +641,4 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
+

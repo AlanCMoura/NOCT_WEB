@@ -27,10 +27,7 @@ const Sacaria: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
 
-  const user: User = {
-    name: 'Carlos Oliveira',
-    role: 'Supervisor'
-  };
+  const user: User = { name: 'Carlos Oliveira', role: 'Supervisor' };
 
   const [images, setImages] = useState<SectionImageItem[]>(initialSacaria);
   const [startIndex, setStartIndex] = useState<number>(0);
@@ -56,14 +53,11 @@ const Sacaria: React.FC = () => {
   const prevInModal = () => setModal((m) => (m ? { index: Math.max(0, m.index - 1) } : m));
   const nextInModal = () => setModal((m) => (m ? { index: Math.min(images.length - 1, m.index + 1) } : m));
 
-  // Upload e gestão de imagens (edição)
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     if (!isEditing) return;
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    if (files.length) {
-      setImages(prev => ([...prev, ...files.map(file => ({ file, url: URL.createObjectURL(file) }))]));
-    }
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+    if (files.length) setImages((prev) => [...prev, ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))]);
   };
 
   const handleSelectImages = () => {
@@ -73,16 +67,14 @@ const Sacaria: React.FC = () => {
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isEditing || !e.target.files) return;
-    const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-    if (files.length) {
-      setImages(prev => ([...prev, ...files.map(file => ({ file, url: URL.createObjectURL(file) }))]));
-    }
+    const files = Array.from(e.target.files).filter((f) => f.type.startsWith('image/'));
+    if (files.length) setImages((prev) => [...prev, ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))]);
     e.target.value = '';
   };
 
   const handleRemoveImage = (index: number) => {
     if (!isEditing) return;
-    setImages(prev => {
+    setImages((prev) => {
       const list = [...prev];
       const [removed] = list.splice(index, 1);
       if (removed && (removed as any).file) URL.revokeObjectURL(removed.url);
@@ -91,7 +83,6 @@ const Sacaria: React.FC = () => {
   };
 
   const saveEdit = () => {
-    // Aqui você pode integrar a chamada à API se necessário
     alert('Sacaria atualizada!');
     setIsEditing(false);
   };
@@ -110,7 +101,9 @@ const Sacaria: React.FC = () => {
 
   const deleteSacaria = () => {
     if (window.confirm('Tem certeza que deseja excluir todas as imagens da sacaria?')) {
-      images.forEach(img => { if ((img as any).file) URL.revokeObjectURL(img.url); });
+      images.forEach((img) => {
+        if ((img as any).file) URL.revokeObjectURL(img.url);
+      });
       setImages([]);
       alert('Sacaria excluída!');
     }
@@ -133,9 +126,6 @@ const Sacaria: React.FC = () => {
       case 'relatorios':
         navigate('/reports');
         break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
       case 'logout':
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -147,24 +137,31 @@ const Sacaria: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-app">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
 
       <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-200 h-20">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Sacaria • Operação {decodedOperationId}</h1>
-              <p className="text-sm text-gray-600">Carrossel de imagens</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria • Operação {decodedOperationId}</h1>
+              <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
+              <div
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors"
+              >
                 <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
+                  <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
+                  <div className="text-xs text-[var(--muted)]">{user.role}</div>
                 </div>
                 <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  {user.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .toUpperCase()}
                 </div>
               </div>
             </div>
@@ -172,6 +169,7 @@ const Sacaria: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto space-y-6">
+
           <ContainerImageSection
             title="Sacaria"
             images={images}
@@ -189,28 +187,36 @@ const Sacaria: React.FC = () => {
                 <button
                   type="button"
                   onClick={startEdit}
-                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? 'hidden' : ''}`}
+                  className={`px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${
+                    isEditing ? 'hidden' : ''
+                  }`}
                 >
                   Editar Sacaria
                 </button>
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+                  className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors ${
+                    isEditing ? '' : 'hidden'
+                  }`}
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={saveEdit}
-                  className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
+                  className={`px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${
+                    isEditing ? '' : 'hidden'
+                  }`}
                 >
                   Salvar Sacaria
                 </button>
                 <button
                   type="button"
                   onClick={deleteSacaria}
-                  className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+                  className={`px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${
+                    isEditing ? 'hidden' : ''
+                  }`}
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Sacaria
@@ -220,29 +226,22 @@ const Sacaria: React.FC = () => {
           />
 
           {/* input oculto para upload */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleUpload}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
           {/* Campo de texto: Marcação da sacaria */}
-          <section className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Marcação da sacaria</label>
+              <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcação da sacaria</label>
               {isEditing ? (
                 <textarea
                   value={marcacao}
                   onChange={(e) => setMarcacao(e.target.value)}
                   rows={3}
                   placeholder="Digite a marcação da sacaria..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               ) : (
-                <p className="text-sm text-gray-900 whitespace-pre-line bg-gray-50 border border-gray-100 rounded-lg p-3 min-h-[3.5rem]">
+                <p className="text-sm text-[var(--text)] whitespace-pre-line bg-[var(--hover)] border border-[var(--border)] rounded-lg p-3 min-h-[3.5rem]">
                   {marcacao || '—'}
                 </p>
               )}
@@ -253,14 +252,11 @@ const Sacaria: React.FC = () => {
 
       {/* Modal de Imagem */}
       {modal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
-          onClick={closeModal}
-        >
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4" onClick={closeModal}>
           <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
             <button
               onClick={closeModal}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-2"
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black/50 rounded-full p-2"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -269,8 +265,11 @@ const Sacaria: React.FC = () => {
 
             {images.length > 1 && modal.index > 0 && (
               <button
-                onClick={(e) => { e.stopPropagation(); prevInModal(); }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevInModal();
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black/50 rounded-full p-3"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -287,8 +286,11 @@ const Sacaria: React.FC = () => {
 
             {images.length > 1 && modal.index < images.length - 1 && (
               <button
-                onClick={(e) => { e.stopPropagation(); nextInModal(); }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextInModal();
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black/50 rounded-full p-3"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -296,7 +298,7 @@ const Sacaria: React.FC = () => {
               </button>
             )}
 
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-center bg-black bg-opacity-50 rounded-lg px-4 py-2">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-center bg-black/50 rounded-lg px-4 py-2">
               <p className="text-lg font-medium">Sacaria</p>
               <p className="text-sm opacity-75">{modal.index + 1} de {images.length}</p>
             </div>
