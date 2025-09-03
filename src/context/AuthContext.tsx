@@ -1,6 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, setAuthToken } from '../services/api';
 
+// DESABILITAR AUTENTICAÇÃO (DEV)
+// Altere para false quando quiser reativar ou use REACT_APP_DISABLE_AUTH
+const DISABLE_AUTH = (process.env.REACT_APP_DISABLE_AUTH ?? 'true') === 'true';
+
 export interface UserMeDTO {
   id: number;
   cpf: string;
@@ -41,6 +45,37 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Atalho de desenvolvimento: ignora completamente autenticação e devolve um usuário fake
+  if (DISABLE_AUTH) {
+    const dummyUser: UserMeDTO = {
+      id: 1,
+      cpf: '123.456.789-00',
+      firstName: 'Dev',
+      lastName: 'User',
+      email: 'dev@example.com',
+      role: 'Administrador',
+      twoFactorEnabled: false,
+    };
+
+    const value: AuthContextValue = {
+      user: dummyUser,
+      token: null,
+      isAuthenticated: true,
+      loading: false,
+      error: null,
+      twoFactorRequired: false,
+      login: async () => {},
+      verify2FA: async () => {},
+      logout: () => {},
+      refreshMe: async () => {},
+    };
+
+    return (
+      <AuthContext.Provider value={value}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
   const [user, setUser] = useState<UserMeDTO | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
