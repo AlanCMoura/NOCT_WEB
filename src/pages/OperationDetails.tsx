@@ -27,6 +27,12 @@ interface Container {
   id: string;
   status: 'Aberto' | 'Fechado';
   pesoBruto: string;
+  lacreAgencia?: string;
+  lacrePrincipal?: string;
+  lacreOutros?: string;
+  qtdSacarias?: number;
+  terminal?: string;
+  data?: string; // yyyy-mm-dd
 }
 
 const mockOperation: OperationInfo = {
@@ -43,9 +49,9 @@ const mockOperation: OperationInfo = {
   entrega: '20/08/2025'
 };  
 
-const mockContainers: Container[] = [
-  { id: 'ABCD 123456-1', status: 'Aberto', pesoBruto: '27081kg' },
-  { id: 'EFGH 789012-3', status: 'Fechado', pesoBruto: '28959kg' }
+const defaultContainers: Container[] = [
+  { id: 'ABCD 123456-1', status: 'Aberto', pesoBruto: '27081kg', lacreAgencia: 'AG-1001', lacrePrincipal: 'LP-2001', lacreOutros: '', qtdSacarias: 10, terminal: 'Terminal 1', data: '2025-09-15' },
+  { id: 'EFGH 789012-3', status: 'Fechado', pesoBruto: '28959kg', lacreAgencia: 'AG-1002', lacrePrincipal: 'LP-2002', lacreOutros: 'ALT-9', qtdSacarias: 8, terminal: 'Terminal 2', data: '2025-09-16' },
 ];
 
 const OperationDetails: React.FC = () => {
@@ -54,6 +60,7 @@ const OperationDetails: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const [opInfo, setOpInfo] = useState<OperationInfo>(mockOperation);
+  const [containers, setContainers] = useState<Container[]>(defaultContainers);
   const opBackupRef = useRef<OperationInfo>(mockOperation);
 
   // Sacaria - imagens e navegaÃ§Ã£o do carrossel
@@ -388,6 +395,12 @@ const OperationDetails: React.FC = () => {
                   />
                 </div>
                 <button
+                  onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
+                  className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Overview
+                </button>
+                <button
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/containers/new`)}
                   className="inline-flex items-center px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
                 >
@@ -407,7 +420,7 @@ const OperationDetails: React.FC = () => {
                   <div className="text-xs text-gray-500">Carrossel de imagens da sacaria</div>
                 </div>
               </div>
-              {mockContainers.map(container => (
+              {containers.map(container => (
                 <div
                   key={container.id}
                   className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition-colors"
@@ -430,6 +443,8 @@ const OperationDetails: React.FC = () => {
               ))}
             </div>
           </section>
+
+          {/* Overview modal removido: navegação para página dedicada */}
         </main>
       </div>
     </div>

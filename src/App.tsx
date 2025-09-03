@@ -12,12 +12,11 @@ import NewOperation from './pages/NewOperation';
 import NewContainer from './pages/NewContainer';
 import Sacaria from './pages/Sacaria';
 import Profile from './pages/Profile';
-import { AuthProvider } from './context/AuthContext';
-import TwoFactor from './pages/TwoFactor';
+// Auth desativada em desenvolvimento; removendo provider e 2FA
+import OperationOverview from './pages/OperationOverview';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -28,14 +27,13 @@ const App: React.FC = () => {
           <Route path="/operations/:operationId" element={<OperationDetails />} />
           <Route path="/operations/:operationId/containers/new" element={<NewContainer />} />
           <Route path="/operations/:operationId/sacaria" element={<Sacaria />} />
+          <Route path="/operations/:operationId/overview" element={<OperationOverview />} />
           <Route path="/operations/:operationId/containers/:containerId" element={<ContainerDetails />} />
           <Route path="/users" element={<Users />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/2fa" element={<TwoFactor />} />
           <Route path="*" element={<Login />} />
         </Routes> 
       </Router>
-    </AuthProvider>
   );
 };
 
