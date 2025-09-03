@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface LoginFormData {
   cpf: string;
@@ -9,6 +10,7 @@ interface LoginFormData {
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { login, error, twoFactorRequired, isAuthenticated } = useAuth();
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -45,9 +47,8 @@ const Login: React.FC = () => {
       // Validação básica
       const cpfDigits = loginData.cpf.replace(/\D/g, '');
       if (cpfDigits.length === 11 && loginData.password) {
-        console.log('Login data:', { cpf: cpfDigits, password: loginData.password });
-        // Redireciona para o dashboard
-        navigate('/dashboard');
+        // Envia o CPF com máscara e delega navegação ao estado de auth
+        await login({ cpf: loginData.cpf, password: loginData.password });
       } else {
         alert('Informe um CPF válido (11 dígitos) e a senha.');
       }
@@ -58,6 +59,15 @@ const Login: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Redireciona conforme o estado de autenticação/2FA
+  useEffect(() => {
+    if (twoFactorRequired) {
+      navigate('/2fa');
+    } else if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [twoFactorRequired, isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -196,6 +206,12 @@ const Login: React.FC = () => {
 
             {/* Formulário de Login */}
             <div className="space-y-6">
+              {/* Erro de autenticação */}
+              {error && (
+                <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
               {/* CPF */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
