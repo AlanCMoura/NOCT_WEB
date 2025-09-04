@@ -172,21 +172,21 @@ const OperationDetails: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-app">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
 
       <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-200 h-20">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Operação {decodedOperationId}</h1>
-              <p className="text-sm text-gray-600">Detalhes da Operação</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Operação {decodedOperationId}</h1>
+              <p className="text-sm text-[var(--muted)]">Detalhes da Operação</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
+                  <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
+                  <div className="text-xs text-[var(--muted)]">{user.role}</div>
                 </div>
                 <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
@@ -197,12 +197,12 @@ const OperationDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto space-y-6">
-          <section className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className=" border-b border-gray-100 flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+            <div className=" border-b border-[var(--border)] flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
               {/* BotÃµes de Ação */}
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-6 border-b border-[var(--border)]">
                 <div className="flex justify-between gap-4">
-                   <h2 className="mt-1 text-lg font-semibold text-gray-900">Informações da operação</h2>
+                   <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Informações da operação</h2>
             </div>
             
             </div>
@@ -220,13 +220,13 @@ const OperationDetails: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+                className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors ${isEditing ? '' : 'hidden'}`}
               >
                 Cancelar
               </button>
               <button
                 type="button"
-                onClick={() => { alert('Opera��o atualizada!'); setIsEditing(false); }}
+                onClick={() => { alert('Operação atualizada!'); setIsEditing(false); }}
                 className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
               >
                 Salvar Operação
@@ -235,11 +235,11 @@ const OperationDetails: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
-                    alert(`Opera��o ${decodedOperationId} excluída!`);
+                    alert(`Operação ${decodedOperationId} excluída!`);
                     navigate('/operations');
                   }
                 }}
-                className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+                className={`px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
               >
                 <Trash2 className="w-4 h-4" />
                 Excluir Operação
@@ -247,87 +247,87 @@ const OperationDetails: React.FC = () => {
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
-                <span className="text-gray-500 block">ID</span>
-                <span className="text-gray-900 font-medium">{opInfo.id}</span>
+                <span className="text-[var(--muted)] block">ID</span>
+                <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Operação</span>
+                <span className="text-[var(--muted)] block">Operação</span>
                 {isEditing ? (
-                  <input value={opInfo.ship} onChange={e=>setOpInfo({...opInfo, ship: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.ship} onChange={e=>setOpInfo({...opInfo, ship: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.ship}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.ship}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Reserva</span>
+                <span className="text-[var(--muted)] block">Reserva</span>
                 {isEditing ? (
-                  <input value={opInfo.reserva} onChange={e=>setOpInfo({...opInfo, reserva: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.reserva} onChange={e=>setOpInfo({...opInfo, reserva: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.reserva}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.reserva}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Local (Terminal)</span>
+                <span className="text-[var(--muted)] block">Local (Terminal)</span>
                 {isEditing ? (
-                  <input value={opInfo.local} onChange={e=>setOpInfo({...opInfo, local: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.local} onChange={e=>setOpInfo({...opInfo, local: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.local}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.local}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Destino</span>
+                <span className="text-[var(--muted)] block">Destino</span>
                 {isEditing ? (
-                  <input value={opInfo.destination} onChange={e=>setOpInfo({...opInfo, destination: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.destination} onChange={e=>setOpInfo({...opInfo, destination: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.destination}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.destination}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Navio</span>
+                <span className="text-[var(--muted)] block">Navio</span>
                 {isEditing ? (
-                  <input value={opInfo.navio} onChange={e=>setOpInfo({...opInfo, navio: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.navio} onChange={e=>setOpInfo({...opInfo, navio: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.navio}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.navio}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Exportador</span>
+                <span className="text-[var(--muted)] block">Exportador</span>
                 {isEditing ? (
-                  <input value={opInfo.exporter} onChange={e=>setOpInfo({...opInfo, exporter: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.exporter} onChange={e=>setOpInfo({...opInfo, exporter: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.exporter}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.exporter}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Deadline Draft</span>
+                <span className="text-[var(--muted)] block">Deadline Draft</span>
                 {isEditing ? (
-                  <input value={opInfo.deadline} onChange={e=>setOpInfo({...opInfo, deadline: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.deadline} onChange={e=>setOpInfo({...opInfo, deadline: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.deadline}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.deadline}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Data</span>
+                <span className="text-[var(--muted)] block">Data</span>
                 {isEditing ? (
-                  <input value={opInfo.data} onChange={e=>setOpInfo({...opInfo, data: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.data} onChange={e=>setOpInfo({...opInfo, data: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.data}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.data}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Deadline de Entrega</span>
+                <span className="text-[var(--muted)] block">Deadline de Entrega</span>
                 {isEditing ? (
-                  <input value={opInfo.entrega} onChange={e=>setOpInfo({...opInfo, entrega: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.entrega} onChange={e=>setOpInfo({...opInfo, entrega: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.entrega}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.entrega}</span>
                 )}
               </div>
               <div>
-                <span className="text-gray-500 block">Cliente</span>
+                <span className="text-[var(--muted)] block">Cliente</span>
                 {isEditing ? (
-                  <input value={opInfo.cliente} onChange={e=>setOpInfo({...opInfo, cliente: e.target.value})} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input value={opInfo.cliente} onChange={e=>setOpInfo({...opInfo, cliente: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 ) : (
-                  <span className="text-gray-900 font-medium">{opInfo.cliente}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.cliente}</span>
                 )}
               </div>
             </div>
@@ -345,7 +345,7 @@ const OperationDetails: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className={`px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${isEditing ? '' : 'hidden'}`}
+                className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors ${isEditing ? '' : 'hidden'}`}
               >
                 Cancelar
               </button>
@@ -360,11 +360,11 @@ const OperationDetails: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
-                    alert(`Opera??o ${decodedOperationId} exclu?da!`);
+                    alert(`Operação ${decodedOperationId} exclu?da!`);
                     navigate('/operations');
                   }
                 }}
-                className={`px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
+                className={`px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
               >
                 <Trash2 className="w-4 h-4" />
                 Excluir Operação
@@ -382,16 +382,16 @@ const OperationDetails: React.FC = () => {
           />
 
 
-          <section className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Containers da Operação</h2>
+          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+            <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
               <div className="flex flex-1 sm:flex-initial gap-3">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
                   <input
                     type="text"
                     placeholder="Buscar container..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
                   />
                 </div>
                 <button
@@ -402,14 +402,14 @@ const OperationDetails: React.FC = () => {
                 </button>
                 <button
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/containers/new`)}
-                  className="inline-flex items-center px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
+                  className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Novo Container
                 </button>
               </div>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-[var(--border)]">
               {/* Item especial: Sacaria (como se fosse um container) */}
               <div
                 className="p-4 flex items-center justify-between cursor-pointer transition-colors bg-teal-50/60 hover:bg-teal-50 border-l-4 border-teal-500"
@@ -417,18 +417,18 @@ const OperationDetails: React.FC = () => {
               >
                 <div>
                   <div className="text-sm font-semibold text-teal-800">Sacaria</div>
-                  <div className="text-xs text-gray-500">Carrossel de imagens da sacaria</div>
+                  <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
                 </div>
               </div>
               {containers.map(container => (
                 <div
                   key={container.id}
-                  className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="p-4 flex items-center justify-between hover:bg-[var(--hover)] cursor-pointer transition-colors"
                   onClick={() => handleContainerClick(container.id)}
                 >
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{container.id}</div>
-                    <div className="text-xs text-gray-500">{container.pesoBruto} Peso Bruto</div>
+                    <div className="text-sm font-medium text-[var(--text)]">{container.id}</div>
+                    <div className="text-xs text-[var(--muted)]">{container.pesoBruto} Peso Bruto</div>
                   </div>
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -452,4 +452,8 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
+
+
+
+
 

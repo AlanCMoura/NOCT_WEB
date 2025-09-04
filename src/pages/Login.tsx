@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
 
@@ -53,7 +53,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-[var(--surface)]">
       {/* Painel lateral esquerdo */}
       <div className="w-1/2 bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 relative overflow-hidden">
         {/* Elementos decorativos profissionais */}
@@ -87,7 +87,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-5xl font-bold tracking-tight">ContainerView</h1>
-                <p className="text-gray-300 font-medium mt-1">Sistema de Gestão Empresarial</p>
+                <p className="text-[var(--muted)] font-medium mt-1">Sistema de Gestão Empresarial</p>
               </div>
             </div>
             
@@ -95,7 +95,7 @@ const Login: React.FC = () => {
               <h2 className="text-2xl font-semibold mb-4 text-[#49C5B6]">
                 Bem-vindo de volta
               </h2>
-              <p className="text-gray-300 text-lg leading-relaxed">
+              <p className="text-[var(--muted)] text-lg leading-relaxed">
                 Acesse sua conta para gerenciar operações de contêineres com máxima eficiência e segurança
               </p>
             </div>
@@ -109,7 +109,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold mb-1">Segurança Empresarial</h4>
-                <p className="text-sm text-gray-300">Autenticação robusta e controle de acesso avançado</p>
+                <p className="text-sm text-[var(--muted)]">Autenticação robusta e controle de acesso avançado</p>
               </div>
             </div>
             
@@ -119,7 +119,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold mb-1">Gestão Centralizada</h4>
-                <p className="text-sm text-gray-300">Controle total de operações e relatórios detalhados</p>
+                <p className="text-sm text-[var(--muted)]">Controle total de operações e relatórios detalhados</p>
               </div>
             </div>
             
@@ -129,7 +129,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold mb-1">Auditoria Completa</h4>
-                <p className="text-sm text-gray-300">Rastreabilidade total e conformidade garantida</p>
+                <p className="text-sm text-[var(--muted)]">Rastreabilidade total e conformidade garantida</p>
               </div>
             </div>
 
@@ -139,7 +139,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold mb-1">Relatórios Avançados</h4>
-                <p className="text-sm text-gray-300">Analytics detalhados e insights estratégicos</p>
+                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos</p>
               </div>
             </div>
 
@@ -149,7 +149,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold mb-1">Relatórios Avançados</h4>
-                <p className="text-sm text-gray-300">Analytics detalhados e insights estratégicos</p>
+                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos</p>
               </div>
             </div>
 
@@ -159,7 +159,7 @@ const Login: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold mb-1">Relatórios Avançados</h4>
-                <p className="text-sm text-gray-300">Analytics detalhados e insights estratégicos</p>
+                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos</p>
               </div>
             </div>
           </div>
@@ -170,7 +170,7 @@ const Login: React.FC = () => {
       <div className="w-1/2 flex items-center justify-center p-16">
         <div className="max-w-md w-full">
           {/* Card do formulário */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 relative overflow-hidden">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-xl border border-[var(--border)] p-8 relative overflow-hidden">
             {/* Elemento decorativo */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#49C5B6]/5 rounded-full transform translate-x-12 -translate-y-12"></div>
             
@@ -179,10 +179,10 @@ const Login: React.FC = () => {
               <div className="w-12 h-12 bg-[#49C5B6] rounded-xl flex items-center justify-center mb-4 mx-auto">
                 <Lock className="w-6 h-6 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold text-[var(--text)] mb-2">
                 Acesso ao Sistema
               </h2>
-              <p className="text-gray-600 text-sm">
+              <p className="text-[var(--muted)] text-sm">
                 Entre com suas credenciais para acessar o sistema
               </p>
             </div>
@@ -191,12 +191,12 @@ const Login: React.FC = () => {
             <div className="space-y-6">
               {/* CPF */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">
                   CPF
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
+                    <User className="h-5 w-5 text-[var(--muted)]" />
                   </div>
                   <input
                     name="cpf"
@@ -206,7 +206,7 @@ const Login: React.FC = () => {
                     required
                     value={loginData.cpf}
                     onChange={handleLoginChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-gray-900"
+                    className="block w-full pl-10 pr-3 py-3 border border-[var(--border)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-[var(--text)]"
                     placeholder="Digite seu CPF"
                   />
                 </div>
@@ -214,12 +214,12 @@ const Login: React.FC = () => {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">
                   Senha
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
+                    <Lock className="h-5 w-5 text-[var(--muted)]" />
                   </div>
                   <input
                     name="password"
@@ -227,7 +227,7 @@ const Login: React.FC = () => {
                     required
                     value={loginData.password}
                     onChange={handleLoginChange}
-                    className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-gray-900"
+                    className="block w-full pl-10 pr-10 py-3 border border-[var(--border)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-[var(--text)]"
                     placeholder="Digite sua senha"
                   />
                   <button
@@ -236,9 +236,9 @@ const Login: React.FC = () => {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <EyeOff className="h-5 w-5 text-[var(--muted)] hover:text-[var(--muted)]" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <Eye className="h-5 w-5 text-[var(--muted)] hover:text-[var(--muted)]" />
                     )}
                   </button>
                 </div>
@@ -247,8 +247,8 @@ const Login: React.FC = () => {
               {/* Opções adicionais */}
               <div className="flex items-center justify-between">
                 <label className="flex items-center">
-                  <input type="checkbox" className="w-4 h-4 text-[#49C5B6] bg-gray-100 border-gray-300 rounded focus:ring-[#49C5B6]" />
-                  <span className="ml-2 text-sm text-gray-600">Lembrar-me</span>
+                  <input type="checkbox" className="w-4 h-4 text-[#49C5B6] bg-[var(--surface)] border-[var(--border)] rounded focus:ring-[#49C5B6]" />
+                  <span className="ml-2 text-sm text-[var(--muted)]">Lembrar-me</span>
                 </label>
                 <button type="button" className="text-sm text-[#49C5B6] hover:text-[#3ba394] transition-colors font-medium">
                   Esqueceu a senha?
@@ -275,7 +275,7 @@ const Login: React.FC = () => {
 
           {/* Footer */}
           <div className="text-center mt-6">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[var(--muted)]">
               © 2025 ContainerView. Todos os direitos reservados.
             </p>
           </div>
@@ -286,4 +286,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
-
+ 

@@ -1,4 +1,4 @@
-// src/App.tsx
+﻿// src/App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
@@ -12,11 +12,12 @@ import NewOperation from './pages/NewOperation';
 import NewContainer from './pages/NewContainer';
 import Sacaria from './pages/Sacaria';
 import Profile from './pages/Profile';
-// Auth desativada em desenvolvimento; removendo provider e 2FA
+import { ThemeProvider } from './context/ThemeContext';
 import OperationOverview from './pages/OperationOverview';
 
 const App: React.FC = () => {
   return (
+    <ThemeProvider>
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -32,9 +33,11 @@ const App: React.FC = () => {
           <Route path="/users" element={<Users />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Login />} />
-        </Routes> 
+        </Routes>
       </Router>
+    </ThemeProvider>
   );
 };
 
 export default App;
+
