@@ -8,6 +8,7 @@ interface User {
   role: string;
 }
 
+type ContainerStatus = 'nao_iniciado' | 'em_andamento' | 'concluido';
 
 interface ContainerRow {
   id: string;
@@ -17,11 +18,12 @@ interface ContainerRow {
   qtdSacarias?: number;
   terminal?: string;
   data?: string; // yyyy-mm-dd
+  status?: ContainerStatus;
 }
 
 const seedRows: ContainerRow[] = [
-  { id: 'ABCD 123456-1', lacreAgencia: 'AG-1001', lacrePrincipal: 'LP-2001', lacreOutros: '', qtdSacarias: 10, terminal: 'Terminal 1', data: '2025-09-15' },
-  { id: 'EFGH 789012-3', lacreAgencia: 'AG-1002', lacrePrincipal: 'LP-2002', lacreOutros: 'ALT-9', qtdSacarias: 8, terminal: 'Terminal 2', data: '2025-09-16' },
+  { id: 'ABCD 123456-1', lacreAgencia: 'AG-1001', lacrePrincipal: 'LP-2001', lacreOutros: '', qtdSacarias: 10, terminal: 'Terminal 1', data: '2025-09-15', status: 'em_andamento' },
+  { id: 'EFGH 789012-3', lacreAgencia: 'AG-1002', lacrePrincipal: 'LP-2002', lacreOutros: 'ALT-9', qtdSacarias: 8, terminal: 'Terminal 2', data: '2025-09-16', status: 'nao_iniciado' },
 ];
 
 const OperationOverview: React.FC = () => {
@@ -85,6 +87,9 @@ const OperationOverview: React.FC = () => {
     }
   };
 
+  return s ? map[s] : map.nao_iniciado;
+  };
+
   return (
     <div className="flex h-screen bg-app">
       <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
@@ -136,6 +141,9 @@ const OperationOverview: React.FC = () => {
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Qtd. Sacarias</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Terminal</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
+                    {isEditing && (
+                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
@@ -197,6 +205,7 @@ const OperationOverview: React.FC = () => {
                               className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                             />
                           </td>
+                          /* status removido na edição */
                         </>
                       ) : (
                         <>
@@ -206,6 +215,7 @@ const OperationOverview: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.qtdSacarias ?? 0}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.terminal || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.data || '-'}</td>
+                          {/* Status oculto na visualizaÃ§Ã£o */}
                         </>
                       )}
                     </tr>
