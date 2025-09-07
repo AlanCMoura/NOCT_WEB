@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Upload, Plus, FileText } from 'lucide-react';
+import { Search, Filter, Download, Upload, FileText } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 
-interface User {
-  name: string;
-  role: string;
-}
-
+interface User { name: string; role: string; }
 type OperationStatus = 'Aberta' | 'Fechada';
 
 interface Operation {
@@ -48,6 +45,7 @@ const StatusBadge: React.FC<{ status: OperationStatus }> = ({ status }) => {
 
 const Operations: React.FC = () => {
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
   const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
 
   const [loading, setLoading] = useState(true);
@@ -58,7 +56,7 @@ const Operations: React.FC = () => {
     const t = setTimeout(() => {
       setOperations(mockOperations);
       setLoading(false);
-    }, 400);
+    }, 600);
     return () => clearTimeout(t);
   }, []);
 
@@ -75,7 +73,7 @@ const Operations: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={(p) => p === 'dashboard' && navigate('/dashboard')} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -85,7 +83,7 @@ const Operations: React.FC = () => {
               <p className="text-sm text-[var(--muted)]">Gerencie as operações portuárias e inspeções</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>
@@ -118,88 +116,83 @@ const Operations: React.FC = () => {
               <button className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
                 <Download className="w-4 h-4 mr-2" /> Importar
               </button>
-              <button className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
-                <Upload className="w-4 h-4 mr-2" /> Exportar
-              </button>
-              <button onClick={handleNew} className="inline-flex items-center px-4 py-2.5 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors">
-                <Plus className="w-4 h-4 mr-2" /> Nova Operação
+              <button onClick={handleNew} className="inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 transition-colors">
+                <Upload className="w-4 h-4 mr-2" /> Nova Operação
               </button>
             </div>
           </div>
 
-          {/* Tabela */}
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Operações</h2>
-                <span className="text-sm text-[var(--muted)]">{filtered.length} {filtered.length === 1 ? 'operação' : 'operações'}</span>
-              </div>
-            </div>
 
-            <div className="overflow-x-auto">
-              {loading ? (
-                <div className="p-8">
-                  <div className="animate-pulse space-y-3">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-12 bg-[var(--hover)] rounded" />
+            {loading ? (
+              <div className="p-6">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-6 bg-[var(--hover)] rounded w-1/3"></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="rounded-xl border border-[var(--border)] p-4">
+                        <div className="h-4 bg-[var(--hover)] rounded w-3/4 mb-3"></div>
+                        <div className="h-3 bg-[var(--hover)] rounded w-1/2 mb-2"></div>
+                        <div className="h-3 bg-[var(--hover)] rounded w-2/3"></div>
+                      </div>
                     ))}
                   </div>
                 </div>
-              ) : filtered.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="mx-auto h-12 w-12 text-[var(--muted)] mb-4" />
-                  <p className="text-[var(--muted)]">Nenhuma operação encontrada</p>
-                  <p className="text-sm text-[var(--muted)] mt-1">Tente ajustar os filtros ou buscar por outros termos</p>
-                </div>
-              ) : (
-                <table className="w-full text-center">
-                  <thead className="bg-[var(--hover)]">
-                    <tr>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">AMV</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Reserva</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Navio</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="mx-auto h-12 w-12 text-[var(--muted)] mb-4" />
+                <p className="text-[var(--muted)]">Nenhuma operação encontrada</p>
+                <p className="text-sm text-[var(--muted)] mt-1">Tente ajustar os filtros ou buscar por outros termos</p>
+              </div>
+            ) : (
+              <table className="w-full text-center">
+                <thead className="bg-[var(--hover)]">
+                  <tr>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">AMV</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Reserva</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Navio</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
+                  {filtered.map((op) => (
+                    <tr key={op.id} className="hover:bg-[var(--hover)] transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{op.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.Reserva}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.shipName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{formatDate(op.date)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={op.status} /></td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm ">
+                        <button onClick={() => handleView(op.id)} className="text-teal-600 hover:text-teal-800 transition-colors font-medium">Ver Detalhes</button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-                    {filtered.map((op) => (
-                      <tr key={op.id} className="hover:bg-[var(--hover)] transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{op.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.Reserva}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.shipName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{formatDate(op.date)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={op.status} /></td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm ">
-                          <button onClick={() => handleView(op.id)} className="text-teal-600 hover:text-teal-800 transition-colors font-medium">Ver Detalhes</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Paginação */}
-            {filtered.length > 0 && (
-              <div className="px-6 py-4 border-t border-[var(--border)]">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-[var(--muted)]">
-                    Mostrando <span className="font-medium">1</span> a <span className="font-medium">{Math.min(10, filtered.length)}</span> de <span className="font-medium">{filtered.length}</span> resultados
-                  </div>
-                  <div className="flex gap-2">
-                    <button disabled className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                      Anterior
-                    </button>
-                    <button disabled className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                      Próximo
-                    </button>
-                  </div>
-                </div>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
+
+          {/* Paginação */}
+          {filtered.length > 0 && (
+            <div className="px-6 py-4 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-[var(--muted)]">
+                  Mostrando <span className="font-medium">1</span> a <span className="font-medium">{Math.min(10, filtered.length)}</span> de <span className="font-medium">{filtered.length}</span> resultados
+                </div>
+                <div className="flex gap-2">
+                  <button disabled className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    Anterior
+                  </button>
+                  <button disabled className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    Próximo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
@@ -207,4 +200,3 @@ const Operations: React.FC = () => {
 };
 
 export default Operations;
-

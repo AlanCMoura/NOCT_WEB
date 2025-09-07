@@ -1,6 +1,7 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -24,6 +25,7 @@ const NewContainer: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
 
   const user: User = {
     name: 'Carlos Oliveira',
@@ -45,7 +47,7 @@ const NewContainer: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // SeÃ§Ãµes de imagens do container
+  // Seções de imagens do container
   const SECTION_TITLES = [
     'Vazio/Forrado',
     'Fiadas',
@@ -125,49 +127,21 @@ const NewContainer: React.FC = () => {
     }, 700);
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch(pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  // navegação via SidebarProvider; handler antigo removido
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Novo Container</h1>
-              <p className="text-sm text-[var(--muted)]">OperaÃ§Ã£o {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>
@@ -181,22 +155,16 @@ const NewContainer: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 space-y-6 overflow-auto">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
-              <p className="text-sm text-[var(--muted)]">Preencha os campos do container</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">IdentificaÃ§Ã£o (ex: ABCD 123456-1)</label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Identificação (ex: ABCD 123456-1)</label>
                 <input
                   type="text"
                   value={form.container}
                   onChange={(e) => setField('container', e.target.value)}
-                  placeholder="ABCD 123456-1"
+                  placeholder=""
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
                 />
               </div>
               <div>
@@ -206,7 +174,7 @@ const NewContainer: React.FC = () => {
                   min="0"
                   value={form.quantidade}
                   onChange={(e) => setField('quantidade', e.target.value)}
-                  placeholder="540"
+                  placeholder="01"
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -217,7 +185,7 @@ const NewContainer: React.FC = () => {
                   min="0"
                   value={form.tara}
                   onChange={(e) => setField('tara', e.target.value)}
-                  placeholder="2220"
+                  placeholder="1081"
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -233,7 +201,7 @@ const NewContainer: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso LÃ­quido (kg)</label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso Líquido (kg)</label>
                 <input
                   type="number"
                   min="0"
@@ -244,7 +212,7 @@ const NewContainer: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Lacre AgÃªncia</label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Lacre Agência</label>
                 <input
                   type="text"
                   value={form.lacreAgencia}
@@ -259,7 +227,7 @@ const NewContainer: React.FC = () => {
                   type="text"
                   value={form.lacreOutros}
                   onChange={(e) => setField('lacreOutros', e.target.value)}
-                  placeholder="MÃºltiplos lacres"
+                  placeholder="Múltiplos lacres"
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -296,7 +264,7 @@ const NewContainer: React.FC = () => {
             onChange={handleImageUpload}
           />
 
-          {/* SeÃ§Ãµes de imagens */}
+          {/* Seções de imagens */}
           <div className="mt-6">
             {SECTION_TITLES.map((title) => (
               <ContainerImageSection
@@ -343,7 +311,3 @@ const NewContainer: React.FC = () => {
 };
 
 export default NewContainer;
-
-
-
-

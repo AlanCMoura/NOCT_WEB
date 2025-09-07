@@ -2,6 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection from '../components/ContainerImageSection';
 
 interface User {
@@ -115,6 +116,7 @@ const ContainerDetails: React.FC = () => {
   const decodedContainerId = containerId ? decodeURIComponent(containerId) : '';
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
   const [info, setInfo] = useState<ContainerInfo>(initialInfo);
   const [imageSections, setImageSections] = useState<Record<string, ImageItem[]>>(imagesSections);
   const [isEditing, setIsEditing] = useState(false);
@@ -236,35 +238,7 @@ const ContainerDetails: React.FC = () => {
     role: 'Administrador'
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch(pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  // navegação via SidebarProvider; handler antigo removido
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const { name, value } = e.target;
@@ -283,7 +257,7 @@ const ContainerDetails: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -293,7 +267,7 @@ const ContainerDetails: React.FC = () => {
               <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>
@@ -367,8 +341,15 @@ const ContainerDetails: React.FC = () => {
                         Excluir Container
                       </button>
                     </div>
-                )}
-              </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`)}
+                    className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                  >
+                    Voltar
+                  </button>
+                </div>
             </div>
 
             <div className="p-6">
@@ -641,4 +622,5 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
+
 

@@ -1,7 +1,8 @@
-﻿import React, {useRef, useState} from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Plus,Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -47,7 +48,7 @@ const mockOperation: OperationInfo = {
   navio: 'MSC Fantasia',
   data: '15/09/2025',
   entrega: '20/08/2025'
-};  
+};
 
 const defaultContainers: Container[] = [
   { id: 'ABCD 123456-1', status: 'Aberto', pesoBruto: '27081kg', lacreAgencia: 'AG-1001', lacrePrincipal: 'LP-2001', lacreOutros: '', qtdSacarias: 10, terminal: 'Terminal 1', data: '2025-09-15' },
@@ -59,11 +60,12 @@ const OperationDetails: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
   const [opInfo, setOpInfo] = useState<OperationInfo>(mockOperation);
   const [containers, setContainers] = useState<Container[]>(defaultContainers);
   const opBackupRef = useRef<OperationInfo>(mockOperation);
 
-  // Sacaria - imagens e navegaÃ§Ã£o do carrossel
+  // Sacaria - imagens e navegação do carrossel
   const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([
     { url: 'https://via.placeholder.com/400x300/e3f2fd/1976d2?text=Sacaria+1' },
     { url: 'https://via.placeholder.com/400x300/e8f5e9/4caf50?text=Sacaria+2' },
@@ -135,35 +137,7 @@ const OperationDetails: React.FC = () => {
     role: 'Administrador'
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch(pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  // navegação via SidebarProvider; handler antigo removido
 
   const handleContainerClick = (containerId: string): void => {
     navigate(
@@ -173,7 +147,7 @@ const OperationDetails: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -183,7 +157,7 @@ const OperationDetails: React.FC = () => {
               <p className="text-sm text-[var(--muted)]">Detalhes da Operação</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>
@@ -202,7 +176,7 @@ const OperationDetails: React.FC = () => {
               {/* BotÃµes de Ação */}
             <div className="p-6 border-b border-[var(--border)]">
                 <div className="flex justify-between gap-4">
-                   <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Informações da operação</h2>
+                   <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
             </div>
             
             </div>
@@ -235,7 +209,7 @@ const OperationDetails: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
-                    alert(`Operação ${decodedOperationId} excluída!`);
+                    alert(`Operação ${decodedOperationId} excluÃ­da!`);
                     navigate('/operations');
                   }
                 }}
@@ -306,72 +280,10 @@ const OperationDetails: React.FC = () => {
                   <span className="text-[var(--text)] font-medium">{opInfo.deadline}</span>
                 )}
               </div>
-              <div>
-                <span className="text-[var(--muted)] block">Data</span>
-                {isEditing ? (
-                  <input value={opInfo.data} onChange={e=>setOpInfo({...opInfo, data: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.data}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Deadline de Entrega</span>
-                {isEditing ? (
-                  <input value={opInfo.entrega} onChange={e=>setOpInfo({...opInfo, entrega: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.entrega}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Cliente</span>
-                {isEditing ? (
-                  <input value={opInfo.cliente} onChange={e=>setOpInfo({...opInfo, cliente: e.target.value})} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.cliente}</span>
-                )}
-              </div>
-            </div>
-            <div className="px-6 pb-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Editar Operação
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors ${isEditing ? '' : 'hidden'}`}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => { alert('Operação atualizada!'); setIsEditing(false); }}
-                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
-              >
-                Salvar Operação
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
-                    alert(`Operação ${decodedOperationId} exclu?da!`);
-                    navigate('/operations');
-                  }
-                }}
-                className={`px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir Operação
-              </button>
             </div>
             </div>
           </section>
+
           <input
             type="file"
             ref={sacariaInputRef}
@@ -380,7 +292,6 @@ const OperationDetails: React.FC = () => {
             className="hidden"
             onChange={handleSacariaUpload}
           />
-
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
@@ -407,16 +318,17 @@ const OperationDetails: React.FC = () => {
                   <Plus className="w-4 h-4 mr-2" />
                   Novo Container
                 </button>
+                
               </div>
             </div>
             <div className="divide-y divide-[var(--border)]">
               {/* Item especial: Sacaria (como se fosse um container) */}
               <div
-                className="p-4 flex items-center justify-between cursor-pointer transition-colors bg-teal-50/60 hover:bg-teal-50 border-l-4 border-teal-500"
+                className="p-4 flex items-center justify-between cursor-pointer transition-colors bg-[var(--hover)] border-l-4 border-teal-500"
                 onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/sacaria`)}
               >
                 <div>
-                  <div className="text-sm font-semibold text-teal-800">Sacaria</div>
+                  <div className="text-sm font-semibold text-[var(--text)]">Sacaria</div>
                   <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
                 </div>
               </div>
@@ -443,8 +355,6 @@ const OperationDetails: React.FC = () => {
               ))}
             </div>
           </section>
-
-          {/* Overview modal removido: navegação para página dedicada */}
         </main>
       </div>
     </div>
@@ -452,8 +362,3 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
-
-
-
-
-

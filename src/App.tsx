@@ -13,12 +13,14 @@ import NewContainer from './pages/NewContainer';
 import Sacaria from './pages/Sacaria';
 import Profile from './pages/Profile';
 import { ThemeProvider } from './context/ThemeContext';
+import { SidebarProvider } from './context/SidebarContext';
 import OperationOverview from './pages/OperationOverview';
 
 const App: React.FC = () => {
   return (
     <ThemeProvider>
       <Router>
+        <SidebarProvider>
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
@@ -34,6 +36,7 @@ const App: React.FC = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Login />} />
         </Routes>
+        </SidebarProvider>
       </Router>
     </ThemeProvider>
   );

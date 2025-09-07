@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Eye, EyeOff, Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 
 interface UserLogged {
   name: string;
@@ -41,6 +42,7 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; disab
 
 const Users: React.FC = () => {
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
   const currentUser: UserLogged = { name: 'Carlos Oliveira', role: 'Supervisor' };
 
   const [users, setUsers] = useState<ManagedUser[]>(mockUsers);
@@ -137,35 +139,7 @@ const Users: React.FC = () => {
     }
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch(pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuários':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  // navegação via SidebarProvider; handler antigo removido
 
   const roleBadgeClass = (r: Role): string => {
     switch (r) {
@@ -181,7 +155,7 @@ const Users: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="usuários" onPageChange={handlePageChange} user={currentUser} />
+      <Sidebar user={currentUser} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -191,7 +165,7 @@ const Users: React.FC = () => {
               <p className="text-sm text-[var(--muted)]">Gerenciamento de usuários do sistema</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{currentUser.name}</div>
                   <div className="text-xs text-[var(--muted)]">{currentUser.role}</div>

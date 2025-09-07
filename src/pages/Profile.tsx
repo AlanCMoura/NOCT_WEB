@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 
@@ -62,39 +62,11 @@ const Profile: React.FC = () => {
     role: userProfile.role,
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch(pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="perfil" onPageChange={handlePageChange} user={sidebarUser} />
+      <Sidebar user={sidebarUser} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -136,11 +108,11 @@ const Profile: React.FC = () => {
             </div>
           </section>
 
-          {/* Informações pessoais */}
+          {/* InformaÃ§Ãµes pessoais */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <h3 className="text-lg font-semibold text-[var(--text)]">Informações Pessoais</h3>
-              <p className="text-sm text-[var(--muted)]">Dados básicos do seu cadastro</p>
+              <p className="text-sm text-[var(--muted)]">Dados bÃ¡sicos do seu cadastro</p>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
               <div>
@@ -170,15 +142,15 @@ const Profile: React.FC = () => {
             </div>
           </section>
 
-          {/* Segurança */}
+          {/* SeguranÃ§a */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
-              <h3 className="text-lg font-semibold text-[var(--text)]">Segurança</h3>
+              <h3 className="text-lg font-semibold text-[var(--text)]">SeguranÃ§a</h3>
               <p className="text-sm text-[var(--muted)]">Informações relacionadas ao acesso</p>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
               <div>
-                <span className="text-[var(--muted)] block">Autenticação de Dois Fatores (2FA)</span>
+                <span className="text-[var(--muted)] block">AutenticaÃ§Ã£o de Dois Fatores (2FA)</span>
                 {userProfile.twoFactor ? (
                   <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
                 ) : (
@@ -190,7 +162,7 @@ const Profile: React.FC = () => {
                 <span className="text-[var(--text)] font-medium">{userProfile.createdAt || '-'}</span>
               </div>
               <div>
-                <span className="text-[var(--muted)] block">Último acesso</span>
+                <span className="text-[var(--muted)] block">Ãšltimo acesso</span>
                 <span className="text-[var(--text)] font-medium">{userProfile.lastLoginAt || '-'}</span>
               </div>
             </div>
@@ -202,5 +174,6 @@ const Profile: React.FC = () => {
 };
 
 export default Profile;
+
 
 

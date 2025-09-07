@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -26,6 +27,7 @@ const Sacaria: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
 
   const user: User = { name: 'Carlos Oliveira', role: 'Supervisor' };
 
@@ -105,51 +107,26 @@ const Sacaria: React.FC = () => {
         if ((img as any).file) URL.revokeObjectURL(img.url);
       });
       setImages([]);
-      alert('Sacaria excluída!');
+      alert('Sacaria excluÃ­da!');
     }
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch (pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria • Operação {decodedOperationId}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria â€¢ OperaÃ§Ã£o {decodedOperationId}</h1>
               <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
             </div>
             <div className="flex items-center gap-4">
               <div
-                onClick={() => navigate('/profile')}
+                onClick={() => changePage('perfil')}
                 className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors"
               >
                 <div className="text-right">
@@ -228,7 +205,7 @@ const Sacaria: React.FC = () => {
           {/* input oculto para upload */}
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
-          {/* Campo de texto: Marcação da sacaria */}
+          {/* Campo de texto: MarcaÃ§Ã£o da sacaria */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6">
               <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcação da sacaria</label>
@@ -237,12 +214,12 @@ const Sacaria: React.FC = () => {
                   value={marcacao}
                   onChange={(e) => setMarcacao(e.target.value)}
                   rows={3}
-                  placeholder="Digite a marcação da sacaria..."
+                  placeholder="Digite a marcaÃ§Ã£o da sacaria..."
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               ) : (
                 <p className="text-sm text-[var(--text)] whitespace-pre-line bg-[var(--hover)] border border-[var(--border)] rounded-lg p-3 min-h-[3.5rem]">
-                  {marcacao || '—'}
+                  {marcacao || 'marca'}
                 </p>
               )}
             </div>
@@ -310,3 +287,4 @@ const Sacaria: React.FC = () => {
 };
 
 export default Sacaria;
+

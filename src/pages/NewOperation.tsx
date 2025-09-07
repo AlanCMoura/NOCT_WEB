@@ -1,6 +1,7 @@
 ﻿import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -23,6 +24,7 @@ interface NewOperationForm {
 
 const NewOperation: React.FC = () => {
   const navigate = useNavigate();
+  const { changePage } = useSidebar();
 
   const user: User = {
     name: 'Carlos Oliveira',
@@ -96,35 +98,7 @@ const NewOperation: React.FC = () => {
     setSacariaIndex(prev => Math.max(0, prev - SACARIA_PER_VIEW));
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch(pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  
 
   const setField = (key: keyof NewOperationForm, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }));
@@ -146,7 +120,7 @@ const NewOperation: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -156,7 +130,7 @@ const NewOperation: React.FC = () => {
               <p className="text-sm text-[var(--muted)]">Cadastre uma nova operaÃ§Ã£o portuÃ¡ria</p>
             </div>
             <div className="flex items-center gap-4">
-              <div onClick={() => navigate('/profile')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>
@@ -328,6 +302,4 @@ const NewOperation: React.FC = () => {
 };
 
 export default NewOperation;
-
-
 

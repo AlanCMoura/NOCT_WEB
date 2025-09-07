@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart3, FileText, Users, FileBarChart, LogOut, User as UserIcon } from 'lucide-react';
 import ThemeContrastButton from './ThemeContrastButton';
+import { useSidebar } from '../context/SidebarContext';
 
 interface User {
   name: string;
@@ -14,12 +15,15 @@ interface SidebarItem {
 }
 
 interface SidebarProps {
-  currentPage: string;
+  currentPage?: string; // opcional; provider controla se ausente
   onPageChange?: (pageId: string) => void;
   user: User;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
+  const { currentPage: ctxPage, changePage } = useSidebar();
+  const activePage = currentPage ?? ctxPage;
+
   const sidebarItems: SidebarItem[] = [
     { id: 'dashboard', icon: <BarChart3 className="w-5 h-5" />, label: 'Dashboard' },
     { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' },
@@ -36,6 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   ];
 
   const handleItemClick = (itemId: string): void => {
+    // sempre navega pelo provider
+    changePage(itemId);
     if (onPageChange) onPageChange(itemId);
   };
 
@@ -45,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         key={item.id}
         onClick={() => handleItemClick(item.id)}
         className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-1 cursor-pointer transition-colors ${
-          currentPage === item.id
+          activePage === item.id
             ? 'bg-[var(--primary)] text-[var(--on-primary)]'
             : 'text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]'
         }`}
@@ -96,5 +102,4 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 };
 
 export default Sidebar;
-
 

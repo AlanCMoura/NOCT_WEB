@@ -1,13 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { Search, ArrowLeft, Edit } from 'lucide-react';
+import { Search, Edit } from 'lucide-react';
+import { useSidebar } from '../context/SidebarContext';
 
-interface User {
-  name: string;
-  role: string;
-}
-
+interface User { name: string; role: string; }
 
 interface ContainerRow {
   id: string;
@@ -27,13 +24,13 @@ const seedRows: ContainerRow[] = [
 const OperationOverview: React.FC = () => {
   const navigate = useNavigate();
   const { operationId } = useParams();
-  const decodedOperationId = useMemo(() => (operationId ? decodeURIComponent(operationId) : ''), [operationId]);
+  const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
 
   const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
+  const { changePage } = useSidebar();
 
   const [rows, setRows] = useState<ContainerRow[]>(seedRows);
   const [search, setSearch] = useState('');
-  // Edição global: edita todos os containers ao mesmo tempo
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [draftRows, setDraftRows] = useState<ContainerRow[]>(rows);
 
@@ -55,39 +52,9 @@ const OperationOverview: React.FC = () => {
     navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
   };
 
-  const handlePageChange = (pageId: string): void => {
-    switch (pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
-
   return (
     <div className="flex h-screen bg-app">
-      <Sidebar currentPage="operations" onPageChange={handlePageChange} user={user} />
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
@@ -97,9 +64,15 @@ const OperationOverview: React.FC = () => {
               <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={handleBack} className="inline-flex items-center px-4 py-2 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
-                <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
-              </button>
+              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+                <div className="text-right">
+                  <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
+                  <div className="text-xs text-[var(--muted)]">{user.role}</div>
+                </div>
+                <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                </div>
+              </div>
             </div>
           </div>
         </header>
@@ -149,7 +122,7 @@ const OperationOverview: React.FC = () => {
                               type="text"
                               value={draftRows.find(r => r.id === row.id)?.lacreAgencia || ''}
                               onChange={(e) => updateDraft(row.id, { lacreAgencia: e.target.value })}
-                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="AG-xxxx"
                             />
                           </td>
@@ -158,7 +131,7 @@ const OperationOverview: React.FC = () => {
                               type="text"
                               value={draftRows.find(r => r.id === row.id)?.lacrePrincipal || ''}
                               onChange={(e) => updateDraft(row.id, { lacrePrincipal: e.target.value })}
-                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="LP-xxxx"
                             />
                           </td>
@@ -167,7 +140,7 @@ const OperationOverview: React.FC = () => {
                               type="text"
                               value={draftRows.find(r => r.id === row.id)?.lacreOutros || ''}
                               onChange={(e) => updateDraft(row.id, { lacreOutros: e.target.value })}
-                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="Outros"
                             />
                           </td>
@@ -177,7 +150,7 @@ const OperationOverview: React.FC = () => {
                               min={0}
                               value={draftRows.find(r => r.id === row.id)?.qtdSacarias ?? 0}
                               onChange={(e) => updateDraft(row.id, { qtdSacarias: Number(e.target.value) })}
-                              className="w-24 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-center"
+                              className="w-24 px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-center"
                             />
                           </td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
@@ -185,7 +158,7 @@ const OperationOverview: React.FC = () => {
                               type="text"
                               value={draftRows.find(r => r.id === row.id)?.terminal || ''}
                               onChange={(e) => updateDraft(row.id, { terminal: e.target.value })}
-                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="Terminal"
                             />
                           </td>
@@ -194,7 +167,7 @@ const OperationOverview: React.FC = () => {
                               type="date"
                               value={draftRows.find(r => r.id === row.id)?.data || ''}
                               onChange={(e) => updateDraft(row.id, { data: e.target.value })}
-                              className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                             />
                           </td>
                         </>
@@ -203,7 +176,7 @@ const OperationOverview: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.lacreAgencia || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.lacrePrincipal || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.lacreOutros || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.qtdSacarias ?? 0}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text)]">{row.qtdSacarias ?? 0}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.terminal || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.data || '-'}</td>
                         </>
@@ -235,6 +208,4 @@ const OperationOverview: React.FC = () => {
 };
 
 export default OperationOverview;
-
-
 
