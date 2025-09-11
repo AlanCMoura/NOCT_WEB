@@ -1,32 +1,15 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { BarChart3, Package, Eye } from "lucide-react";
-import Sidebar from "../components/Sidebar";
-import { useSidebar } from "../context/SidebarContext";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Wrench, Clock, ArrowRight } from 'lucide-react';
+import Sidebar from '../components/Sidebar';
+import { useSidebar } from '../context/SidebarContext';
 
-interface User { name: string; role: string; }
-interface StatData { icon: React.ReactNode; value: string; label: string; change: string; changeColor: string; }
-interface Operation { ctv: string; navio: string; data: string; status: "Não iniciado" | "Em andamento" | "Concluído"; statusColor: string; }
+interface User { name: string; role: string }
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("7 dias");
-  const user: User = { name: "Carlos Oliveira", role: "Administrador" };
   const { changePage } = useSidebar();
-
-  const statsData: StatData[] = [
-    { icon: <BarChart3 className="w-8 h-8 text-blue-500" />, value: "24", label: "Operações Ativas", change: "↑ 12% vs mês anterior", changeColor: "text-green-500" },
-    { icon: <Package className="w-8 h-8 text-orange-500" />, value: "486", label: "Containers Inspecionados", change: "↑ 8% vs mês anterior", changeColor: "text-green-500" },
-    { icon: <Eye className="w-8 h-8 text-purple-500" />, value: "3.2k", label: "Fotos Capturadas", change: "↑ 23% vs mês anterior", changeColor: "text-green-500" },
-    { icon: <BarChart3 className="w-8 h-8 text-green-500" />, value: "98.5%", label: "Taxa de Conclusão", change: "↓ 0,5% vs mês anterior", changeColor: "text-red-500" },
-  ];
-
-  const recentOperations: Operation[] = [
-    { ctv: "CTV-12345/25", navio: "MSC Fantasia", data: "15/08/2025 14:30", status: "Não iniciado", statusColor: "bg-gray-100 text-gray-800" },
-    { ctv: "CTV-12346/25", navio: "Maersk Line", data: "15/08/2025 10:15", status: "Em andamento", statusColor: "bg-yellow-100 text-yellow-800" },
-    { ctv: "CTV-12344/25", navio: "Hamburg Süd", data: "14/08/2025 16:45", status: "Concluído", statusColor: "bg-green-100 text-green-800" },
-    { ctv: "CTV-12343/25", navio: "CMA CGM", data: "14/08/2025 09:20", status: "Concluído", statusColor: "bg-green-100 text-green-800" },
-  ];
+  const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
 
   return (
     <div className="flex h-screen bg-app">
@@ -37,7 +20,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Dashboard</h1>
-              <p className="text-sm text-[var(--muted)]">Monitoramento centralizado</p>
+              <p className="text-sm text-[var(--muted)]">Em manutenção durante o período de testes</p>
             </div>
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -54,96 +37,28 @@ const Dashboard: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {statsData.map((stat, index) => (
-              <div key={index} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-[var(--text)] mb-1">{stat.value}</div>
-                    <div className="text-sm text-[var(--muted)] mb-2">{stat.label}</div>
-                    <div className={`text-xs ${stat.changeColor}`}>{stat.change}</div>
-                  </div>
-                  <div className="p-2 bg-[var(--hover)] rounded-lg">{stat.icon}</div>
-                </div>
+          <div className="h-full flex items-center justify-center">
+            <div className="w-full max-w-3xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm p-8 text-center">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/20 flex items-center justify-center text-teal-600 mb-4">
+                <Wrench className="w-8 h-8" />
               </div>
-            ))}
-          </div>
+              <h2 className="text-2xl font-semibold text-[var(--text)] mb-2">Dashboard em manutenção</h2>
+              <p className="text-[var(--muted)] mb-6">
+                Estamos aprimorando esta área para a próxima versão. Enquanto isso, use as seções abaixo normalmente.
+              </p>
 
-          <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Operações Recentes</h2>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mb-6">
+                <button onClick={() => navigate('/operations')} className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90">
+                  Ir para Operações <ArrowRight className="w-4 h-4 ml-2" />
+                </button>
+                <button onClick={() => navigate('/reports')} className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)]">
+                  Relatórios
+                </button>
               </div>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-center">
-                <thead className="bg-[var(--hover)]">
-                  <tr>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CTV</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Navio</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-                  {recentOperations.map((operation, index) => (
-                    <tr key={index} className="hover:bg-[var(--hover)]">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{operation.ctv}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{operation.navio}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{operation.data}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${operation.statusColor}`}>{operation.status}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-teal-600 cursor-pointer hover:text-teal-800">Ver Detalhes</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-[var(--text)]">Operações por Dia</h3>
-                  <div className="flex gap-2">
-                    {["7 dias", "30 dias", "90 dias"].map((period) => (
-                      <button
-                        key={period}
-                        onClick={() => setSelectedPeriod(period)}
-                        className={`px-3 py-1 text-sm rounded-lg ${selectedPeriod === period ? 'bg-[var(--primary)] text-[var(--on-primary)]' : 'bg-[var(--hover)] text-[var(--muted)] hover:bg-[var(--hover)]'}`}
-                      >
-                        {period}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="h-64 flex items-center justify-center text-[var(--muted)]">
-                  <BarChart3 className="w-16 h-16 mb-4" />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6">
-                <h3 className="text-lg font-semibold text-[var(--text)] mb-4">Atividade Recente</h3>
-                <div className="space-y-4">
-                  <div className="text-sm text-[var(--muted)]">
-                    <div className="font-medium text-[var(--text)]">João Silva adicionou 6 fotos</div>
-                    <div className="text-[var(--muted)]">há 2 minutos</div>
-                  </div>
-                  <div className="text-sm text-[var(--muted)]">
-                    <div className="font-medium text-[var(--text)]">Nova inspeção iniciada</div>
-                    <div className="text-[var(--muted)]">há 15 minutos</div>
-                  </div>
-                  <div className="text-sm text-[var(--muted)]">
-                    <div className="font-medium text-[var(--text)]">Relatório CTV-12344/25 finalizado</div>
-                    <div className="text-[var(--muted)]">há 1 hora</div>
-                  </div>
-                </div>
+              <div className="flex items-center justify-center gap-2 text-xs text-[var(--muted)]">
+                <Clock className="w-4 h-4" />
+                Atualização prevista: em breve
               </div>
             </div>
           </div>
@@ -154,3 +69,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+
