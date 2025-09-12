@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection from '../components/ContainerImageSection';
+import { computeStatus, getProgress, setImages, setComplete } from '../services/containerProgress';
 
 interface User {
   name: string;
@@ -127,8 +128,25 @@ const ContainerDetails: React.FC = () => {
     imageIndex: number; 
     images: ImageItem[] 
   } | null>(null);
+  const [progress, setProgress] = useState(() => getProgress(decodedContainerId));
 
   const IMAGES_PER_VIEW = 5;
+  
+  // Atualiza contagem de imagens adicionadas
+  React.useEffect(() => {
+    let count = 0;
+    Object.values(imageSections).forEach((arr) => {
+      count += (arr || []).filter((it) => (it as any).file).length;
+    });
+    if (decodedContainerId) {
+      setImages(decodedContainerId, count);
+      setProgress((p) => ({ ...p, images: count }));
+    }
+  }, [imageSections, decodedContainerId]);
+  
+  React.useEffect(() => {
+    setProgress(getProgress(decodedContainerId));
+  }, [decodedContainerId]);
 
   const nextImages = (section: string): void => {
     const images = imageSections[section] || [];
@@ -256,14 +274,20 @@ const ContainerDetails: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex h-screen bg-app overflow-hidden">
       <Sidebar user={user} />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Container {decodedContainerId}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-3">Container {decodedContainerId}
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  computeStatus(progress) === 'Completo' ? 'bg-green-100 text-green-800' : computeStatus(progress) === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'
+                }`}>
+                  {computeStatus(progress)}
+                </span>
+              </h1>
               <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
@@ -324,6 +348,13 @@ const ContainerDetails: React.FC = () => {
                     </>
                   ) : (
                     <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { if (decodedContainerId) { const next = !progress.complete; setComplete(decodedContainerId, next); setProgress({ ...progress, complete: next }); } }}
+                        className="px-6 py-2 bg-white border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
+                      >
+                        {progress.complete ? 'Desmarcar Completo' : 'Marcar como Completo'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => setIsEditing(true)}

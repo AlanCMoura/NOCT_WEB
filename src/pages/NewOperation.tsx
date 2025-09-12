@@ -119,15 +119,15 @@ const NewOperation: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex h-screen bg-app overflow-hidden">
       <Sidebar user={user} />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Nova OperaÃ§Ã£o</h1>
-              <p className="text-sm text-[var(--muted)]">Cadastre uma nova operaÃ§Ã£o portuÃ¡ria</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Nova Operação</h1>
+              <p className="text-sm text-[var(--muted)]">Cadastre uma nova operação portuária</p>
             </div>
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -155,7 +155,7 @@ const NewOperation: React.FC = () => {
 
           <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 space-y-6 overflow-auto">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--text)]">InformaÃ§Ãµes da OperaÃ§Ã£o</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
               <p className="text-sm text-[var(--muted)]">Preencha os campos abaixo</p>
             </div>
 
@@ -187,7 +187,7 @@ const NewOperation: React.FC = () => {
                   type="text"
                   value={form.terminal}
                   onChange={(e) => setField('terminal', e.target.value)}
-                  placeholder="Terminal PortuÃ¡rio"
+                  placeholder="Terminal Portuário"
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -217,7 +217,7 @@ const NewOperation: React.FC = () => {
                   type="text"
                   value={form.destino}
                   onChange={(e) => setField('destino', e.target.value)}
-                  placeholder="Porto / PaÃ­s"
+                  placeholder="Porto / País"
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -289,7 +289,7 @@ const NewOperation: React.FC = () => {
                     disabled={saving}
                     className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60"
                   >
-                    {saving ? 'Salvando...' : 'Criar OperaÃ§Ã£o'}
+                    {saving ? 'Salvando...' : 'Criar Operação'}
                   </button>
                 </>
               }

@@ -107,21 +107,21 @@ const Sacaria: React.FC = () => {
         if ((img as any).file) URL.revokeObjectURL(img.url);
       });
       setImages([]);
-      alert('Sacaria excluÃ­da!');
+    alert('Sacaria excluída!');
     }
   };
 
   
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex h-screen bg-app overflow-hidden">
       <Sidebar user={user} />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria â€¢ OperaÃ§Ã£o {decodedOperationId}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria • Operação {decodedOperationId}</h1>
               <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
             </div>
             <div className="flex items-center gap-4">
@@ -205,7 +205,7 @@ const Sacaria: React.FC = () => {
           {/* input oculto para upload */}
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
-          {/* Campo de texto: MarcaÃ§Ã£o da sacaria */}
+          {/* Campo de texto: Marcação da sacaria */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6">
               <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcação da sacaria</label>
@@ -214,7 +214,7 @@ const Sacaria: React.FC = () => {
                   value={marcacao}
                   onChange={(e) => setMarcacao(e.target.value)}
                   rows={3}
-                  placeholder="Digite a marcaÃ§Ã£o da sacaria..."
+                  placeholder="Digite a marcação da sacaria..."
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               ) : (
@@ -257,6 +257,8 @@ const Sacaria: React.FC = () => {
             <img
               src={images[modal.index]?.url}
               alt={`Sacaria - Imagem ${modal.index + 1}`}
+              loading="lazy"
+              decoding="async"
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()}
             />

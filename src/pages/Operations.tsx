@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Download, Upload, FileText } from 'lucide-react';
+import { containerCountFor } from '../mock/operationData';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 
@@ -13,15 +14,16 @@ interface Operation {
   shipName: string;
   date: string; // ISO
   status: OperationStatus;
+  containerCount: number;
 }
 
 const mockOperations: Operation[] = [
-  { id: 'AMV-12345/25', Reserva: 'COD123', shipName: 'MSC Fantasia', date: '2025-08-15T14:30:00Z', status: 'Aberta' },
-  { id: 'AMV-12346/25', Reserva: 'COD123', shipName: 'Maersk Line', date: '2025-08-15T10:15:00Z', status: 'Aberta' },
-  { id: 'AMV-12344/25', Reserva: 'COD123', shipName: 'Hamburg Süd', date: '2025-08-14T16:45:00Z', status: 'Fechada' },
-  { id: 'AMV-12343/25', Reserva: 'COD123', shipName: 'CMA CGM', date: '2025-08-14T09:20:00Z', status: 'Fechada' },
-  { id: 'AMV-12342/25', Reserva: 'COD123', shipName: 'Evergreen Marine', date: '2025-08-13T15:10:00Z', status: 'Aberta' },
-  { id: 'AMV-12341/25', Reserva: 'COD123', shipName: 'COSCO Shipping', date: '2025-08-13T11:30:00Z', status: 'Aberta' },
+  { id: 'AMV-12345/25', Reserva: 'COD123', shipName: 'MSC Fantasia',    date: '2025-08-15T14:30:00Z', status: 'Aberta',  containerCount: 28 },
+  { id: 'AMV-12346/25', Reserva: 'COD123', shipName: 'Maersk Line',      date: '2025-08-15T10:15:00Z', status: 'Aberta',  containerCount: 34 },
+  { id: 'AMV-12344/25', Reserva: 'COD123', shipName: 'Hamburg S�d',      date: '2025-08-14T16:45:00Z', status: 'Fechada', containerCount: 22 },
+  { id: 'AMV-12343/25', Reserva: 'COD123', shipName: 'CMA CGM',          date: '2025-08-14T09:20:00Z', status: 'Fechada', containerCount: 40 },
+  { id: 'AMV-12342/25', Reserva: 'COD123', shipName: 'Evergreen Marine', date: '2025-08-13T15:10:00Z', status: 'Aberta',  containerCount: 24 },
+  { id: 'AMV-12341/25', Reserva: 'COD123', shipName: 'COSCO Shipping',   date: '2025-08-13T11:30:00Z', status: 'Aberta',  containerCount: 31 },
 ];
 
 const formatDate = (iso: string) => {
@@ -153,6 +155,7 @@ const Operations: React.FC = () => {
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Reserva</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Navio</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Containers</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
                   </tr>
@@ -164,6 +167,7 @@ const Operations: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.Reserva}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.shipName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{formatDate(op.date)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text)]">{op.containerCount}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={op.status} /></td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm ">
                         <button onClick={() => handleView(op.id)} className="text-teal-600 hover:text-teal-800 transition-colors font-medium">Ver Detalhes</button>
@@ -200,3 +204,5 @@ const Operations: React.FC = () => {
 };
 
 export default Operations;
+
+

@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Search, Edit } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
+import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
+import { containerCountFor } from '../mock/operationData';
 
 interface User { name: string; role: string; }
 
@@ -16,10 +18,25 @@ interface ContainerRow {
   data?: string; // yyyy-mm-dd
 }
 
-const seedRows: ContainerRow[] = [
-  { id: 'ABCD 123456-1', lacreAgencia: 'AG-1001', lacrePrincipal: 'LP-2001', lacreOutros: '', qtdSacarias: 10, terminal: 'Terminal 1', data: '2025-09-15' },
-  { id: 'EFGH 789012-3', lacreAgencia: 'AG-1002', lacrePrincipal: 'LP-2002', lacreOutros: 'ALT-9', qtdSacarias: 8, terminal: 'Terminal 2', data: '2025-09-16' },
-];
+
+
+// Gera linhas mock com tamanho variável por operação
+const generateRows = (count: number): ContainerRow[] => {
+  const rows: ContainerRow[] = [];
+  for (let i = 0; i < count; i++) {
+    const num = 100001 + i;
+    rows.push({
+      id: `CNTR ${num}-${(i % 9) + 1}`,
+      lacreAgencia: `AG-${1000 + i}`,
+      lacrePrincipal: `LP-${2000 + i}`,
+      lacreOutros: i % 3 === 0 ? `ALT-${i % 10}` : '',
+      qtdSacarias: 6 + (i % 7),
+      terminal: `Terminal ${1 + (i % 4)}`,
+      data: `2025-09-${String(15 + (i % 15)).padStart(2, '0')}`,
+    });
+  }
+  return rows;
+};
 
 const OperationOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -29,16 +46,43 @@ const OperationOverview: React.FC = () => {
   const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
   const { changePage } = useSidebar();
 
-  const [rows, setRows] = useState<ContainerRow[]>(seedRows);
+  const [rows, setRows] = useState<ContainerRow[]>(() => generateRows(containerCountFor(decodedOperationId)));
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [draftRows, setDraftRows] = useState<ContainerRow[]>(rows);
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState<number>(1);
 
+  // Atualiza quando navega para outra operação
+  useEffect(() => {
+    const c = containerCountFor(decodedOperationId);
+    const gen = generateRows(c);
+    setRows(gen);
+    setDraftRows(gen);
+    setPage(1);
+  }, [decodedOperationId]);
+
+  type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
+  const [statusKey, setStatusKey] = useState<StatusKey>('todos');
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.id.toLowerCase().includes(q));
-  }, [rows, search]);
+    const base = q ? rows.filter((r) => r.id.toLowerCase().includes(q)) : rows;
+    if (statusKey === 'todos') return base;
+    const target: ContainerStatus = statusKey === 'ni' ? 'Não inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
+    return base.filter((r) => computeStatus(getProgress(r.id)) === target);
+  }, [rows, search, statusKey]);
+
+  const sorted = useMemo(() => filtered, [filtered]);
+
+  const totalFiltered = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
+
+  const startIdx = (page - 1) * PAGE_SIZE;
+  const endIdx = Math.min(startIdx + PAGE_SIZE, totalFiltered);
+  const paginated = useMemo(() => sorted.slice(startIdx, endIdx), [sorted, startIdx, endIdx]);
 
   const startEditAll = () => { setDraftRows(rows); setIsEditing(true); };
   const cancelEditAll = () => { setIsEditing(false); setDraftRows(rows); };
@@ -89,6 +133,20 @@ const OperationOverview: React.FC = () => {
                 placeholder="Pesquisar por container..."
               />
             </div>
+            <div className="w-full sm:w-64">
+              <select
+                value={statusKey}
+                onChange={(e) => setStatusKey(e.target.value as any)}
+                className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                aria-label="Filtrar por Status"
+                title="Filtrar containers pelo status"
+              >
+                <option value="todos">Todos os Status</option>
+                <option value="Não inicializado">Não inicializado</option>
+                <option value="parcial">Parcial</option>
+                <option value="completo">Completo</option>
+              </select>
+            </div>
           </div>
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
@@ -98,12 +156,16 @@ const OperationOverview: React.FC = () => {
               </div>
             </div>
 
+            <div className="px-6 pt-2 text-sm text-[var(--muted)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div>Total de containers: <span className="font-medium text-[var(--text)]">{rows.length}</span></div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-center">
                 <thead className="bg-[var(--hover)]">
                   <tr>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Container</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Agência</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Agencia</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Principal</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Outros</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Qtd. Sacarias</th>
@@ -112,9 +174,17 @@ const OperationOverview: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-                  {filtered.map((row) => (
+                  {paginated.map((row) => {
+                    const status = computeStatus(getProgress(row.id));
+                    const badge = status === 'Completo'
+                      ? 'bg-green-100 text-green-800'
+                      : status === 'Parcial'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-200 text-gray-700';
+                    return (
                     <tr key={row.id} className="hover:bg-[var(--hover)] transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{row.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${badge}`}>{status}</span></td>
                       {isEditing ? (
                         <>
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
@@ -182,9 +252,39 @@ const OperationOverview: React.FC = () => {
                         </>
                       )}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Paginação */}
+            <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
+              <div className="text-sm text-[var(--muted)]">
+                {totalFiltered === 0 ? (
+                  <span>Mostrando 0 a 0 de 0</span>
+                ) : (
+                  <span>
+                    Mostrando <span className="font-medium">{startIdx + 1}</span> a <span className="font-medium">{endIdx}</span> de <span className="font-medium">{totalFiltered}</span>
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Próximo
+                </button>
+              </div>
             </div>
 
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-end gap-2">
@@ -208,4 +308,28 @@ const OperationOverview: React.FC = () => {
 };
 
 export default OperationOverview;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

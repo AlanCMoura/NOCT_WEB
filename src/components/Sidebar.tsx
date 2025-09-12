@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     ));
 
   return (
-    <div className="w-64 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] flex flex-col">
+    <div className="sidebar-wrapper w-64 flex-shrink-0 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] flex flex-col h-screen sticky top-0">
       <div className="p-4 border-[var(--border)]">
         <div className="flex items-center gap-3">
           {/* Fundo branco para melhor integração com o logo sem transparência */}
