@@ -63,10 +63,7 @@ body {
   border-color: var(--border);
 }
 
-/* Smooth scroll to reduce flicker in carousels */
-* {
-  scroll-behavior: smooth;
-}
+/* (scroll utilities removed by request) */
 
 /* Prevent sidebar from shrinking and removing unwanted transitions */
 .sidebar-wrapper {

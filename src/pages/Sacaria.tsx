@@ -11,14 +11,14 @@ interface User {
 }
 
 const initialSacaria: SectionImageItem[] = [
-  { url: 'https://via.placeholder.com/400x300/e3f2fd/1976d2?text=Sacaria+1' },
-  { url: 'https://via.placeholder.com/400x300/e8f5e9/4caf50?text=Sacaria+2' },
-  { url: 'https://via.placeholder.com/400x300/fff3e0/ff9800?text=Sacaria+3' },
-  { url: 'https://via.placeholder.com/400x300/fce4ec/e91e63?text=Sacaria+4' },
-  { url: 'https://via.placeholder.com/400x300/f3e5f5/9c27b0?text=Sacaria+5' },
-  { url: 'https://via.placeholder.com/400x300/e0f2f1/00695c?text=Sacaria+6' },
-  { url: 'https://via.placeholder.com/400x300/fff8e1/f57f17?text=Sacaria+7' },
-  { url: 'https://via.placeholder.com/400x300/ffebee/c62828?text=Sacaria+8' }
+  { url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80' },
+  { url: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80' }
 ];
 
 const IMAGES_PER_VIEW = 3;
@@ -114,10 +114,10 @@ const Sacaria: React.FC = () => {
   
 
   return (
-    <div className="flex h-screen bg-app overflow-hidden">
+  <div className="flex h-screen bg-app">
       <Sidebar user={user} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
+  <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
@@ -145,7 +145,7 @@ const Sacaria: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto space-y-6">
+        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
 
           <ContainerImageSection
             title="Sacaria"
@@ -159,6 +159,16 @@ const Sacaria: React.FC = () => {
             onOpenModal={(idx) => openModal(idx)}
             onPrev={prev}
             onNext={next}
+            onReorderImage={(fromIdx, toIdx) => {
+              setImages(prev => {
+                if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= prev.length || toIdx >= prev.length) return prev;
+                const arr = prev.slice();
+                const item = arr[fromIdx];
+                arr.splice(fromIdx, 1);
+                arr.splice(toIdx, 0, item);
+                return arr;
+              });
+            }}
             footerActions={
               <>
                 <button

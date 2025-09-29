@@ -21,6 +21,7 @@ interface Props {
   onNext: () => void;
   actions?: React.ReactNode;
   footerActions?: React.ReactNode;
+  onReorderImage?: (fromIdx: number, toIdx: number) => void;
 }
 
 const ContainerImageSection: React.FC<Props> = ({
@@ -36,7 +37,8 @@ const ContainerImageSection: React.FC<Props> = ({
   onPrev,
   onNext,
   actions,
-  footerActions
+  footerActions,
+  onReorderImage
 }) => {
   const visibleImages = images.slice(startIndex, startIndex + imagesPerView);
   const canGoPrev = startIndex > 0;
@@ -87,11 +89,29 @@ const ContainerImageSection: React.FC<Props> = ({
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {images.map((img, idx) => (
-                    <div key={idx} className="relative group">
+                    <div
+                      key={idx}
+                      className="relative group"
+                      draggable={isEditing}
+                      onDragStart={e => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('fromIdx', idx.toString());
+                      }}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const fromIdx = Number(e.dataTransfer.getData('fromIdx'));
+                        if (fromIdx === idx) return;
+                        if (typeof onReorderImage === 'function') {
+                          onReorderImage(fromIdx, idx);
+                        }
+                      }}
+                    >
                       <LazyImage
                         src={img.url}
                         alt={`${title} - Imagem ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded-lg border border-[var(--border)]"
+                        className="w-full h-48 max-h-72 max-w-full object-contain rounded-lg border border-[var(--border)] bg-[var(--hover)]"
                         width={400}
                         height={300}
                       />
@@ -116,10 +136,10 @@ const ContainerImageSection: React.FC<Props> = ({
             )}
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative overflow-hidden">
             <div className="rounded-lg border-[var(--border)]">
-              <div className="overflow-x-auto">
-                <div className="flex gap-3 min-w-max transition-all duration-500">
+              <div className="overflow-hidden">
+                <div className="flex gap-3 w-full  transition-all duration-500">
                 {visibleImages.map((img, idx) => {
                   const originalIndex = startIndex + idx;
                   return (
@@ -135,7 +155,7 @@ const ContainerImageSection: React.FC<Props> = ({
                       <LazyImage
                         src={img.url}
                         alt={`${title} - Imagem ${originalIndex + 1}`}
-                        className="w-full h-64 object-cover cursor-pointer transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg rounded opacity-0"
+                        className="w-full h-64 max-h-80 max-w-full object-contain cursor-pointer transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg rounded opacity-0 bg-[var(--hover)]"
                         width={400}
                         height={300}
                         onClick={() => onOpenModal(originalIndex)}
@@ -175,9 +195,9 @@ const ContainerImageSection: React.FC<Props> = ({
                   type="button"
                   onClick={onPrev}
                   disabled={!canGoPrev}
-                  className={`absolute top-1/3 mt-4 -left-4 -translate-y-1/2 bg-[var(--surface)] ring-1 ring-[var(--border)] rounded-full p-2 shadow-lg transition-all duration-300 ${
+                  className={`absolute top-1/2 left-2 -translate-y-1/2 z-10 bg-[var(--surface)] ring-1 ring-[var(--border)] rounded-full p-2 shadow-lg transition-all duration-300 ${
                     canGoPrev
-                      ? 'hover:bg-[var(--hover)] hover:scale-110 hover:shadow-xl text-[var(--text)] transform hover:-translate-x-1'
+                      ? 'hover:bg-[var(--hover)] hover:scale-110 hover:shadow-xl text-[var(--text)] transform hover:translate-x-1'
                       : 'text-[var(--muted)] cursor-not-allowed opacity-50'
                   }`}
                 >
@@ -190,9 +210,9 @@ const ContainerImageSection: React.FC<Props> = ({
                   type="button"
                   onClick={onNext}
                   disabled={!canGoNext}
-                  className={`absolute top-1/3 mt-4 -right-4 -translate-y-1/2 bg-[var(--surface)] ring-1 ring-[var(--border)] rounded-full p-2 shadow-lg transition-all duration-300 ${
+                  className={`absolute top-1/2 right-2 -translate-y-1/2 z-10 bg-[var(--surface)] ring-1 ring-[var(--border)] rounded-full p-2 shadow-lg transition-all duration-300 ${
                     canGoNext
-                      ? 'hover:bg-[var(--hover)] hover:scale-110 hover:shadow-xl text-[var(--text)] transform hover:translate-x-1'
+                      ? 'hover:bg-[var(--hover)] hover:scale-110 hover:shadow-xl text-[var(--text)] transform hover:-translate-x-1'
                       : 'text-[var(--muted)] cursor-not-allowed opacity-50'
                   }`}
                 >
@@ -205,11 +225,7 @@ const ContainerImageSection: React.FC<Props> = ({
 
             {images.length > imagesPerView && (
               <div className="flex justify-center mt-4 space-x-1 transition-all duration-300">
-                <div className="flex items-center space-x-2 text-sm text-[var(--muted)] bg-[var(--hover)] rounded-full px-3 py-1 transition-colors duration-200 hover:bg-[var(--hover)]">
-                  <span className="transition-all duration-200">
-                    {startIndex + 1} - {Math.min(startIndex + imagesPerView, images.length)} de {images.length}
-                  </span>
-                </div>
+                {/* Paginação removida visualmente */}
               </div>
             )}
           </div>

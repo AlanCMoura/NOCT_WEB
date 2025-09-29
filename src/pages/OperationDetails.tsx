@@ -230,7 +230,7 @@ const OperationDetails: React.FC = () => {
     <div className="flex h-screen bg-app overflow-hidden">
       <Sidebar user={user} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
+      <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
@@ -251,7 +251,7 @@ const OperationDetails: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto space-y-6">
+        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className=" border-b border-[var(--border)] flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
               {/* BotÃµes de Ação */}
