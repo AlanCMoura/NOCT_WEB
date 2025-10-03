@@ -1,4 +1,4 @@
-export type ContainerStatus = 'Não inicializado' | 'Parcial' | 'Completo';
+export type ContainerStatus = 'Nao inicializado' | 'Parcial' | 'Completo';
 
 export interface ContainerProgress {
   images: number;
@@ -45,12 +45,12 @@ export function setComplete(containerId: string, complete: boolean): void {
 export function computeStatus(progress: ContainerProgress): ContainerStatus {
   if (progress.complete) return 'Completo';
   if (progress.images > 0) return 'Parcial';
-  return 'Não inicializado';
+  return 'Nao inicializado';
 }
 
 export function statusWeight(status: ContainerStatus): number {
   switch (status) {
-    case 'Não inicializado':
+    case 'Nao inicializado':
       return 0;
     case 'Parcial':
       return 1;
@@ -60,4 +60,5 @@ export function statusWeight(status: ContainerStatus): number {
       return 0;
   }
 }
+
 

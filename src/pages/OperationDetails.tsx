@@ -1,8 +1,9 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Plus, Trash2 } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import { OperationSchema } from '../validation/operation';
 import { computeStatus, getProgress, setComplete, setImages, statusWeight, ContainerStatus } from '../services/containerProgress';
@@ -114,21 +115,20 @@ const OperationDetails: React.FC = () => {
   const initialCount = containerCountFor(decodedOperationId);
   const [containers, setContainers] = useState<Container[]>(() => generateContainers(initialCount));
   const opBackupRef = useRef<OperationInfo>(mockOperation);
+  const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
 
-  // Ordenação e Paginação
+  // Ordena��o e Pagina��o
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
-  const totalAll = containers.length;
   type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
   const [statusKey, setStatusKey] = useState<StatusKey>('todos');
-    const progressOf = (id: string) => getProgress(id);
-  const statusOf = (id: string) => computeStatus(progressOf(id));
+  const statusOf = useCallback((id: string) => computeStatus(getProgress(id)), []);
 
   const filteredContainers = useMemo(() => {
     if (statusKey === 'todos') return containers;
-    const target: ContainerStatus = statusKey === 'ni' ? 'Não inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
+    const target: ContainerStatus = statusKey === 'ni' ? 'Nao inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
     return containers.filter(c => statusOf(c.id) === target);
-  }, [containers, statusKey]);
+  }, [containers, statusKey, statusOf]);
 
   const total = filteredContainers.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -136,7 +136,7 @@ const OperationDetails: React.FC = () => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
-  // Atualiza lista quando a operação mudar
+  // Atualiza lista quando a opera��o mudar
   useEffect(() => {
     const c = containerCountFor(decodedOperationId);
     setContainers(generateContainers(c));
@@ -147,7 +147,7 @@ const OperationDetails: React.FC = () => {
   const endIdx = Math.min(startIdx + PAGE_SIZE, total);
   const paginated = useMemo(() => filteredContainers.slice(startIdx, endIdx), [filteredContainers, startIdx, endIdx]);
 
-  // Sacaria - imagens e navegação do carrossel
+  // Sacaria - imagens e navega��o do carrossel
   const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([
     { url: 'https://via.placeholder.com/400x300/e3f2fd/1976d2?text=Sacaria+1' },
     { url: 'https://via.placeholder.com/400x300/e8f5e9/4caf50?text=Sacaria+2' },
@@ -218,7 +218,7 @@ const OperationDetails: React.FC = () => {
     role: 'Administrador'
   };
 
-  // navegação via SidebarProvider; handler antigo removido
+  // navega��o via SidebarProvider; handler antigo removido
 
   const handleContainerClick = (containerId: string): void => {
     navigate(
@@ -234,8 +234,8 @@ const OperationDetails: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Operação {decodedOperationId}</h1>
-              <p className="text-sm text-[var(--muted)]">Detalhes da Operação</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Opera��o {decodedOperationId}</h1>
+              <p className="text-sm text-[var(--muted)]">Detalhes da Opera��o</p>
             </div>
             <div className="flex items-center gap-4">
               <button type="button" onClick={() => changePage('perfil')} aria-label="Acessar perfil" className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -253,52 +253,81 @@ const OperationDetails: React.FC = () => {
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className=" border-b border-[var(--border)] flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              {/* BotÃµes de Ação */}
             <div className="p-6 border-b border-[var(--border)]">
-                <div className="flex justify-between gap-4">
-                   <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
-            </div>
-            
-            </div>
-            <div className="px-6 pt-4 justify-end gap-2 hidden">
-              <button
-                type="button"
-                onClick={startEdit}
-                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Editar Operação
-              </button>
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors ${isEditing ? '' : 'hidden'}`}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => { alert('Operação atualizada!'); dispatch({ type: 'setEditing', value: false }); }}
-                className={`px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${isEditing ? '' : 'hidden'}`}
-              >
-                Salvar Operação
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(`Tem certeza que deseja excluir a Operação ${decodedOperationId}?`)) {
-                    alert(`Operação ${decodedOperationId} excluÃ­da!`);
-                    navigate('/operations');
-                  }
-                }}
-                className={`px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${isEditing ? 'hidden' : ''}`}
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir Operação
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
+                  {!isEditing && (
+                    <ToggleSwitch
+                      id="operation-status-toggle"
+                      className="flex items-center gap-2 text-sm mt-1 ml-4"
+                      checked={operationStatus === 'Fechada'}
+                      checkedLabel="Fechada"
+                      uncheckedLabel="Em andamento"
+                      onChange={(checked) => setOperationStatus(checked ? 'Fechada' : 'Aberta')}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+                  {isEditing ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { alert('Operacao atualizada!'); dispatch({ type: 'setEditing', value: false }); }}
+                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Salvar Operacao
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={startEdit}
+                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Editar Operacao
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Tem certeza que deseja excluir a Operacao ' + decodedOperationId + '?')) {
+                            alert('Operacao ' + decodedOperationId + ' excluida!');
+                            navigate('/operations');
+                          }
+                        }}
+                        className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Excluir Operacao
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/operations')}
+                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                      >
+                        Voltar
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
@@ -306,7 +335,7 @@ const OperationDetails: React.FC = () => {
                 <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
               </div>
               <div>
-                <span className="text-[var(--muted)] block">Operação</span>
+                <span className="text-[var(--muted)] block">Opera��o</span>
                 {isEditing ? (<>
                   <input value={opInfo.ship} onChange={e=>dispatch({ type: 'update', field: 'ship', value: e.target.value })} aria-invalid={!!errors.ship} aria-describedby={errors.ship ? 'ship-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                   {errors.ship && (<p id="ship-error" className="mt-1 text-xs text-red-600">{errors.ship}</p>)}
@@ -369,14 +398,13 @@ const OperationDetails: React.FC = () => {
                 )}
               </div>
             </div>
-            </div>
           </section>
 
           {/* Sacaria upload dorment (moved to dedicated page) */}
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Opera��o</h2>
               <div className="flex flex-1 sm:flex-initial gap-3 items-center">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -396,13 +424,13 @@ const OperationDetails: React.FC = () => {
                     title="Filtrar containers pelo status"
                   >
                     <option value="todos">Todos os Status</option>
-                    <option value="ni">Não inicializado</option>
+                    <option value="ni">N�o inicializado</option>
                     <option value="parcial">Parcial</option>
                     <option value="completo">Completo</option>
                   </select>
                 </div>
                 <button
-                  aria-label="Ver overview da operação"
+                  aria-label="Ver overview da opera��o"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
                   className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
@@ -447,7 +475,7 @@ const OperationDetails: React.FC = () => {
                 </button>
               ))}
             </div>
-            {/* Paginação */}
+            {/* Pagina��o */}
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
               <div className="text-sm text-[var(--muted)]">
                 {total === 0 ? (
@@ -471,7 +499,7 @@ const OperationDetails: React.FC = () => {
                   disabled={page >= totalPages}
                   className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Próximo
+                  Pr�ximo
                 </button>
               </div>
             </div>
@@ -483,6 +511,10 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
+
+
+
+
 
 
 

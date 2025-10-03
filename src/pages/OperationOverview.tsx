@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Search, Edit } from 'lucide-react';
@@ -20,7 +20,7 @@ interface ContainerRow {
 
 
 
-// Gera linhas mock com tamanho variável por operação
+// Gera linhas mock com tamanho vari�vel por opera��o
 const generateRows = (count: number): ContainerRow[] => {
   const rows: ContainerRow[] = [];
   for (let i = 0; i < count; i++) {
@@ -53,7 +53,7 @@ const OperationOverview: React.FC = () => {
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
 
-  // Atualiza quando navega para outra operação
+  // Atualiza quando navega para outra opera��o
   useEffect(() => {
     const c = containerCountFor(decodedOperationId);
     const gen = generateRows(c);
@@ -68,7 +68,7 @@ const OperationOverview: React.FC = () => {
     const q = search.trim().toLowerCase();
     const base = q ? rows.filter((r) => r.id.toLowerCase().includes(q)) : rows;
     if (statusKey === 'todos') return base;
-    const target: ContainerStatus = statusKey === 'ni' ? 'Não inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
+    const target: ContainerStatus = statusKey === 'ni' ? 'Nao inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
     return base.filter((r) => computeStatus(getProgress(r.id)) === target);
   }, [rows, search, statusKey]);
 
@@ -105,7 +105,7 @@ const OperationOverview: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Overview de Containers</h1>
-              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">Opera��o {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-3">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -142,7 +142,7 @@ const OperationOverview: React.FC = () => {
                 title="Filtrar containers pelo status"
               >
                 <option value="todos">Todos os Status</option>
-                <option value="Não inicializado">Não inicializado</option>
+                <option value="Nao inicializado">Nao inicializado</option>
                 <option value="parcial">Parcial</option>
                 <option value="completo">Completo</option>
               </select>
@@ -152,7 +152,7 @@ const OperationOverview: React.FC = () => {
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Opera��o</h2>
               </div>
             </div>
 
@@ -258,7 +258,7 @@ const OperationOverview: React.FC = () => {
               </table>
             </div>
 
-            {/* Paginação */}
+            {/* Pagina��o */}
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
               <div className="text-sm text-[var(--muted)]">
                 {totalFiltered === 0 ? (
@@ -282,7 +282,7 @@ const OperationOverview: React.FC = () => {
                   disabled={page >= totalPages}
                   className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Próximo
+                  Pr�ximo
                 </button>
               </div>
             </div>
@@ -308,6 +308,7 @@ const OperationOverview: React.FC = () => {
 };
 
 export default OperationOverview;
+
 
 
 

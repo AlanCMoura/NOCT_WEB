@@ -2,6 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import ContainerImageSection from '../components/ContainerImageSection';
 import { computeStatus, getProgress, setImages, setComplete } from '../services/containerProgress';
@@ -263,6 +264,9 @@ const ContainerDetails: React.FC = () => {
     setInfo(prev => ({ ...prev, [name]: value }));
   };
 
+  const sanitizedContainerId = decodedContainerId ? decodedContainerId.replace(/[^a-zA-Z0-9]/g, '-') : 'container';
+  const containerToggleId = `container-status-${sanitizedContainerId}`;
+
   const formatWeight = (value: string): string => {
     const num = parseFloat(value.replace(/\D/g, ''));
     return new Intl.NumberFormat('pt-BR').format(num);
@@ -319,10 +323,27 @@ const ContainerDetails: React.FC = () => {
 
           {/* Dados do Container */}
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mb-6">
-            <div className="flex p-6 border-b border-[var(--border)] justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
-              {/* Botões de Ação */}
-                <div className="flex justify-end gap-4">
+            <div className="p-6 border-b border-[var(--border)]">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
+                  {!isEditing && (
+                    <ToggleSwitch
+                      id={containerToggleId}
+                      className="flex items-center gap-2 text-sm mt-1 ml-4"
+                      label=""
+                      checked={progress.complete}
+                      checkedLabel="Completo"
+                      uncheckedLabel="Em andamento"
+                      onChange={(checked) => {
+                        if (!decodedContainerId) return;
+                        setComplete(decodedContainerId, checked);
+                        setProgress((prev) => ({ ...prev, complete: checked }));
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
                   {isEditing ? (
                     <>
                       <button
@@ -347,14 +368,7 @@ const ContainerDetails: React.FC = () => {
                       </button>
                     </>
                   ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { if (decodedContainerId) { const next = !progress.complete; setComplete(decodedContainerId, next); setProgress({ ...progress, complete: next }); } }}
-                        className="px-6 py-2 bg-white border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
-                      >
-                        {progress.complete ? 'Desmarcar Completo' : 'Marcar como Completo'}
-                      </button>
+                    <>
                       <button
                         type="button"
                         onClick={() => setIsEditing(true)}
@@ -365,13 +379,13 @@ const ContainerDetails: React.FC = () => {
                         </svg>
                         Editar Container
                       </button>
-                      <button 
+                      <button
                         className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
                       >
                         <Trash2 className="w-4 h-4" />
                         Excluir Container
                       </button>
-                    </div>
+                    </>
                   )}
                   <button
                     type="button"
@@ -381,6 +395,7 @@ const ContainerDetails: React.FC = () => {
                     Voltar
                   </button>
                 </div>
+              </div>
             </div>
 
             <div className="p-6">
