@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 
 import LazyImage from './LazyImage';
+import SkeletonPlaceholder from './SkeletonPlaceholder';
 
 export interface ImageItem {
   file?: File;
@@ -22,6 +23,7 @@ interface Props {
   actions?: React.ReactNode;
   footerActions?: React.ReactNode;
   onReorderImage?: (fromIdx: number, toIdx: number) => void;
+  loading?: boolean;
 }
 
 const ContainerImageSection: React.FC<Props> = ({
@@ -38,11 +40,40 @@ const ContainerImageSection: React.FC<Props> = ({
   onNext,
   actions,
   footerActions,
-  onReorderImage
+  onReorderImage,
+  loading = false
 }) => {
   const visibleImages = images.slice(startIndex, startIndex + imagesPerView);
   const canGoPrev = startIndex > 0;
   const canGoNext = startIndex + imagesPerView < images.length;
+
+  if (loading) {
+    const skeletonCount = Math.max(imagesPerView, 3);
+    return (
+      <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mb-6 animate-pulse">
+        <div className="p-6 border-b border-[var(--border)] flex items-center justify-between">
+          <SkeletonPlaceholder className="h-6 w-1/4" />
+          <div className="flex items-center gap-3">
+            <SkeletonPlaceholder className="h-4 w-16" />
+            {actions ? <SkeletonPlaceholder className="h-9 w-24" /> : null}
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {Array.from({ length: skeletonCount }).map((_, idx) => (
+              <SkeletonPlaceholder key={idx} className="h-40 w-full" />
+            ))}
+          </div>
+          {(footerActions || isEditing) && (
+            <div className="flex flex-wrap gap-3 justify-end">
+              <SkeletonPlaceholder className="h-10 w-24" />
+              <SkeletonPlaceholder className="h-10 w-28" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mb-6">

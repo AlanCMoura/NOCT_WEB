@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 import {
   Calendar,
   User,
@@ -36,6 +38,7 @@ function useQuery() {
 
 const ReportBuilder: React.FC = () => {
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
   const query = useQuery();
   const currentUser: UserLogged = { name: 'Carlos Oliveira', role: 'Gerente' };
 
@@ -118,164 +121,171 @@ const ReportBuilder: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left column - types (step 1) */}
-            <aside className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-              <div className="p-6 border-b border-[var(--border)]">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Tipos de Relatório</h2>
-                <p className="text-sm text-[var(--muted)]">1) Escolha o tipo</p>
-              </div>
-              <div className="p-4 space-y-3">
-                {types.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setReportType(t.id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${reportType === t.id ? `bg-teal-50 ring-2 ${t.color}` : 'bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--hover)]'}`}
-                    aria-pressed={reportType === t.id}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="text-2xl leading-none">{t.emoji}</div>
-                      <div>
-                        <div className="font-semibold text-[var(--text)]">{t.title}</div>
-                        <div className="text-sm text-[var(--muted)]">{t.desc}</div>
+          {loading ? (
+            <div className="space-y-6">
+              <PageLoadingState variant="grid" sections={3} />
+              <PageLoadingState variant="form" sections={4} />
+            </div>
+          ) : (
+  
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Left column - types (step 1) */}
+              <aside className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+                <div className="p-6 border-b border-[var(--border)]">
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Tipos de Relatório</h2>
+                  <p className="text-sm text-[var(--muted)]">1) Escolha o tipo</p>
+                </div>
+                <div className="p-4 space-y-3">
+                  {types.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setReportType(t.id)}
+                      className={`w-full text-left p-4 rounded-xl border transition-all ${reportType === t.id ? `bg-teal-50 ring-2 ${t.color}` : 'bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--hover)]'}`}
+                      aria-pressed={reportType === t.id}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl leading-none">{t.emoji}</div>
+                        <div>
+                          <div className="font-semibold text-[var(--text)]">{t.title}</div>
+                          <div className="text-sm text-[var(--muted)]">{t.desc}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </aside>
+  
+              {/* Right column - form (step 2) */}
+              <section className="xl:col-span-2 bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+                <div className="p-6 border-b border-[var(--border)]">
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Configuração do Relatório</h2>
+                  <p className="text-sm text-[var(--muted)]">2) Defina filtros e campos</p>
+                </div>
+                <div className="p-6 space-y-6">
+                  {/* Dates */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-[var(--text)]">Data Início *</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
                       </div>
                     </div>
-                  </button>
-                ))}
-              </div>
-            </aside>
-
-            {/* Right column - form (step 2) */}
-            <section className="xl:col-span-2 bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-              <div className="p-6 border-b border-[var(--border)]">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Configuração do Relatório</h2>
-                <p className="text-sm text-[var(--muted)]">2) Defina filtros e campos</p>
-              </div>
-              <div className="p-6 space-y-6">
-                {/* Dates */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">Data Início *</label>
-                    <div className="relative">
-                      <Calendar className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-[var(--text)]">Data Fim *</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">Data Fim *</label>
-                    <div className="relative">
-                      <Calendar className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+  
+                  {/* Selects */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-[var(--text)]">Navio</label>
+                      <div className="relative">
+                        <Ship className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <select value={navio} onChange={(e) => setNavio(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
+                          <option>Todos os navios</option>
+                          <option>MSC Fantasia</option>
+                          <option>Maersk Line</option>
+                          <option>CMA CGM</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-[var(--text)]">Terminal</label>
+                      <div className="relative">
+                        <Building2 className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <select value={terminal} onChange={(e) => setTerminal(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
+                          <option>Todos os terminais</option>
+                          <option>Terminal 1</option>
+                          <option>Terminal 2</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-[var(--text)]">Status da Operação</label>
+                      <div className="relative">
+                        <CheckSquare className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
+                          <option>Todos os status</option>
+                          <option>Abertas</option>
+                          <option>Em andamento</option>
+                          <option>Concluídas</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-[var(--text)]">Usuário</label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <select value={usuario} onChange={(e) => setUsuario(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
+                          <option>Todos os usuários</option>
+                          <option>João Silva</option>
+                          <option>Maria Souza</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Selects */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  
+                  {/* Checkboxes */}
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">Navio</label>
-                    <div className="relative">
-                      <Ship className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <select value={navio} onChange={(e) => setNavio(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        <option>Todos os navios</option>
-                        <option>MSC Fantasia</option>
-                        <option>Maersk Line</option>
-                        <option>CMA CGM</option>
-                      </select>
+                    <div className="text-sm font-medium mb-2 text-[var(--text)]">Campos a Incluir</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.amv ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                        <ClipboardList className="w-4 h-4" />
+                        <input type="checkbox" checked={fields.amv} onChange={() => toggle('amv')} /> AMV
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.containers ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                        <ClipboardList className="w-4 h-4" />
+                        <input type="checkbox" checked={fields.containers} onChange={() => toggle('containers')} /> Containers
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.fotos ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                        <Image className="w-4 h-4" />
+                        <input type="checkbox" checked={fields.fotos} onChange={() => toggle('fotos')} /> Fotos
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.timestamps ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                        <Timer className="w-4 h-4" />
+                        <input type="checkbox" checked={fields.timestamps} onChange={() => toggle('timestamps')} /> Timestamps
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.usuarios ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                        <UsersIcon className="w-4 h-4" />
+                        <input type="checkbox" checked={fields.usuarios} onChange={() => toggle('usuarios')} /> Usuários
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.auditoria ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                        <ShieldCheck className="w-4 h-4" />
+                        <input type="checkbox" checked={fields.auditoria} onChange={() => toggle('auditoria')} /> Auditoria
+                      </label>
                     </div>
                   </div>
+  
+                  {/* Observações */}
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">Terminal</label>
-                    <div className="relative">
-                      <Building2 className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <select value={terminal} onChange={(e) => setTerminal(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        <option>Todos os terminais</option>
-                        <option>Terminal 1</option>
-                        <option>Terminal 2</option>
-                      </select>
+                    <div className="text-sm font-medium mb-2 text-[var(--text)]">Observações Adicionais</div>
+                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={4} placeholder="Adicione observações ou requisitos específicos para este relatório..." className="w-full p-3 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                  {/* Footer actions inside configuration card */}
+                  <div className="pt-4 mt-2 border-t border-[var(--border)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex gap-3">
+                      <button onClick={handleClear} className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)]">
+                        <Trash2 className="w-4 h-4 mr-2" /> Limpar
+                      </button>
+                      <button onClick={handleSaveTemplate} className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-gray-700 text-white hover:opacity-90">
+                        <Save className="w-4 h-4 mr-2" /> Salvar Template
+                      </button>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">Status da Operação</label>
-                    <div className="relative">
-                      <CheckSquare className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        <option>Todos os status</option>
-                        <option>Abertas</option>
-                        <option>Em andamento</option>
-                        <option>Concluídas</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">Usuário</label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <select value={usuario} onChange={(e) => setUsuario(e.target.value)} className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        <option>Todos os usuários</option>
-                        <option>João Silva</option>
-                        <option>Maria Souza</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Checkboxes */}
-                <div>
-                  <div className="text-sm font-medium mb-2 text-[var(--text)]">Campos a Incluir</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.amv ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
-                      <ClipboardList className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.amv} onChange={() => toggle('amv')} /> AMV
-                    </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.containers ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
-                      <ClipboardList className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.containers} onChange={() => toggle('containers')} /> Containers
-                    </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.fotos ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
-                      <Image className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.fotos} onChange={() => toggle('fotos')} /> Fotos
-                    </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.timestamps ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
-                      <Timer className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.timestamps} onChange={() => toggle('timestamps')} /> Timestamps
-                    </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.usuarios ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
-                      <UsersIcon className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.usuarios} onChange={() => toggle('usuarios')} /> Usuários
-                    </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.auditoria ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
-                      <ShieldCheck className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.auditoria} onChange={() => toggle('auditoria')} /> Auditoria
-                    </label>
-                  </div>
-                </div>
-
-                {/* Observações */}
-                <div>
-                  <div className="text-sm font-medium mb-2 text-[var(--text)]">Observações Adicionais</div>
-                  <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={4} placeholder="Adicione observações ou requisitos específicos para este relatório..." className="w-full p-3 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                </div>
-                {/* Footer actions inside configuration card */}
-                <div className="pt-4 mt-2 border-t border-[var(--border)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                  <div className="flex gap-3">
-                    <button onClick={handleClear} className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)]">
-                      <Trash2 className="w-4 h-4 mr-2" /> Limpar
-                    </button>
-                    <button onClick={handleSaveTemplate} className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-gray-700 text-white hover:opacity-90">
-                      <Save className="w-4 h-4 mr-2" /> Salvar Template
+                    <button disabled={!canGenerate} className={`inline-flex items-center justify-center px-4 py-2 rounded-lg ${canGenerate ? 'bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}>
+                      <Rocket className="w-4 h-4 mr-2" /> Gerar Relatório
                     </button>
                   </div>
-                  <button disabled={!canGenerate} className={`inline-flex items-center justify-center px-4 py-2 rounded-lg ${canGenerate ? 'bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}>
-                    <Rocket className="w-4 h-4 mr-2" /> Gerar Relatório
-                  </button>
                 </div>
-              </div>
-            </section>
-
-            {/* No third column after form */}
-          </div>
+              </section>
+  
+              {/* No third column after form */}
+            </div>
+          )}
         </main>
       </div>
     </div>

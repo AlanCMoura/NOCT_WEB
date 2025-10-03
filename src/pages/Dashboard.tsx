@@ -2,13 +2,16 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wrench, Clock, ArrowRight } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 
 interface User { name: string; role: string }
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
   const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
 
   return (
@@ -37,31 +40,35 @@ const Dashboard: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          <div className="h-full flex items-center justify-center">
-            <div className="w-full max-w-3xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm p-8 text-center">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/20 flex items-center justify-center text-teal-600 mb-4">
-                <Wrench className="w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-semibold text-[var(--text)] mb-2">Dashboard em manutenção</h2>
-              <p className="text-[var(--muted)] mb-6">
-                Estamos aprimorando esta área para a próxima versão. Enquanto isso, use as seções abaixo normalmente.
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mb-6">
-                <button onClick={() => navigate('/operations')} className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90">
-                  Ir para Operações <ArrowRight className="w-4 h-4 ml-2" />
-                </button>
-                <button onClick={() => navigate('/reports')} className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)]">
-                  Relatórios
-                </button>
-              </div>
-
-              <div className="flex items-center justify-center gap-2 text-xs text-[var(--muted)]">
-                <Clock className="w-4 h-4" />
-                Atualização prevista: em breve
+          {loading ? (
+            <PageLoadingState variant="center" className="h-full" />
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="w-full max-w-3xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm p-8 text-center">
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/20 flex items-center justify-center text-teal-600 mb-4">
+                  <Wrench className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-semibold text-[var(--text)] mb-2">Dashboard em manutenção</h2>
+                <p className="text-[var(--muted)] mb-6">
+                  Estamos aprimorando esta área para a próxima versão. Enquanto isso, use as seções abaixo normalmente.
+                </p>
+  
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mb-6">
+                  <button onClick={() => navigate('/operations')} className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90">
+                    Ir para Operações <ArrowRight className="w-4 h-4 ml-2" />
+                  </button>
+                  <button onClick={() => navigate('/reports')} className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)]">
+                    Relatórios
+                  </button>
+                </div>
+  
+                <div className="flex items-center justify-center gap-2 text-xs text-[var(--muted)]">
+                  <Clock className="w-4 h-4" />
+                  Atualização prevista: em breve
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
@@ -69,4 +76,3 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
-

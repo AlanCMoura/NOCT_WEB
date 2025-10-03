@@ -2,8 +2,10 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 import ContainerImageSection from '../components/ContainerImageSection';
 import { computeStatus, getProgress, setImages, setComplete } from '../services/containerProgress';
 
@@ -119,6 +121,7 @@ const ContainerDetails: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
   const [info, setInfo] = useState<ContainerInfo>(initialInfo);
   const [imageSections, setImageSections] = useState<Record<string, ImageItem[]>>(imagesSections);
   const [isEditing, setIsEditing] = useState(false);
@@ -308,7 +311,7 @@ const ContainerDetails: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
           <input
             ref={fileInputRef}
             type="file"
@@ -322,218 +325,222 @@ const ContainerDetails: React.FC = () => {
           />
 
           {/* Dados do Container */}
-          <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mb-6">
-            <div className="p-6 border-b border-[var(--border)]">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
-                  {!isEditing && (
-                    <ToggleSwitch
-                      id={containerToggleId}
-                      className="flex items-center gap-2 text-sm mt-1 ml-4"
-                      label=""
-                      checked={progress.complete}
-                      checkedLabel="Completo"
-                      uncheckedLabel="Em andamento"
-                      onChange={(checked) => {
-                        if (!decodedContainerId) return;
-                        setComplete(decodedContainerId, checked);
-                        setProgress((prev) => ({ ...prev, complete: checked }));
-                      }}
-                    />
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
-                  {isEditing ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleCancel}
-                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSave}
-                        className="px-6 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Salvar Container
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditing(true)}
-                        className="px-6 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Editar Container
-                      </button>
-                      <button
-                        className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Excluir Container
-                      </button>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`)}
-                    className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                  >
-                    Voltar
-                  </button>
+          {loading ? (
+            <PageLoadingState variant="form" sections={3} />
+          ) : (
+            <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mb-6">
+              <div className="p-6 border-b border-[var(--border)]">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
+                    {!isEditing && (
+                      <ToggleSwitch
+                        id={containerToggleId}
+                        className="flex items-center gap-2 text-sm mt-1 ml-4"
+                        label=""
+                        checked={progress.complete}
+                        checkedLabel="Completo"
+                        uncheckedLabel="Em andamento"
+                        onChange={(checked) => {
+                          if (!decodedContainerId) return;
+                          setComplete(decodedContainerId, checked);
+                          setProgress((prev) => ({ ...prev, complete: checked }));
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+                    {isEditing ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleCancel}
+                          className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSave}
+                          className="px-6 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Salvar Container
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(true)}
+                          className="px-6 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Editar Container
+                        </button>
+                        <button
+                          className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Excluir Container
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`)}
+                      className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                    >
+                      Voltar
+                    </button>
+                  </div>
                 </div>
               </div>
+  
+              <div className="p-6">
+                {isEditing ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Container</label>
+                      <input
+                        type="text"
+                        name="container"
+                        value={info.container}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Quantidade de Sacaria</label>
+                      <input
+                        type="text"
+                        name="quantidade"
+                        value={info.quantidade}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Tara (kg)</label>
+                      <input
+                        type="text"
+                        name="tara"
+                        value={info.tara}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Líquido (kg)</label>
+                      <input
+                        type="text"
+                        name="pesoLiquido"
+                        value={info.pesoLiquido}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Bruto (kg)</label>
+                      <input
+                        type="text"
+                        name="pesoBruto"
+                        value={info.pesoBruto}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacre Agência</label>
+                      <input
+                        type="text"
+                        name="lacreAgencia"
+                        value={info.lacreAgencia}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Data Retirada Terminal</label>
+                      <input
+                        type="text"
+                        name="dataRetirada"
+                        value={info.dataRetirada}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div className="lg:col-span-3">
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacres Outros</label>
+                      <textarea
+                        name="lacreOutros"
+                        value={info.lacreOutros}
+                        onChange={handleChange}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Data de Estufagem</label>
+                      <input
+                        type="text"
+                        name="container"
+                        value={info.dataEstufagem}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 text-sm ">
+                    <div>
+                      <span className="text-[var(--muted)] block">Container</span>
+                      <span className="text-[var(--text)] font-medium">{info.container}</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Quantidade de Sacaria</span>
+                      <span className="text-[var(--text)] font-medium">{formatWeight(info.quantidade)} sacas</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Tara</span>
+                      <span className="text-[var(--text)] font-medium">{formatWeight(info.tara)} kg</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Peso Líquido</span>
+                      <span className="text-[var(--text)] font-medium">{formatWeight(info.pesoLiquido)} kg</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Peso Bruto</span>
+                      <span className="text-[var(--text)] font-medium">{formatWeight(info.pesoBruto)} kg</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Lacre Agência</span>
+                      <span className="text-[var(--text)] font-medium">{info.lacreAgencia}</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Data Retirada Terminal</span>
+                      <span className="text-[var(--text)] font-medium">{formatDate(info.dataRetirada)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Lacres Outros</span>
+                      <span className="text-[var(--text)] font-medium">{info.lacreOutros}</span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--muted)] block">Data de Estufagem</span>
+                      <span className="text-[var(--text)] font-medium">{info.dataEstufagem}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-
-            <div className="p-6">
-              {isEditing ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Container</label>
-                    <input
-                      type="text"
-                      name="container"
-                      value={info.container}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Quantidade de Sacaria</label>
-                    <input
-                      type="text"
-                      name="quantidade"
-                      value={info.quantidade}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Tara (kg)</label>
-                    <input
-                      type="text"
-                      name="tara"
-                      value={info.tara}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Líquido (kg)</label>
-                    <input
-                      type="text"
-                      name="pesoLiquido"
-                      value={info.pesoLiquido}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Bruto (kg)</label>
-                    <input
-                      type="text"
-                      name="pesoBruto"
-                      value={info.pesoBruto}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacre Agência</label>
-                    <input
-                      type="text"
-                      name="lacreAgencia"
-                      value={info.lacreAgencia}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Data Retirada Terminal</label>
-                    <input
-                      type="text"
-                      name="dataRetirada"
-                      value={info.dataRetirada}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div className="lg:col-span-3">
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacres Outros</label>
-                    <textarea
-                      name="lacreOutros"
-                      value={info.lacreOutros}
-                      onChange={handleChange}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Data de Estufagem</label>
-                    <input
-                      type="text"
-                      name="container"
-                      value={info.dataEstufagem}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 text-sm ">
-                  <div>
-                    <span className="text-[var(--muted)] block">Container</span>
-                    <span className="text-[var(--text)] font-medium">{info.container}</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Quantidade de Sacaria</span>
-                    <span className="text-[var(--text)] font-medium">{formatWeight(info.quantidade)} sacas</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Tara</span>
-                    <span className="text-[var(--text)] font-medium">{formatWeight(info.tara)} kg</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Peso Líquido</span>
-                    <span className="text-[var(--text)] font-medium">{formatWeight(info.pesoLiquido)} kg</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Peso Bruto</span>
-                    <span className="text-[var(--text)] font-medium">{formatWeight(info.pesoBruto)} kg</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Lacre Agência</span>
-                    <span className="text-[var(--text)] font-medium">{info.lacreAgencia}</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Data Retirada Terminal</span>
-                    <span className="text-[var(--text)] font-medium">{formatDate(info.dataRetirada)}</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Lacres Outros</span>
-                    <span className="text-[var(--text)] font-medium">{info.lacreOutros}</span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted)] block">Data de Estufagem</span>
-                    <span className="text-[var(--text)] font-medium">{info.dataEstufagem}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
           
           <ContainerImageSection
             title="Vazio/Forrado"
@@ -541,6 +548,7 @@ const ContainerDetails: React.FC = () => {
             isEditing={isEditing}
             startIndex={carouselIndex['Vazio/Forrado'] ?? 0}
             imagesPerView={IMAGES_PER_VIEW}
+            loading={loading}
             onDrop={(e) => handleDrop(e, 'Vazio/Forrado')}
             onSelectImages={() => handleImageButtonClick('Vazio/Forrado')}
             onRemoveImage={(idx) => handleRemoveImage('Vazio/Forrado', idx)}
@@ -554,6 +562,7 @@ const ContainerDetails: React.FC = () => {
             isEditing={isEditing}
             startIndex={carouselIndex['Parcial'] ?? 0}
             imagesPerView={IMAGES_PER_VIEW}
+            loading={loading}
             onDrop={(e) => handleDrop(e, 'Parcial')}
             onSelectImages={() => handleImageButtonClick('Parcial')}
             onRemoveImage={(idx) => handleRemoveImage('Parcial', idx)}
@@ -567,6 +576,7 @@ const ContainerDetails: React.FC = () => {
             isEditing={isEditing}
             startIndex={carouselIndex['Cheio/Aberto'] ?? 0}
             imagesPerView={IMAGES_PER_VIEW}
+            loading={loading}
             onDrop={(e) => handleDrop(e, 'Cheio/Aberto')}
             onSelectImages={() => handleImageButtonClick('Cheio/Aberto')}
             onRemoveImage={(idx) => handleRemoveImage('Cheio/Aberto', idx)}
@@ -580,6 +590,7 @@ const ContainerDetails: React.FC = () => {
             isEditing={isEditing}
             startIndex={carouselIndex['Meia Porta'] ?? 0}
             imagesPerView={IMAGES_PER_VIEW}
+            loading={loading}
             onDrop={(e) => handleDrop(e, 'Meia Porta')}
             onSelectImages={() => handleImageButtonClick('Meia Porta')}
             onRemoveImage={(idx) => handleRemoveImage('Meia Porta', idx)}
@@ -593,6 +604,7 @@ const ContainerDetails: React.FC = () => {
             isEditing={isEditing}
             startIndex={carouselIndex['Lacre Principal'] ?? 0}
             imagesPerView={IMAGES_PER_VIEW}
+            loading={loading}
             onDrop={(e) => handleDrop(e, 'Lacre Principal')}
             onSelectImages={() => handleImageButtonClick('Lacre Principal')}
             onRemoveImage={(idx) => handleRemoveImage('Lacre Principal', idx)}
@@ -668,5 +680,4 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
-
 

@@ -3,8 +3,10 @@ import { useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 import { OperationSchema } from '../validation/operation';
 import { computeStatus, getProgress, setComplete, setImages, statusWeight, ContainerStatus } from '../services/containerProgress';
 import { containerCountFor } from '../mock/operationData';
@@ -112,6 +114,7 @@ const OperationDetails: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
   const initialCount = containerCountFor(decodedOperationId);
   const [containers, setContainers] = useState<Container[]>(() => generateContainers(initialCount));
   const opBackupRef = useRef<OperationInfo>(mockOperation);
@@ -252,258 +255,267 @@ const OperationDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)]">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
-                  {!isEditing && (
-                    <ToggleSwitch
-                      id="operation-status-toggle"
-                      className="flex items-center gap-2 text-sm mt-1 ml-4"
-                      checked={operationStatus === 'Fechada'}
-                      checkedLabel="Fechada"
-                      uncheckedLabel="Em andamento"
-                      onChange={(checked) => setOperationStatus(checked ? 'Fechada' : 'Aberta')}
-                    />
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
-                  {isEditing ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={cancelEdit}
-                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { alert('Operacao atualizada!'); dispatch({ type: 'setEditing', value: false }); }}
-                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Salvar Operacao
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={startEdit}
-                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Editar Operacao
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm('Tem certeza que deseja excluir a Operacao ' + decodedOperationId + '?')) {
-                            alert('Operacao ' + decodedOperationId + ' excluida!');
-                            navigate('/operations');
-                          }
-                        }}
-                        className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Excluir Operacao
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate('/operations')}
-                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                      >
-                        Voltar
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
+          {loading ? (
+            <div className="space-y-6">
+              <PageLoadingState variant="form" sections={3} />
+              <PageLoadingState variant="table" rows={5} />
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
-              <div>
-                <span className="text-[var(--muted)] block">ID</span>
-                <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Opera��o</span>
-                {isEditing ? (<>
-                  <input value={opInfo.ship} onChange={e=>dispatch({ type: 'update', field: 'ship', value: e.target.value })} aria-invalid={!!errors.ship} aria-describedby={errors.ship ? 'ship-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.ship && (<p id="ship-error" className="mt-1 text-xs text-red-600">{errors.ship}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.ship}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Reserva</span>
-                {isEditing ? (<>
-                  <input value={opInfo.reserva} onChange={e=>dispatch({ type: 'update', field: 'reserva', value: e.target.value })} aria-invalid={!!errors.reserva} aria-describedby={errors.reserva ? 'reserva-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.reserva && (<p id="reserva-error" className="mt-1 text-xs text-red-600">{errors.reserva}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.reserva}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Local (Terminal)</span>
-                {isEditing ? (<>
-                  <input value={opInfo.local} onChange={e=>dispatch({ type: 'update', field: 'local', value: e.target.value })} aria-invalid={!!errors.local} aria-describedby={errors.local ? 'local-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.local && (<p id="local-error" className="mt-1 text-xs text-red-600">{errors.local}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.local}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Destino</span>
-                {isEditing ? (<>
-                  <input value={opInfo.destination} onChange={e=>dispatch({ type: 'update', field: 'destination', value: e.target.value })} aria-invalid={!!errors.destination} aria-describedby={errors.destination ? 'destination-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.destination && (<p id="destination-error" className="mt-1 text-xs text-red-600">{errors.destination}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.destination}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Navio</span>
-                {isEditing ? (<>
-                  <input value={opInfo.navio} onChange={e=>dispatch({ type: 'update', field: 'navio', value: e.target.value })} aria-invalid={!!errors.navio} aria-describedby={errors.navio ? 'navio-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.navio && (<p id="navio-error" className="mt-1 text-xs text-red-600">{errors.navio}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.navio}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Exportador</span>
-                {isEditing ? (<>
-                  <input value={opInfo.exporter} onChange={e=>dispatch({ type: 'update', field: 'exporter', value: e.target.value })} aria-invalid={!!errors.exporter} aria-describedby={errors.exporter ? 'exporter-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.exporter && (<p id="exporter-error" className="mt-1 text-xs text-red-600">{errors.exporter}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.exporter}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Deadline Draft</span>
-                {isEditing ? (<>
-                  <input value={opInfo.deadline} onChange={e=>dispatch({ type: 'update', field: 'deadline', value: e.target.value })} aria-invalid={!!errors.deadline} aria-describedby={errors.deadline ? 'deadline-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.deadline && (<p id="deadline-error" className="mt-1 text-xs text-red-600">{errors.deadline}</p>)}
-                </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.deadline}</span>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Sacaria upload dorment (moved to dedicated page) */}
-
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Opera��o</h2>
-              <div className="flex flex-1 sm:flex-initial gap-3 items-center">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Buscar container..."
-                    aria-label="Buscar container"
-                    className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                  />
+          ) : (
+            <>
+              <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6 border-b border-[var(--border)]">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
+                    {!isEditing && (
+                      <ToggleSwitch
+                        id="operation-status-toggle"
+                        className="flex items-center gap-2 text-sm mt-1 ml-4"
+                        checked={operationStatus === 'Fechada'}
+                        checkedLabel="Fechada"
+                        uncheckedLabel="Em andamento"
+                        onChange={(checked) => setOperationStatus(checked ? 'Fechada' : 'Aberta')}
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+                    {isEditing ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { alert('Operacao atualizada!'); dispatch({ type: 'setEditing', value: false }); }}
+                          className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Salvar Operacao
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={startEdit}
+                          className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Editar Operacao
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Tem certeza que deseja excluir a Operacao ' + decodedOperationId + '?')) {
+                              alert('Operacao ' + decodedOperationId + ' excluida!');
+                              navigate('/operations');
+                            }
+                          }}
+                          className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Excluir Operacao
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/operations')}
+                          className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                        >
+                          Voltar
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="w-64">
-                  <select
-                    value={statusKey as any}
-                    onChange={(e) => setStatusKey(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    aria-label="Filtrar por Status"
-                    title="Filtrar containers pelo status"
-                  >
-                    <option value="todos">Todos os Status</option>
-                    <option value="ni">N�o inicializado</option>
-                    <option value="parcial">Parcial</option>
-                    <option value="completo">Completo</option>
-                  </select>
-                </div>
-                <button
-                  aria-label="Ver overview da opera��o"
-                  onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
-                  className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  Overview
-                </button>
-            </div>
-            </div>
-            <div className="divide-y divide-[var(--border)]">
-              {/* Item especial: Sacaria (como se fosse um container) */}
-              <button
-                type="button"
-                aria-label="Abrir sacaria"
-                className="w-full text-left p-4 flex items-center justify-between cursor-pointer transition-colors bg-[var(--hover)] border-l-4 border-teal-500"
-                onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/sacaria`)}
-              >
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
                 <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">Sacaria</div>
-                  <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
+                  <span className="text-[var(--muted)] block">ID</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
                 </div>
-              </button>
-              {/* Contador total */}
-              <div className="px-4 py-2 text-sm text-[var(--muted)]">
-                Total de containers: <span className="font-medium text-[var(--text)]">{total}</span>
+                <div>
+                  <span className="text-[var(--muted)] block">Opera��o</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.ship} onChange={e=>dispatch({ type: 'update', field: 'ship', value: e.target.value })} aria-invalid={!!errors.ship} aria-describedby={errors.ship ? 'ship-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.ship && (<p id="ship-error" className="mt-1 text-xs text-red-600">{errors.ship}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.ship}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Reserva</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.reserva} onChange={e=>dispatch({ type: 'update', field: 'reserva', value: e.target.value })} aria-invalid={!!errors.reserva} aria-describedby={errors.reserva ? 'reserva-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.reserva && (<p id="reserva-error" className="mt-1 text-xs text-red-600">{errors.reserva}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.reserva}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Local (Terminal)</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.local} onChange={e=>dispatch({ type: 'update', field: 'local', value: e.target.value })} aria-invalid={!!errors.local} aria-describedby={errors.local ? 'local-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.local && (<p id="local-error" className="mt-1 text-xs text-red-600">{errors.local}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.local}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Destino</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.destination} onChange={e=>dispatch({ type: 'update', field: 'destination', value: e.target.value })} aria-invalid={!!errors.destination} aria-describedby={errors.destination ? 'destination-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.destination && (<p id="destination-error" className="mt-1 text-xs text-red-600">{errors.destination}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.destination}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Navio</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.navio} onChange={e=>dispatch({ type: 'update', field: 'navio', value: e.target.value })} aria-invalid={!!errors.navio} aria-describedby={errors.navio ? 'navio-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.navio && (<p id="navio-error" className="mt-1 text-xs text-red-600">{errors.navio}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.navio}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Exportador</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.exporter} onChange={e=>dispatch({ type: 'update', field: 'exporter', value: e.target.value })} aria-invalid={!!errors.exporter} aria-describedby={errors.exporter ? 'exporter-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.exporter && (<p id="exporter-error" className="mt-1 text-xs text-red-600">{errors.exporter}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.exporter}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Deadline Draft</span>
+                  {isEditing ? (<>
+                    <input value={opInfo.deadline} onChange={e=>dispatch({ type: 'update', field: 'deadline', value: e.target.value })} aria-invalid={!!errors.deadline} aria-describedby={errors.deadline ? 'deadline-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    {errors.deadline && (<p id="deadline-error" className="mt-1 text-xs text-red-600">{errors.deadline}</p>)}
+                  </>) : (
+                    <span className="text-[var(--text)] font-medium">{opInfo.deadline}</span>
+                  )}
+                </div>
               </div>
-              {paginated.map(container => (
+            </section>
+  
+            {/* Sacaria upload dorment (moved to dedicated page) */}
+  
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Opera��o</h2>
+                <div className="flex flex-1 sm:flex-initial gap-3 items-center">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Buscar container..."
+                      aria-label="Buscar container"
+                      className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
+                    />
+                  </div>
+                  <div className="w-64">
+                    <select
+                      value={statusKey as any}
+                      onChange={(e) => setStatusKey(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      aria-label="Filtrar por Status"
+                      title="Filtrar containers pelo status"
+                    >
+                      <option value="todos">Todos os Status</option>
+                      <option value="ni">N�o inicializado</option>
+                      <option value="parcial">Parcial</option>
+                      <option value="completo">Completo</option>
+                    </select>
+                  </div>
+                  <button
+                    aria-label="Ver overview da opera��o"
+                    onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
+                    className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Overview
+                  </button>
+              </div>
+              </div>
+              <div className="divide-y divide-[var(--border)]">
+                {/* Item especial: Sacaria (como se fosse um container) */}
                 <button
                   type="button"
-                  aria-label={`Abrir container ${container.id}`}
-                  key={container.id}
-                  className="w-full text-left p-4 flex items-center justify-between hover:bg-[var(--hover)] cursor-pointer transition-colors"
-                  onClick={() => handleContainerClick(container.id)}
+                  aria-label="Abrir sacaria"
+                  className="w-full text-left p-4 flex items-center justify-between cursor-pointer transition-colors bg-[var(--hover)] border-l-4 border-teal-500"
+                  onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/sacaria`)}
                 >
                   <div>
-                    <div className="text-sm font-medium text-[var(--text)]">{container.id}</div>
-                    <div className="text-xs text-[var(--muted)]">{container.pesoBruto} Peso Bruto</div>
+                    <div className="text-sm font-semibold text-[var(--text)]">Sacaria</div>
+                    <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    (() => { const s = statusOf(container.id); return s === 'Completo' ? 'bg-green-100 text-green-800' : s === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'; })()
-                  }`}>
-                    {statusOf(container.id)}
-                  </span>
                 </button>
-              ))}
-            </div>
-            {/* Pagina��o */}
-            <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
-              <div className="text-sm text-[var(--muted)]">
-                {total === 0 ? (
-                  <span>Mostrando 0 a 0 de 0</span>
-                ) : (
-                  <span>
-                    Mostrando <span className="font-medium">{startIdx + 1}</span> a <span className="font-medium">{endIdx}</span> de <span className="font-medium">{total}</span>
-                  </span>
-                )}
+                {/* Contador total */}
+                <div className="px-4 py-2 text-sm text-[var(--muted)]">
+                  Total de containers: <span className="font-medium text-[var(--text)]">{total}</span>
+                </div>
+                {paginated.map(container => (
+                  <button
+                    type="button"
+                    aria-label={`Abrir container ${container.id}`}
+                    key={container.id}
+                    className="w-full text-left p-4 flex items-center justify-between hover:bg-[var(--hover)] cursor-pointer transition-colors"
+                    onClick={() => handleContainerClick(container.id)}
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-[var(--text)]">{container.id}</div>
+                      <div className="text-xs text-[var(--muted)]">{container.pesoBruto} Peso Bruto</div>
+                    </div>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      (() => { const s = statusOf(container.id); return s === 'Completo' ? 'bg-green-100 text-green-800' : s === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'; })()
+                    }`}>
+                      {statusOf(container.id)}
+                    </span>
+                  </button>
+                ))}
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Pr�ximo
-                </button>
+              {/* Pagina��o */}
+              <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
+                <div className="text-sm text-[var(--muted)]">
+                  {total === 0 ? (
+                    <span>Mostrando 0 a 0 de 0</span>
+                  ) : (
+                    <span>
+                      Mostrando <span className="font-medium">{startIdx + 1}</span> a <span className="font-medium">{endIdx}</span> de <span className="font-medium">{total}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Pr�ximo
+                  </button>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </>
+          )}
         </main>
       </div>
     </div>
@@ -511,7 +523,6 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
-
 
 
 

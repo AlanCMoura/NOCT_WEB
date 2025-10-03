@@ -1,7 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -26,6 +28,7 @@ const NewContainer: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
 
   const user: User = {
     name: 'Carlos Oliveira',
@@ -129,6 +132,50 @@ const NewContainer: React.FC = () => {
 
   // navegação via SidebarProvider; handler antigo removido
 
+
+  const renderImageSections = (loadingState: boolean) => (
+    <div className="mt-6">
+      {SECTION_TITLES.map((title) => (
+        <ContainerImageSection
+          key={title}
+          title={title}
+          images={imageSections[title] || []}
+          isEditing={true}
+          startIndex={0}
+          imagesPerView={5}
+          loading={loadingState}
+          onDrop={(e) => handleDrop(e, title)}
+          onSelectImages={() => handleSelectImages(title)}
+          onRemoveImage={(idx) => handleRemoveImage(title, idx)}
+          onOpenModal={() => {}}
+          onPrev={() => {}}
+          onNext={() => {}}
+          footerActions={
+            title === 'Cheio Aberto' ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => formRef.current?.requestSubmit()}
+                  disabled={saving}
+                  className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60"
+                >
+                  {saving ? 'Salvando...' : 'Salvar Container'}
+                </button>
+              </div>
+            ) : undefined
+          }
+        />
+      ))}
+    </div>
+  );
+
   return (
     <div className="flex h-screen bg-app">
       <Sidebar user={user} />
@@ -154,156 +201,123 @@ const NewContainer: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto">
-          <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Identificação (ex: ABCD 123456-1)</label>
-                <input
-                  type="text"
-                  value={form.container}
-                  onChange={(e) => setField('container', e.target.value)}
-                  placeholder=""
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Quantidade</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.quantidade}
-                  onChange={(e) => setField('quantidade', e.target.value)}
-                  placeholder="01"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Tara (kg)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.tara}
-                  onChange={(e) => setField('tara', e.target.value)}
-                  placeholder="1081"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso Bruto (kg)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.pesoBruto}
-                  onChange={(e) => setField('pesoBruto', e.target.value)}
-                  placeholder="27081"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso Líquido (kg)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.pesoLiquido}
-                  onChange={(e) => setField('pesoLiquido', e.target.value)}
-                  placeholder="27000"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Lacre Agência</label>
-                <input
-                  type="text"
-                  value={form.lacreAgencia}
-                  onChange={(e) => setField('lacreAgencia', e.target.value)}
-                  placeholder="MQ45314"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Lacres Outros</label>
-                <input
-                  type="text"
-                  value={form.lacreOutros}
-                  onChange={(e) => setField('lacreOutros', e.target.value)}
-                  placeholder="Múltiplos lacres"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Data Retirada do Terminal</label>
-                <input
-                  type="date"
-                  value={form.dataRetirada}
-                  onChange={(e) => setField('dataRetirada', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Data de Estufagem</label>
-                <input
-                  type="date"
-                  value={form.dataEstufagem}
-                  onChange={(e) => setField('dataEstufagem', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
+        <main className="flex-1 p-6 overflow-auto space-y-6">
+          {loading ? (
+            <div className="space-y-6">
+              <PageLoadingState variant="form" sections={4} />
+              {renderImageSections(true)}
             </div>
-
+          ) : (
+            <>
+            <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Identificação (ex: ABCD 123456-1)</label>
+                  <input
+                    type="text"
+                    value={form.container}
+                    onChange={(e) => setField('container', e.target.value)}
+                    placeholder=""
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Quantidade</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.quantidade}
+                    onChange={(e) => setField('quantidade', e.target.value)}
+                    placeholder="01"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Tara (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.tara}
+                    onChange={(e) => setField('tara', e.target.value)}
+                    placeholder="1081"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso Bruto (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.pesoBruto}
+                    onChange={(e) => setField('pesoBruto', e.target.value)}
+                    placeholder="27081"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso Líquido (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.pesoLiquido}
+                    onChange={(e) => setField('pesoLiquido', e.target.value)}
+                    placeholder="27000"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Lacre Agência</label>
+                  <input
+                    type="text"
+                    value={form.lacreAgencia}
+                    onChange={(e) => setField('lacreAgencia', e.target.value)}
+                    placeholder="MQ45314"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Lacres Outros</label>
+                  <input
+                    type="text"
+                    value={form.lacreOutros}
+                    onChange={(e) => setField('lacreOutros', e.target.value)}
+                    placeholder="Múltiplos lacres"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Data Retirada do Terminal</label>
+                  <input
+                    type="date"
+                    value={form.dataRetirada}
+                    onChange={(e) => setField('dataRetirada', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Data de Estufagem</label>
+                  <input
+                    type="date"
+                    value={form.dataEstufagem}
+                    onChange={(e) => setField('dataEstufagem', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
             
-          </form>
-
-          {/* Input oculto para upload de imagens */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleImageUpload}
-          />
-
-          {/* Seções de imagens */}
-          <div className="mt-6">
-            {SECTION_TITLES.map((title) => (
-              <ContainerImageSection
-                key={title}
-                title={title}
-                images={imageSections[title] || []}
-                isEditing={true}
-                startIndex={0}
-                imagesPerView={5}
-                onDrop={(e) => handleDrop(e, title)}
-                onSelectImages={() => handleSelectImages(title)}
-                onRemoveImage={(idx) => handleRemoveImage(title, idx)}
-                onOpenModal={() => {}}
-                onPrev={() => {}}
-                onNext={() => {}}
-                footerActions={
-                  title === 'Cheio Aberto' ? (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleCancel}
-                        className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => formRef.current?.requestSubmit()}
-                        disabled={saving}
-                        className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60"
-                      >
-                        {saving ? 'Salvando...' : 'Salvar Container'}
-                      </button>
-                    </div>
-                  ) : undefined
-                }
-              />
-            ))}
-          </div>
+              
+            </form>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+              {renderImageSections(false)}
+            </>
+          )}
         </main>
       </div>
     </div>

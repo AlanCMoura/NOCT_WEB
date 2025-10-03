@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Eye, EyeOff, Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 
 interface UserLogged {
   name: string;
@@ -43,6 +45,7 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; disab
 const Users: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
   const currentUser: UserLogged = { name: 'Carlos Oliveira', role: 'Supervisor' };
 
   const [users, setUsers] = useState<ManagedUser[]>(mockUsers);
@@ -179,84 +182,90 @@ const Users: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto space-y-6">
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Usuários Cadastrados</h2>
-              <div className="flex flex-1 sm:flex-initial gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome, email ou CPF..."
-                    className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+          {loading ? (
+            <div className="space-y-6">
+              <PageLoadingState variant="table" rows={5} />
+            </div>
+          ) : (
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                <h2 className="text-lg font-semibold text-[var(--text)]">Usuários Cadastrados</h2>
+                <div className="flex flex-1 sm:flex-initial gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, email ou CPF..."
+                      className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    onClick={startCreate}
+                    className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Cadastrar Usuário
+                  </button>
                 </div>
-                <button
-                  onClick={startCreate}
-                  className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar Usuário
-                </button>
               </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[var(--border)]">
-                <thead className="bg-[var(--hover)]">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Nome</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CPF</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Perfil</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">2FA</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-                  {filtered.map((u) => (
-                    <tr key={u.id} className="hover:bg-[var(--hover)]">
-                      <td className="px-6 py-3 text-sm text-[var(--text)]">{u.firstName} {u.lastName}</td>
-                      <td className="px-6 py-3 text-sm text-[var(--text)]">{u.email}</td>
-                      <td className="px-6 py-3 text-sm text-[var(--text)]">{u.cpf}</td>
-                      <td className="px-6 py-3 text-sm">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(u.role)}`}>{u.role}</span>
-                      </td>
-                      <td className="px-6 py-3 text-sm">
-                        {u.twoFactor ? (
-                          <span className="text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-semibold">Ativo</span>
-                        ) : (
-                          <span className="text-[var(--text)] bg-app px-2 py-1 rounded-full text-xs font-semibold">Desativado</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-right">
-                        <div className="inline-flex gap-2">
-                          <button
-                            onClick={() => startEdit(u)}
-                            className="px-2 py-1 rounded-md border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1"
-                            title="Editar"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span className="hidden sm:inline">Editar</span>
-                          </button>
-                          <button
-                            onClick={() => deleteUser(u.id)}
-                            className="px-2 py-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Excluir</span>
-                          </button>
-                        </div>
-                      </td>
+  
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-[var(--border)]">
+                  <thead className="bg-[var(--hover)]">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Nome</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CPF</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Perfil</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">2FA</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
+                    {filtered.map((u) => (
+                      <tr key={u.id} className="hover:bg-[var(--hover)]">
+                        <td className="px-6 py-3 text-sm text-[var(--text)]">{u.firstName} {u.lastName}</td>
+                        <td className="px-6 py-3 text-sm text-[var(--text)]">{u.email}</td>
+                        <td className="px-6 py-3 text-sm text-[var(--text)]">{u.cpf}</td>
+                        <td className="px-6 py-3 text-sm">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(u.role)}`}>{u.role}</span>
+                        </td>
+                        <td className="px-6 py-3 text-sm">
+                          {u.twoFactor ? (
+                            <span className="text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-semibold">Ativo</span>
+                          ) : (
+                            <span className="text-[var(--text)] bg-app px-2 py-1 rounded-full text-xs font-semibold">Desativado</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3 text-sm text-right">
+                          <div className="inline-flex gap-2">
+                            <button
+                              onClick={() => startEdit(u)}
+                              className="px-2 py-1 rounded-md border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1"
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </button>
+                            <button
+                              onClick={() => deleteUser(u.id)}
+                              className="px-2 py-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="hidden sm:inline">Excluir</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </main>
       </div>
 
@@ -393,5 +402,4 @@ const Users: React.FC = () => {
 };
 
 export default Users;
-
 

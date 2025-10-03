@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
+import PageLoadingState from '../components/PageLoadingState';
 
 interface User {
   name: string;
@@ -28,6 +30,7 @@ const Sacaria: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
 
   const user: User = { name: 'Carlos Oliveira', role: 'Supervisor' };
 
@@ -153,6 +156,7 @@ const Sacaria: React.FC = () => {
             isEditing={isEditing}
             startIndex={startIndex}
             imagesPerView={IMAGES_PER_VIEW}
+            loading={loading}
             onDrop={handleDrop}
             onSelectImages={handleSelectImages}
             onRemoveImage={handleRemoveImage}
@@ -216,29 +220,33 @@ const Sacaria: React.FC = () => {
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
           {/* Campo de texto: Marcação da sacaria */}
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6">
-              <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcação da sacaria</label>
-              {isEditing ? (
-                <textarea
-                  value={marcacao}
-                  onChange={(e) => setMarcacao(e.target.value)}
-                  rows={3}
-                  placeholder="Digite a marcação da sacaria..."
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              ) : (
-                <p className="text-sm text-[var(--text)] whitespace-pre-line bg-[var(--hover)] border border-[var(--border)] rounded-lg p-3 min-h-[3.5rem]">
-                  {marcacao || 'marca'}
-                </p>
-              )}
-            </div>
-          </section>
+          {loading ? (
+            <PageLoadingState variant="section" sections={4} />
+          ) : (
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6">
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcação da sacaria</label>
+                {isEditing ? (
+                  <textarea
+                    value={marcacao}
+                    onChange={(e) => setMarcacao(e.target.value)}
+                    rows={3}
+                    placeholder="Digite a marcação da sacaria..."
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <p className="text-sm text-[var(--text)] whitespace-pre-line bg-[var(--hover)] border border-[var(--border)] rounded-lg p-3 min-h-[3.5rem]">
+                    {marcacao || 'marca'}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
         </main>
       </div>
 
       {/* Modal de Imagem */}
-      {modal && (
+      {!loading && modal && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4" onClick={closeModal}>
           <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
             <button
@@ -299,4 +307,3 @@ const Sacaria: React.FC = () => {
 };
 
 export default Sacaria;
-

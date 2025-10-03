@@ -1,7 +1,9 @@
 ﻿import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import PageLoadingState from '../components/PageLoadingState';
 import { useSidebar } from '../context/SidebarContext';
+import usePageLoading from '../hooks/usePageLoading';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -25,6 +27,7 @@ interface NewOperationForm {
 const NewOperation: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const loading = usePageLoading();
 
   const user: User = {
     name: 'Carlos Oliveira',
@@ -118,6 +121,45 @@ const NewOperation: React.FC = () => {
     }, 700);
   };
 
+
+  const renderSacariaSection = (loadingState: boolean) => (
+    <div className="mt-6">
+      <ContainerImageSection
+        title="Sacaria"
+        images={sacariaImages}
+        isEditing={true}
+        startIndex={sacariaIndex}
+        imagesPerView={SACARIA_PER_VIEW}
+        loading={loadingState}
+        onDrop={handleSacariaDrop}
+        onSelectImages={handleSelectSacaria}
+        onRemoveImage={handleRemoveSacariaImage}
+        onOpenModal={() => {}}
+        onPrev={prevSacaria}
+        onNext={nextSacaria}
+        footerActions={
+          <>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => formRef.current?.requestSubmit()}
+              disabled={saving}
+              className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60"
+            >
+              {saving ? 'Salvando...' : 'Criar Operação'}
+            </button>
+          </>
+        }
+      />
+    </div>
+  );
+
   return (
     <div className="flex h-screen bg-app overflow-hidden">
       <Sidebar user={user} />
@@ -143,158 +185,132 @@ const NewOperation: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto">
-          <input
-            ref={sacariaInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleSacariaUpload}
-          />
-
-          <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 space-y-6 overflow-auto">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
-              <p className="text-sm text-[var(--muted)]">Preencha os campos abaixo</p>
+        <main className="flex-1 p-6 overflow-auto space-y-6">
+          {loading ? (
+            <div className="space-y-6">
+              <PageLoadingState variant="form" sections={4} />
+              {renderSacariaSection(true)}
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">AMV</label>
-                <input
-                  type="text"
-                  value={form.amv}
-                  onChange={(e) => setField('amv', e.target.value)}
-                  placeholder="AMV-12345/25"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Reserva</label>
-                <input
-                  type="text"
-                  value={form.reserva}
-                  onChange={(e) => setField('reserva', e.target.value)}
-                  placeholder="COD123"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Terminal</label>
-                <input
-                  type="text"
-                  value={form.terminal}
-                  onChange={(e) => setField('terminal', e.target.value)}
-                  placeholder="Terminal Portuário"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Cliente</label>
-                <input
-                  type="text"
-                  value={form.cliente}
-                  onChange={(e) => setField('cliente', e.target.value)}
-                  placeholder="MSC"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Exportador</label>
-                <input
-                  type="text"
-                  value={form.exportador}
-                  onChange={(e) => setField('exportador', e.target.value)}
-                  placeholder="Empresa Exportadora S.A."
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Destino</label>
-                <input
-                  type="text"
-                  value={form.destino}
-                  onChange={(e) => setField('destino', e.target.value)}
-                  placeholder="Porto / País"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Navio</label>
-                <input
-                  type="text"
-                  value={form.navio}
-                  onChange={(e) => setField('navio', e.target.value)}
-                  placeholder="MSC Fantasia"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Data</label>
-                <input
-                  type="date"
-                  value={form.data}
-                  onChange={(e) => setField('data', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline Draft</label>
-                <input
-                  type="date"
-                  value={form.deadlineDraft}
-                  onChange={(e) => setField('deadlineDraft', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline de Entrega</label>
-                <input
-                  type="date"
-                  value={form.deadlineEntrega}
-                  onChange={(e) => setField('deadlineEntrega', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </form>
-
-          <div className="mt-6">
-            <ContainerImageSection
-              title="Sacaria"
-              images={sacariaImages}
-              isEditing={true}
-              startIndex={sacariaIndex}
-              imagesPerView={SACARIA_PER_VIEW}
-              onDrop={handleSacariaDrop}
-              onSelectImages={handleSelectSacaria}
-              onRemoveImage={handleRemoveSacariaImage}
-              onOpenModal={() => {}}
-              onPrev={prevSacaria}
-              onNext={nextSacaria}
-              footerActions={
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => formRef.current?.requestSubmit()}
-                    disabled={saving}
-                    className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60"
-                  >
-                    {saving ? 'Salvando...' : 'Criar Operação'}
-                  </button>
-                </>
-              }
+          ) : (
+            <>
+            <input
+              ref={sacariaInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleSacariaUpload}
             />
-          </div>
+            <form ref={formRef} onSubmit={handleSubmit} className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 space-y-6 overflow-auto">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
+                <p className="text-sm text-[var(--muted)]">Preencha os campos abaixo</p>
+              </div>
+            
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">AMV</label>
+                  <input
+                    type="text"
+                    value={form.amv}
+                    onChange={(e) => setField('amv', e.target.value)}
+                    placeholder="AMV-12345/25"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Reserva</label>
+                  <input
+                    type="text"
+                    value={form.reserva}
+                    onChange={(e) => setField('reserva', e.target.value)}
+                    placeholder="COD123"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Terminal</label>
+                  <input
+                    type="text"
+                    value={form.terminal}
+                    onChange={(e) => setField('terminal', e.target.value)}
+                    placeholder="Terminal Portuário"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Cliente</label>
+                  <input
+                    type="text"
+                    value={form.cliente}
+                    onChange={(e) => setField('cliente', e.target.value)}
+                    placeholder="MSC"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Exportador</label>
+                  <input
+                    type="text"
+                    value={form.exportador}
+                    onChange={(e) => setField('exportador', e.target.value)}
+                    placeholder="Empresa Exportadora S.A."
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Destino</label>
+                  <input
+                    type="text"
+                    value={form.destino}
+                    onChange={(e) => setField('destino', e.target.value)}
+                    placeholder="Porto / País"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Navio</label>
+                  <input
+                    type="text"
+                    value={form.navio}
+                    onChange={(e) => setField('navio', e.target.value)}
+                    placeholder="MSC Fantasia"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Data</label>
+                  <input
+                    type="date"
+                    value={form.data}
+                    onChange={(e) => setField('data', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline Draft</label>
+                  <input
+                    type="date"
+                    value={form.deadlineDraft}
+                    onChange={(e) => setField('deadlineDraft', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline de Entrega</label>
+                  <input
+                    type="date"
+                    value={form.deadlineEntrega}
+                    onChange={(e) => setField('deadlineEntrega', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </form>
+              {renderSacariaSection(false)}
+            </>
+          )}
         </main>
       </div>
     </div>
@@ -302,4 +318,3 @@ const NewOperation: React.FC = () => {
 };
 
 export default NewOperation;
-

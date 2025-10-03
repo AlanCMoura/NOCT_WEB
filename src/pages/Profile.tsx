@@ -1,6 +1,8 @@
 ﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import usePageLoading from '../hooks/usePageLoading';
+import PageLoadingState from '../components/PageLoadingState';
 
 type Role = 'Administrador' | 'Gerente' | 'Inspetor';
 
@@ -37,6 +39,7 @@ const roleBadgeClass = (r: Role): string => {
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const loading = usePageLoading();
 
   // Tenta ler do localStorage ('user' como JSON). Fallback para mock
   let stored: ProfileUser | null = null;
@@ -90,83 +93,93 @@ const Profile: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto space-y-6">
-          {/* Resumo */}
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 flex items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center text-2xl font-semibold">
-                {getInitials(`${userProfile.firstName} ${userProfile.lastName}`)}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-[var(--text)]">{userProfile.firstName} {userProfile.lastName}</h2>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(userProfile.role)}`}>
-                    {userProfile.role}
-                  </span>
+          {loading ? (
+            <div className="space-y-6">
+              <PageLoadingState variant="section" sections={3} />
+              <PageLoadingState variant="form" sections={3} />
+              <PageLoadingState variant="section" sections={3} />
+            </div>
+          ) : (
+            <>
+              {/* Resumo */}
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6 flex items-center gap-6">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center text-2xl font-semibold">
+                  {getInitials(`${userProfile.firstName} ${userProfile.lastName}`)}
                 </div>
-                <p className="text-sm text-[var(--muted)]">{userProfile.email}</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold text-[var(--text)]">{userProfile.firstName} {userProfile.lastName}</h2>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(userProfile.role)}`}>
+                      {userProfile.role}
+                    </span>
+                  </div>
+                  <p className="text-sm text-[var(--muted)]">{userProfile.email}</p>
+                </div>
               </div>
-            </div>
-          </section>
-
-          {/* InformaÃ§Ãµes pessoais */}
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)]">
-              <h3 className="text-lg font-semibold text-[var(--text)]">Informações Pessoais</h3>
-              <p className="text-sm text-[var(--muted)]">Dados bÃ¡sicos do seu cadastro</p>
-            </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
-              <div>
-                <span className="text-[var(--muted)] block">Nome</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.firstName}</span>
+            </section>
+  
+            {/* InformaÃ§Ãµes pessoais */}
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6 border-b border-[var(--border)]">
+                <h3 className="text-lg font-semibold text-[var(--text)]">Informações Pessoais</h3>
+                <p className="text-sm text-[var(--muted)]">Dados bÃ¡sicos do seu cadastro</p>
               </div>
-              <div>
-                <span className="text-[var(--muted)] block">Sobrenome</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.lastName}</span>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                <div>
+                  <span className="text-[var(--muted)] block">Nome</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.firstName}</span>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Sobrenome</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.lastName}</span>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Email</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.email}</span>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">CPF</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.cpf}</span>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Telefone</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.phone || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Perfil</span>
+                  <span className={`inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(userProfile.role)}`}>{userProfile.role}</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[var(--muted)] block">Email</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.email}</span>
+            </section>
+  
+            {/* SeguranÃ§a */}
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+              <div className="p-6 border-b border-[var(--border)]">
+                <h3 className="text-lg font-semibold text-[var(--text)]">SeguranÃ§a</h3>
+                <p className="text-sm text-[var(--muted)]">Informações relacionadas ao acesso</p>
               </div>
-              <div>
-                <span className="text-[var(--muted)] block">CPF</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.cpf}</span>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                <div>
+                  <span className="text-[var(--muted)] block">AutenticaÃ§Ã£o de Dois Fatores (2FA)</span>
+                  {userProfile.twoFactor ? (
+                    <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                  ) : (
+                    <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-app text-gray-800">Desativado</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Criado em</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.createdAt || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)] block">Ãšltimo acesso</span>
+                  <span className="text-[var(--text)] font-medium">{userProfile.lastLoginAt || '-'}</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[var(--muted)] block">Telefone</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.phone || '-'}</span>
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Perfil</span>
-                <span className={`inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(userProfile.role)}`}>{userProfile.role}</span>
-              </div>
-            </div>
-          </section>
-
-          {/* SeguranÃ§a */}
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)]">
-              <h3 className="text-lg font-semibold text-[var(--text)]">SeguranÃ§a</h3>
-              <p className="text-sm text-[var(--muted)]">Informações relacionadas ao acesso</p>
-            </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-              <div>
-                <span className="text-[var(--muted)] block">AutenticaÃ§Ã£o de Dois Fatores (2FA)</span>
-                {userProfile.twoFactor ? (
-                  <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
-                ) : (
-                  <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-app text-gray-800">Desativado</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Criado em</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.createdAt || '-'}</span>
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Ãšltimo acesso</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.lastLoginAt || '-'}</span>
-              </div>
-            </div>
-          </section>
+            </section>
+          </>
+          )}
         </main>
       </div>
     </div>
@@ -174,6 +187,5 @@ const Profile: React.FC = () => {
 };
 
 export default Profile;
-
 
 
