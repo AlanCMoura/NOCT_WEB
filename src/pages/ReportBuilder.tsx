@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import HeaderBackButton from '../components/HeaderBackButton';
 import PageLoadingState from '../components/PageLoadingState';
 import { useSidebar } from '../context/SidebarContext';
 import usePageLoading from '../hooks/usePageLoading';
@@ -38,8 +39,10 @@ function useQuery() {
 
 const ReportBuilder: React.FC = () => {
   const { changePage } = useSidebar();
+  const navigate = useNavigate();
   const loading = usePageLoading();
   const query = useQuery();
+  const handleBack = () => navigate('/reports');
   const currentUser: UserLogged = { name: 'Carlos Oliveira', role: 'Gerente' };
 
   const [reportType, setReportType] = useState<ReportType>('operacoes');
@@ -102,9 +105,12 @@ const ReportBuilder: React.FC = () => {
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Geração de Relatórios</h1>
-              <p className="text-sm text-[var(--muted)]">Configure e gere relatórios personalizados do sistema</p>
+            <div className="flex items-center gap-4">
+              <HeaderBackButton onClick={handleBack} />
+              <div>
+                <h1 className="text-2xl font-bold text-[var(--text)]">Geração de Relatórios</h1>
+                <p className="text-sm text-[var(--muted)]">Configure e gere relatórios personalizados do sistema</p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -293,3 +299,7 @@ const ReportBuilder: React.FC = () => {
 };
 
 export default ReportBuilder;
+
+
+
+

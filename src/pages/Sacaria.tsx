@@ -1,5 +1,6 @@
 ﻿import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import HeaderBackButton from '../components/HeaderBackButton';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
@@ -31,6 +32,8 @@ const Sacaria: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
   const loading = usePageLoading();
+
+  const handleBack = () => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
 
   const user: User = { name: 'Carlos Oliveira', role: 'Supervisor' };
 
@@ -123,9 +126,12 @@ const Sacaria: React.FC = () => {
   <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria • Operação {decodedOperationId}</h1>
-              <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
+            <div className="flex items-center gap-4">
+              <HeaderBackButton onClick={handleBack} />
+              <div>
+                <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria - Operação {decodedOperationId}</h1>
+                <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div
@@ -184,15 +190,13 @@ const Sacaria: React.FC = () => {
                 >
                   Editar Sacaria
                 </button>
-                <button
-                  type="button"
+                <HeaderBackButton 
                   onClick={cancelEdit}
-                  className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors ${
+                  label="Cancelar"
+                  className={`px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg ${
                     isEditing ? '' : 'hidden'
                   }`}
-                >
-                  Cancelar
-                </button>
+                />
                 <button
                   type="button"
                   onClick={saveEdit}
@@ -259,7 +263,7 @@ const Sacaria: React.FC = () => {
             </button>
 
             {images.length > 1 && modal.index > 0 && (
-              <button
+                <button
                 onClick={(e) => {
                   e.stopPropagation();
                   prevInModal();
@@ -282,7 +286,7 @@ const Sacaria: React.FC = () => {
             />
 
             {images.length > 1 && modal.index < images.length - 1 && (
-              <button
+                <button
                 onClick={(e) => {
                   e.stopPropagation();
                   nextInModal();
@@ -307,3 +311,6 @@ const Sacaria: React.FC = () => {
 };
 
 export default Sacaria;
+
+
+

@@ -20,7 +20,7 @@ interface Operation {
 const mockOperations: Operation[] = [
   { id: 'AMV-12345/25', Reserva: 'COD123', shipName: 'MSC Fantasia',    date: '2025-08-15T14:30:00Z', status: 'Aberta',  containerCount: 28 },
   { id: 'AMV-12346/25', Reserva: 'COD123', shipName: 'Maersk Line',      date: '2025-08-15T10:15:00Z', status: 'Aberta',  containerCount: 34 },
-  { id: 'AMV-12344/25', Reserva: 'COD123', shipName: 'Hamburg S�d',      date: '2025-08-14T16:45:00Z', status: 'Fechada', containerCount: 22 },
+  { id: 'AMV-12344/25', Reserva: 'COD123', shipName: 'Hamburg Süd',      date: '2025-08-14T16:45:00Z', status: 'Fechada', containerCount: 22 },
   { id: 'AMV-12343/25', Reserva: 'COD123', shipName: 'CMA CGM',          date: '2025-08-14T09:20:00Z', status: 'Fechada', containerCount: 40 },
   { id: 'AMV-12342/25', Reserva: 'COD123', shipName: 'Evergreen Marine', date: '2025-08-13T15:10:00Z', status: 'Aberta',  containerCount: 24 },
   { id: 'AMV-12341/25', Reserva: 'COD123', shipName: 'COSCO Shipping',   date: '2025-08-13T11:30:00Z', status: 'Aberta',  containerCount: 31 },

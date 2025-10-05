@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageLoadingState from '../components/PageLoadingState';
+import HeaderBackButton from '../components/HeaderBackButton';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import usePageLoading from '../hooks/usePageLoading';
@@ -119,6 +120,7 @@ const ContainerDetails: React.FC = () => {
   const { containerId, operationId } = useParams();
   const decodedContainerId = containerId ? decodeURIComponent(containerId) : '';
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
+  const handleBack = () => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
   const navigate = useNavigate();
   const { changePage } = useSidebar();
   const loading = usePageLoading();
@@ -287,15 +289,19 @@ const ContainerDetails: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-3">Container {decodedContainerId}
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  computeStatus(progress) === 'Completo' ? 'bg-green-100 text-green-800' : computeStatus(progress) === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'
-                }`}>
-                  {computeStatus(progress)}
-                </span>
-              </h1>
-              <p className="text-sm text-[var(--muted)]">OperaÃ§Ã£o {decodedOperationId}</p>
+            <div className="flex items-center gap-4">
+              <HeaderBackButton onClick={handleBack} />
+              <div>
+                <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-3">
+                  Container {decodedContainerId}
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    computeStatus(progress) === 'Completo' ? 'bg-green-100 text-green-800' : computeStatus(progress) === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'
+                  }`}>
+                    {computeStatus(progress)}
+                  </span>
+                </h1>
+                <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -393,13 +399,6 @@ const ContainerDetails: React.FC = () => {
                         </button>
                       </>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`)}
-                      className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                    >
-                      Voltar
-                    </button>
                   </div>
                 </div>
               </div>
@@ -680,4 +679,8 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
+
+
+
+
 

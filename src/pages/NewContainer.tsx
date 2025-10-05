@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import HeaderBackButton from '../components/HeaderBackButton';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import PageLoadingState from '../components/PageLoadingState';
@@ -29,6 +30,8 @@ const NewContainer: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
   const loading = usePageLoading();
+
+  const handleBack = () => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
 
   const user: User = {
     name: 'Carlos Oliveira',
@@ -117,7 +120,7 @@ const NewContainer: React.FC = () => {
     setForm(prev => ({ ...prev, [key]: value }));
 
   const handleCancel = () => {
-    navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
+    handleBack();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -183,9 +186,12 @@ const NewContainer: React.FC = () => {
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Novo Container</h1>
-              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+            <div className="flex items-center gap-4">
+              <HeaderBackButton onClick={handleBack} />
+              <div>
+                <h1 className="text-2xl font-bold text-[var(--text)]">Novo Container</h1>
+                <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -325,3 +331,5 @@ const NewContainer: React.FC = () => {
 };
 
 export default NewContainer;
+
+

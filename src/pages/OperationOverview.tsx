@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import PageLoadingState from '../components/PageLoadingState';
+import HeaderBackButton from '../components/HeaderBackButton';
 import SkeletonPlaceholder from '../components/SkeletonPlaceholder';
 import { Search, Edit } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
@@ -23,7 +24,7 @@ interface ContainerRow {
 
 
 
-// Gera linhas mock com tamanho vari�vel por opera��o
+// Gera linhas mock com tamanho variável por operação
 const generateRows = (count: number): ContainerRow[] => {
   const rows: ContainerRow[] = [];
   for (let i = 0; i < count; i++) {
@@ -57,7 +58,7 @@ const OperationOverview: React.FC = () => {
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
 
-  // Atualiza quando navega para outra opera��o
+  // Atualiza quando navega para outra operação
   useEffect(() => {
     const c = containerCountFor(decodedOperationId);
     const gen = generateRows(c);
@@ -107,9 +108,12 @@ const OperationOverview: React.FC = () => {
       <div className="flex-1 flex flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Overview de Containers</h1>
-              <p className="text-sm text-[var(--muted)]">Opera��o {decodedOperationId}</p>
+            <div className="flex items-center gap-4">
+              <HeaderBackButton onClick={handleBack} />
+              <div>
+                <h1 className="text-2xl font-bold text-[var(--text)]">Overview de Containers</h1>
+                <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -166,7 +170,7 @@ const OperationOverview: React.FC = () => {
             <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
               <div className="p-6 border-b border-[var(--border)]">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Opera��o</h2>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
                 </div>
               </div>
   
@@ -272,7 +276,7 @@ const OperationOverview: React.FC = () => {
                 </table>
               </div>
   
-              {/* Pagina��o */}
+              {/* Paginação */}
               <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
                 <div className="text-sm text-[var(--muted)]">
                   {totalFiltered === 0 ? (
@@ -296,7 +300,7 @@ const OperationOverview: React.FC = () => {
                     disabled={page >= totalPages}
                     className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Pr�ximo
+                    Próximo
                   </button>
                 </div>
               </div>
@@ -312,7 +316,6 @@ const OperationOverview: React.FC = () => {
                     <button onClick={saveEditAll} className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors">Salvar</button>
                   </>
                 )}
-                <button onClick={handleBack} className="px-4 py-2 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">Voltar</button>
               </div>
             </div>
           </>
@@ -324,6 +327,9 @@ const OperationOverview: React.FC = () => {
 };
 
 export default OperationOverview;
+
+
+
 
 
 
