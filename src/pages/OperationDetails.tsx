@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+﻿import React, { useRef, useState, useCallback } from 'react';
 import { useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Trash2 } from 'lucide-react';
@@ -117,7 +117,7 @@ const OperationDetails: React.FC = () => {
   const opBackupRef = useRef<OperationInfo>(mockOperation);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
 
-  // Ordena��o e Pagina��o
+  // Ordenação e Paginação
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
   type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
@@ -136,7 +136,7 @@ const OperationDetails: React.FC = () => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
-  // Atualiza lista quando a opera��o mudar
+  // Atualiza lista quando a operação mudar
   useEffect(() => {
     const c = containerCountFor(decodedOperationId);
     setContainers(generateContainers(c));
@@ -147,7 +147,7 @@ const OperationDetails: React.FC = () => {
   const endIdx = Math.min(startIdx + PAGE_SIZE, total);
   const paginated = useMemo(() => filteredContainers.slice(startIdx, endIdx), [filteredContainers, startIdx, endIdx]);
 
-  // Sacaria - imagens e navega��o do carrossel
+  // Sacaria - imagens e navegação do carrossel
   const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([
     { url: 'https://via.placeholder.com/400x300/e3f2fd/1976d2?text=Sacaria+1' },
     { url: 'https://via.placeholder.com/400x300/e8f5e9/4caf50?text=Sacaria+2' },
@@ -218,7 +218,7 @@ const OperationDetails: React.FC = () => {
     role: 'Administrador'
   };
 
-  // navega��o via SidebarProvider; handler antigo removido
+  // navegação via SidebarProvider; handler antigo removido
 
   const handleContainerClick = (containerId: string): void => {
     navigate(
@@ -234,8 +234,8 @@ const OperationDetails: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Opera��o {decodedOperationId}</h1>
-              <p className="text-sm text-[var(--muted)]">Detalhes da Opera��o</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Operação {decodedOperationId}</h1>
+              <p className="text-sm text-[var(--muted)]">Detalhes da Operação</p>
             </div>
             <div className="flex items-center gap-4">
               <button type="button" onClick={() => changePage('perfil')} aria-label="Acessar perfil" className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -335,7 +335,7 @@ const OperationDetails: React.FC = () => {
                 <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
               </div>
               <div>
-                <span className="text-[var(--muted)] block">Opera��o</span>
+                <span className="text-[var(--muted)] block">Operação</span>
                 {isEditing ? (<>
                   <input value={opInfo.ship} onChange={e=>dispatch({ type: 'update', field: 'ship', value: e.target.value })} aria-invalid={!!errors.ship} aria-describedby={errors.ship ? 'ship-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                   {errors.ship && (<p id="ship-error" className="mt-1 text-xs text-red-600">{errors.ship}</p>)}
@@ -404,7 +404,7 @@ const OperationDetails: React.FC = () => {
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Opera��o</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operção</h2>
               <div className="flex flex-1 sm:flex-initial gap-3 items-center">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -424,13 +424,13 @@ const OperationDetails: React.FC = () => {
                     title="Filtrar containers pelo status"
                   >
                     <option value="todos">Todos os Status</option>
-                    <option value="ni">N�o inicializado</option>
+                    <option value="ni">Não inicializado</option>
                     <option value="parcial">Parcial</option>
                     <option value="completo">Completo</option>
                   </select>
                 </div>
                 <button
-                  aria-label="Ver overview da opera��o"
+                  aria-label="Ver overview da operação"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
                   className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
@@ -475,7 +475,7 @@ const OperationDetails: React.FC = () => {
                 </button>
               ))}
             </div>
-            {/* Pagina��o */}
+            {/* Paginação */}
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
               <div className="text-sm text-[var(--muted)]">
                 {total === 0 ? (
@@ -499,7 +499,7 @@ const OperationDetails: React.FC = () => {
                   disabled={page >= totalPages}
                   className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Pr�ximo
+                  Próximo
                 </button>
               </div>
             </div>
