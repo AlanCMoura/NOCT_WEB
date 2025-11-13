@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://containerview-prod.us-east-1.elasticbeanstalk.com';
+const DEV_PROXY_PREFIX = '/__ctapi';
+
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL ||
+  (process.env.NODE_ENV === 'development' ? DEV_PROXY_PREFIX : 'https://api.ct-view.com');
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

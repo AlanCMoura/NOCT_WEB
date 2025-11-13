@@ -1,16 +1,45 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
+import { api, setAuthToken } from '../services/api';
 
 interface LoginFormData {
   cpf: string;
   password: string;
 }
 
+interface LoginResponseBase {
+  cpf: string;
+  requiresTwoFactor?: boolean;
+  twoFactorRequired?: boolean;
+  twoFactorEnabled?: boolean;
+}
+
+interface LoginSuccessResponse extends LoginResponseBase {
+  token: string;
+}
+
+interface LoginTwoFactorResponse extends LoginResponseBase {
+  tempToken: string;
+}
+
+type LoginResponse = LoginSuccessResponse | LoginTwoFactorResponse;
+
+interface TwoFAResponse {
+  cpf: string;
+  token?: string;
+  status?: string;
+}
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [twoFactorRequired, setTwoFactorRequired] = useState<boolean>(false);
+  const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState<string>('');
 
   const [loginData, setLoginData] = useState<LoginFormData>({
     cpf: '',
@@ -26,6 +55,12 @@ const Login: React.FC = () => {
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   };
 
+  const resetTwoFactorState = () => {
+    setTwoFactorRequired(false);
+    setTwoFactorToken(null);
+    setTwoFactorCode('');
+  };
+
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     if (name === 'cpf') {
@@ -38,19 +73,103 @@ const Login: React.FC = () => {
     }));
   };
 
+  const handleTwoFactorCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setTwoFactorCode(digits);
+  };
+
   const handleLoginSubmit = async (): Promise<void> => {
+    setLoginError(null);
+    resetTwoFactorState();
+
+    const cpfDigits = loginData.cpf.replace(/\D/g, '');
+    if (cpfDigits.length !== 11 || !loginData.password) {
+      setLoginError('Informe um CPF válido (11 dígitos) e a senha.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const cpfDigits = loginData.cpf.replace(/\D/g, '');
-      if (cpfDigits.length === 11 && loginData.password) {
-        navigate('/dashboard');
-      } else {
-        alert('Informe um CPF válido (11 dígitos) e a senha.');
+      const { data } = await api.post<LoginResponse>('/auth/login', {
+        cpf: loginData.cpf.trim(),
+        password: loginData.password
+      });
+
+      const requiresTwoFactor =
+        data.requiresTwoFactor ?? data.twoFactorRequired ?? data.twoFactorEnabled ?? false;
+
+      if (requiresTwoFactor || 'tempToken' in data) {
+        if ('tempToken' in data && data.tempToken) {
+          setTwoFactorRequired(true);
+          setTwoFactorToken(data.tempToken);
+          setTwoFactorCode('');
+          return;
+        }
+        setLoginError('Não foi possível iniciar a verificação em duas etapas. Tente novamente.');
+        return;
       }
+
+      if ('token' in data && data.token) {
+        setAuthToken(data.token);
+        navigate('/dashboard');
+        return;
+      }
+
+      setLoginError('Não foi possível autenticar. Tente novamente.');
+    } catch (error) {
+      console.error('Erro ao autenticar usuário', error);
+      setLoginError('Credenciais inválidas. Verifique seu CPF e senha.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleTwoFactorSubmit = async (): Promise<void> => {
+    if (!twoFactorToken) {
+      setLoginError('Token temporário ausente. Faça login novamente.');
+      return;
+    }
+
+    if (twoFactorCode.length < 6) {
+      setLoginError('Informe o código de 6 dígitos do autenticador.');
+      return;
+    }
+
+    setIsVerifying(true);
+    setLoginError(null);
+
+    try {
+      const { data } = await api.post<TwoFAResponse>(
+        '/auth/verify',
+        { code: twoFactorCode },
+        {
+          headers: {
+            Authorization: `Bearer ${twoFactorToken}`
+          }
+        }
+      );
+
+      if (data?.token) {
+        setAuthToken(data.token);
+        resetTwoFactorState();
+        navigate('/dashboard');
+        return;
+      }
+
+      setLoginError('Não foi possível concluir a verificação. Tente novamente.');
+    } catch (error) {
+      console.error('Erro ao verificar código 2FA', error);
+      setLoginError('Código 2FA inválido. Tente novamente.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const isTwoFactorStep = twoFactorRequired && !!twoFactorToken;
+  const primaryAction = isTwoFactorStep ? handleTwoFactorSubmit : handleLoginSubmit;
+  const primaryLoading = isTwoFactorStep ? isVerifying : isLoading;
+  const primaryIdleLabel = isTwoFactorStep ? 'VALIDAR CÓDIGO' : 'ENTRAR';
+  const primaryLoadingLabel = isTwoFactorStep ? 'Validando...' : 'Entrando...';
 
   return (
     <div className="min-h-screen flex bg-[var(--surface)]">
@@ -244,30 +363,82 @@ const Login: React.FC = () => {
                 </div>
               </div>
 
-              {/* Opções adicionais */}
-              <div className="flex items-center justify-between">
-                <label className="flex items-center">
-                  <input type="checkbox" className="w-4 h-4 text-[#49C5B6] bg-[var(--surface)] border-[var(--border)] rounded focus:ring-[#49C5B6]" />
-                  <span className="ml-2 text-sm text-[var(--muted)]">Lembrar-me</span>
-                </label>
-                <button type="button" className="text-sm text-[#49C5B6] hover:text-[#3ba394] transition-colors font-medium">
-                  Esqueceu a senha?
-                </button>
-              </div>
+              {isTwoFactorStep && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-[#49C5B6]/30 bg-[#49C5B6]/10 px-4 py-3 text-sm text-[var(--text)]">
+                    <p className="font-semibold">Validação em duas etapas habilitada</p>
+                    <p className="text-xs text-[var(--muted)] mt-1">
+                      Digite o código de 6 dígitos do seu aplicativo autenticador para finalizar o acesso.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-2">
+                      Código do autenticador
+                    </label>
+                    <div className="relative">
+                      <input
+                        name="twoFactorCode"
+                        inputMode="numeric"
+                        maxLength={6}
+                        pattern="[0-9]*"
+                        autoComplete="one-time-code"
+                        value={twoFactorCode}
+                        onChange={handleTwoFactorCodeChange}
+                        className="block w-full px-4 py-3 border border-[var(--border)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] tracking-[0.35em] text-lg text-center text-[var(--text)]"
+                        placeholder="000000"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetTwoFactorState();
+                      setLoginError(null);
+                    }}
+                    className="text-xs font-medium text-[#49C5B6] hover:text-[#3ba394] transition-colors"
+                  >
+                    Trocar usuário
+                  </button>
+                </div>
+              )}
+
+              {!isTwoFactorStep && (
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-[#49C5B6] bg-[var(--surface)] border-[var(--border)] rounded focus:ring-[#49C5B6]"
+                    />
+                    <span className="ml-2 text-sm text-[var(--muted)]">Lembrar-me</span>
+                  </label>
+                  <button
+                    type="button"
+                    className="text-sm text-[#49C5B6] hover:text-[#3ba394] transition-colors font-medium"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                </div>
+              )}
+
+              {loginError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {loginError}
+                </div>
+              )}
 
               {/* Submit Button */}
               <button
-                onClick={handleLoginSubmit}
-                disabled={isLoading}
+                onClick={primaryAction}
+                disabled={primaryLoading}
                 className="w-full bg-[#49C5B6] hover:bg-[#3ba394] text-white py-3 px-6 rounded-lg font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
-                {isLoading ? (
+                {primaryLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Entrando...
+                    {primaryLoadingLabel}
                   </div>
                 ) : (
-                  'ENTRAR'
+                  primaryIdleLabel
                 )}
               </button>
             </div>

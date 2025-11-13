@@ -21,25 +21,30 @@ import ReportBuilder from './pages/ReportBuilder';
 const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <SidebarProvider>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/operations" element={<Operations />} />
-          <Route path="/operations/new" element={<NewOperation />} />
-          <Route path="/operations/:operationId" element={<OperationDetails />} />
-          <Route path="/operations/:operationId/containers/new" element={<NewContainer />} />
-          <Route path="/operations/:operationId/sacaria" element={<Sacaria />} />
-          <Route path="/operations/:operationId/overview" element={<OperationOverview />} />
-          <Route path="/operations/:operationId/containers/:containerId" element={<ContainerDetails />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/reports/generate" element={<ReportBuilder />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="*" element={<Login />} />
-        </Routes>
+          <Routes>
+            <Route path="/" element={<Login />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/operations" element={<Operations />} />
+            <Route path="/operations/new" element={<NewOperation />} />
+            <Route path="/operations/:operationId" element={<OperationDetails />} />
+            <Route path="/operations/:operationId/containers/new" element={<NewContainer />} />
+            <Route path="/operations/:operationId/sacaria" element={<Sacaria />} />
+            <Route path="/operations/:operationId/overview" element={<OperationOverview />} />
+            <Route path="/operations/:operationId/containers/:containerId" element={<ContainerDetails />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/reports/generate" element={<ReportBuilder />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="*" element={<Login />} />
+          </Routes>
         </SidebarProvider>
       </Router>
     </ThemeProvider>

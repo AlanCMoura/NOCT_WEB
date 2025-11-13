@@ -3,6 +3,7 @@ import { Eye, EyeOff, Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { registerUser } from '../services/auth';
 
 interface UserLogged {
   name: string;
@@ -10,6 +11,11 @@ interface UserLogged {
 }
 
 type Role = 'Administrador' | 'Gerente' | 'Inspetor';
+const ROLE_TO_API: Record<Role, string> = {
+  Administrador: 'ADMIN',
+  Gerente: 'GERENTE',
+  Inspetor: 'INSPETOR',
+};
 
 interface ManagedUser {
   id: string;
@@ -40,6 +46,14 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; disab
   </button>
 );
 
+const formatCpf = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
 const Users: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
@@ -61,6 +75,9 @@ const Users: React.FC = () => {
   const [twoFactor, setTwoFactor] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [pageAlert, setPageAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const resetForm = () => {
     setFirstName('');
@@ -73,28 +90,66 @@ const Users: React.FC = () => {
     setTwoFactor(false);
     setShowPw(false);
     setShowConfirm(false);
+    setFormError(null);
+    setIsSubmitting(false);
   };
 
-  const handleSave = () => {
-    if (!firstName || !lastName || !cpf || !email || !role) return;
-    if (!editingUser && (!password || password !== confirm)) return;
+  const cpfDigits = cpf.replace(/\D/g, '');
+
+  const handleSave = async () => {
+    if (!isValid || isSubmitting) return;
+
+    setFormError(null);
+
     if (editingUser) {
-      setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...editingUser, firstName, lastName, cpf, email, role, twoFactor } : u));
-    } else {
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === editingUser.id ? { ...editingUser, firstName, lastName, cpf, email, role, twoFactor } : u
+        )
+      );
+
+      setIsOpen(false);
+      setEditingUser(null);
+      resetForm();
+      return;
+    }
+
+    const payload = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      cpf: cpf.trim(),
+      email: email.trim(),
+      password,
+      role: ROLE_TO_API[role] ?? role,
+      twoFactorEnabled: twoFactor,
+    };
+
+    setIsSubmitting(true);
+
+    try {
+      const successMessage = await registerUser(payload);
+
       const newUser: ManagedUser = {
         id: String(Date.now()),
-        firstName,
-        lastName,
-        cpf,
-        email,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        cpf: formatCpf(payload.cpf),
+        email: payload.email,
         role,
         twoFactor,
       };
+
       setUsers((prev) => [newUser, ...prev]);
+      setPageAlert({ type: 'success', message: successMessage || 'Usuário cadastrado com sucesso' });
+      setIsOpen(false);
+      setEditingUser(null);
+      resetForm();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel cadastrar o usuÃ¡rio. Tente novamente.';
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsOpen(false);
-    setEditingUser(null);
-    resetForm();
   };
 
   const filtered = useMemo(() => {
@@ -109,8 +164,13 @@ const Users: React.FC = () => {
   }, [users, search]);
 
   const isValid = editingUser
-    ? Boolean(firstName && lastName && cpf && email && role)
-    : Boolean(firstName && lastName && cpf && email && role && password && confirm && password === confirm);
+    ? Boolean(firstName && lastName && cpfDigits.length === 11 && email && role)
+    : Boolean(firstName && lastName && cpfDigits.length === 11 && email && role && password && confirm && password === confirm);
+
+  const submitDisabled = !isValid || isSubmitting;
+  const submitLabel = editingUser
+    ? (isSubmitting ? 'Salvando...' : 'Salvar Alteraï¿½ï¿½ï¿½ï¿½es')
+    : (isSubmitting ? 'Cadastrando...' : 'Cadastrar UsuÇ­rio');
 
   const startCreate = () => {
     setEditingUser(null);
@@ -134,12 +194,12 @@ const Users: React.FC = () => {
   };
 
   const deleteUser = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (window.confirm('Tem certeza que deseja excluir este usuÃ¡rio?')) {
       setUsers(prev => prev.filter(u => u.id !== id));
     }
   };
 
-  // navegação via SidebarProvider; handler antigo removido
+  // navegaÃ§Ã£o via SidebarProvider; handler antigo removido
 
   const roleBadgeClass = (r: Role): string => {
     switch (r) {
@@ -161,9 +221,17 @@ const Users: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Usuários</h1>
-              <p className="text-sm text-[var(--muted)]">Gerenciamento de usuários do sistema</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">UsuÃ¡rios</h1>
+              <p className="text-sm text-[var(--muted)]">Gerenciamento de usuÃ¡rios do sistema</p>
             </div>
+
+            {formError && (
+              <div className="px-6">
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                  {formError}
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
                 <div className="text-right">
@@ -179,9 +247,33 @@ const Users: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto space-y-6">
+          {pageAlert && (
+            <div
+              className={`flex items-start justify-between rounded-lg px-4 py-3 border text-sm mb-2 ${
+                pageAlert.type === 'success'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}
+            >
+              <div className="pr-4">
+                <p className="font-semibold">
+                  {pageAlert.type === 'success' ? 'Cadastro realizado' : 'Não foi possível completar o cadastro'}
+                </p>
+                <p className="mt-1">{pageAlert.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPageAlert(null)}
+                className="text-inherit hover:opacity-70 transition-opacity"
+                aria-label="Fechar alerta"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Usuários Cadastrados</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">UsuÃ¡rios Cadastrados</h2>
               <div className="flex flex-1 sm:flex-initial gap-3">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -198,7 +290,7 @@ const Users: React.FC = () => {
                   className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar Usuário
+                  Cadastrar UsuÃ¡rio
                 </button>
               </div>
             </div>
@@ -212,7 +304,7 @@ const Users: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CPF</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Perfil</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">2FA</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">AÃ§Ãµes</th>
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
@@ -266,7 +358,7 @@ const Users: React.FC = () => {
           <div className="absolute inset-0 bg-black/40" onClick={() => setIsOpen(false)} />
           <div className="relative bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
-              <h3 className="text-lg font-semibold text-[var(--text)]">{editingUser ? 'Editar Usuário' : 'Cadastrar Novo Usuário'}</h3>
+              <h3 className="text-lg font-semibold text-[var(--text)]">{editingUser ? 'Editar UsuÃ¡rio' : 'Cadastrar Novo UsuÃ¡rio'}</h3>
               <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-[var(--muted)]">
                 <X className="w-5 h-5" />
               </button>
@@ -298,7 +390,7 @@ const Users: React.FC = () => {
                     className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
                     placeholder="000.000.000-00"
                     value={cpf}
-                    onChange={(e) => setCpf(e.target.value)}
+                    onChange={(e) => setCpf(formatCpf(e.target.value))}
                   />
                 </div>
                 <div>
@@ -315,7 +407,7 @@ const Users: React.FC = () => {
 
               <div className="rounded-xl border border-[var(--border)] bg-[var(--hover)]">
                 <div className="px-4 pt-4">
-                  <h4 className="text-sm font-semibold text-[var(--text)]">Perfil de Açõesso</h4>
+                  <h4 className="text-sm font-semibold text-[var(--text)]">Perfil de AÃ§Ãµesso</h4>
                   <p className="text-xs text-[var(--muted)] mb-3">Selecione um perfil de acesso</p>
                 </div>
                 <div className="px-4 pb-4">
@@ -363,8 +455,8 @@ const Users: React.FC = () => {
 
               <div className="rounded-xl border border-[var(--border)] p-4 flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-semibold text-[var(--text)]">Autenticação de Dois Fatores (2FA)</h4>
-                  <p className="text-xs text-[var(--muted)]">Habilitar verificação por email para maior segurança</p>
+                  <h4 className="text-sm font-semibold text-[var(--text)]">AutenticaÃ§Ã£o de Dois Fatores (2FA)</h4>
+                  <p className="text-xs text-[var(--muted)]">Habilitar verificaÃ§Ã£o por email para maior seguranÃ§a</p>
                 </div>
                 <Toggle checked={twoFactor} onChange={setTwoFactor} />
               </div>
@@ -378,11 +470,11 @@ const Users: React.FC = () => {
                 Cancelar
               </button>
               <button
-                disabled={!isValid}
+                disabled={submitDisabled}
                 onClick={handleSave}
-                className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${isValid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-300 cursor-not-allowed'}`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${submitDisabled ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
-                {editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'}
+                {submitLabel}
               </button>
             </div>
           </div>
@@ -393,5 +485,8 @@ const Users: React.FC = () => {
 };
 
 export default Users;
+
+
+
 
 
