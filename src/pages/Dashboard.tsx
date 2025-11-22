@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Wrench, Clock, ArrowRight } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 
 interface User { name: string; role: string }
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-  const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
+  const user = useSessionUser({ role: 'Administrador' });
 
   return (
     <div className="flex h-screen bg-app">

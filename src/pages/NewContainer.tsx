@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -26,11 +27,7 @@ const NewContainer: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-
-  const user: User = {
-    name: 'Carlos Oliveira',
-    role: 'Administrador'
-  };
+  const user = useSessionUser({ role: 'Administrador' });
 
   const [form, setForm] = useState<NewContainerForm>({
     container: '',

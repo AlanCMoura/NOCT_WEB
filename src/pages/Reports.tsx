@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import {
   CalendarDays,
   BarChart3,
@@ -43,7 +44,7 @@ const seedReports: ReportItem[] = [
 const Reports: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-  const currentUser: User = { name: 'Carlos Oliveira', role: 'Gerente' };
+  const currentUser = useSessionUser({ role: 'Gerente' });
 
   const [search, setSearch] = useState('');
   const [reports] = useState<ReportItem[]>(seedReports);

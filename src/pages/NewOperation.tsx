@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -25,11 +26,7 @@ interface NewOperationForm {
 const NewOperation: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-
-  const user: User = {
-    name: 'Carlos Oliveira',
-    role: 'Administrador'
-  };
+  const user = useSessionUser({ role: 'Administrador' });
 
   const [form, setForm] = useState<NewOperationForm>({
     amv: '',

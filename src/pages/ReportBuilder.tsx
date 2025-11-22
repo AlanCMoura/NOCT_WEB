@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import {
   Calendar,
   User,
@@ -37,7 +38,7 @@ function useQuery() {
 const ReportBuilder: React.FC = () => {
   const { changePage } = useSidebar();
   const query = useQuery();
-  const currentUser: UserLogged = { name: 'Carlos Oliveira', role: 'Gerente' };
+  const currentUser = useSessionUser({ role: 'Gerente' });
 
   const [reportType, setReportType] = useState<ReportType>('operacoes');
   const [inicio, setInicio] = useState('');

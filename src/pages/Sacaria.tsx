@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 
 interface User {
@@ -28,8 +29,7 @@ const Sacaria: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-
-  const user: User = { name: 'Carlos Oliveira', role: 'Supervisor' };
+  const user = useSessionUser({ role: 'Supervisor' });
 
   const [images, setImages] = useState<SectionImageItem[]>(initialSacaria);
   const [startIndex, setStartIndex] = useState<number>(0);

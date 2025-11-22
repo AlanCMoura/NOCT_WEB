@@ -1,29 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
-import { api, setAuthToken } from '../services/api';
+import axios from 'axios';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface LoginFormData {
   cpf: string;
   password: string;
 }
 
-interface LoginResponseBase {
+interface LoginResponse {
   cpf: string;
+  twoFactorEnabled?: boolean;
   requiresTwoFactor?: boolean;
   twoFactorRequired?: boolean;
-  twoFactorEnabled?: boolean;
+  token?: string;
+  tempToken?: string;
+  message?: string;
+  error?: string;
+  [key: string]: unknown;
 }
-
-interface LoginSuccessResponse extends LoginResponseBase {
-  token: string;
-}
-
-interface LoginTwoFactorResponse extends LoginResponseBase {
-  tempToken: string;
-}
-
-type LoginResponse = LoginSuccessResponse | LoginTwoFactorResponse;
 
 interface TwoFAResponse {
   cpf: string;
@@ -31,8 +28,53 @@ interface TwoFAResponse {
   status?: string;
 }
 
+const parsePossibleJson = (raw: unknown): Record<string, unknown> | string => {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return (raw as Record<string, unknown>) ?? {};
+};
+
+const extractTempToken = (payload: Record<string, unknown>): string | null => {
+  const keys = ['tempToken', 'temp_token', 'temporaryToken', 'temporary_token', 'token'];
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const extractAuthToken = (payload: Record<string, unknown>): string | null => {
+  const keys = ['token', 'accessToken', 'jwt', 'bearerToken'];
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const extractServerMessage = (payload: Record<string, unknown>): string | null => {
+  const keys = ['message', 'error', 'detail'];
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { login: persistSession, refreshUser } = useAuth();
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
@@ -43,7 +85,7 @@ const Login: React.FC = () => {
 
   const [loginData, setLoginData] = useState<LoginFormData>({
     cpf: '',
-    password: ''
+    password: '',
   });
 
   const formatCPF = (value: string): string => {
@@ -52,7 +94,9 @@ const Login: React.FC = () => {
     if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
     if (digits.length <= 9)
       return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(
+      9
+    )}`;
   };
 
   const resetTwoFactorState = () => {
@@ -61,15 +105,25 @@ const Login: React.FC = () => {
     setTwoFactorCode('');
   };
 
+  const finalizeAuthenticatedSession = async (token: string) => {
+    persistSession(token);
+    try {
+      await refreshUser();
+    } catch (error) {
+      console.warn('Não foi possível atualizar o usuário autenticado', error);
+    }
+    navigate('/dashboard');
+  };
+
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     if (name === 'cpf') {
-      setLoginData(prev => ({ ...prev, cpf: formatCPF(value) }));
+      setLoginData((prev) => ({ ...prev, cpf: formatCPF(value) }));
       return;
     }
-    setLoginData(prev => ({
+    setLoginData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -82,8 +136,10 @@ const Login: React.FC = () => {
     setLoginError(null);
     resetTwoFactorState();
 
-    const cpfDigits = loginData.cpf.replace(/\D/g, '');
-    if (cpfDigits.length !== 11 || !loginData.password) {
+    const sanitizedCpf = loginData.cpf.replace(/\D/g, '');
+    const password = loginData.password.trim();
+
+    if (sanitizedCpf.length !== 11 || !password) {
       setLoginError('Informe um CPF válido (11 dígitos) e a senha.');
       return;
     }
@@ -92,33 +148,52 @@ const Login: React.FC = () => {
     try {
       const { data } = await api.post<LoginResponse>('/auth/login', {
         cpf: loginData.cpf.trim(),
-        password: loginData.password
+        password,
       });
 
-      const requiresTwoFactor =
-        data.requiresTwoFactor ?? data.twoFactorRequired ?? data.twoFactorEnabled ?? false;
+      const parsed = parsePossibleJson(data);
+      const dataObject = typeof parsed === 'string' ? { message: parsed } : parsed;
 
-      if (requiresTwoFactor || 'tempToken' in data) {
-        if ('tempToken' in data && data.tempToken) {
-          setTwoFactorRequired(true);
-          setTwoFactorToken(data.tempToken);
-          setTwoFactorCode('');
-          return;
-        }
-        setLoginError('Não foi possível iniciar a verificação em duas etapas. Tente novamente.');
+      const temp = extractTempToken(dataObject);
+      const authToken = extractAuthToken(dataObject);
+      const twoFactorFlags =
+        Boolean((dataObject as LoginResponse).requiresTwoFactor) ||
+        Boolean((dataObject as LoginResponse).twoFactorRequired) ||
+        Boolean((dataObject as LoginResponse).twoFactorEnabled);
+
+      if (temp) {
+        setTwoFactorRequired(true);
+        setTwoFactorToken(temp);
+        setTwoFactorCode('');
         return;
       }
 
-      if ('token' in data && data.token) {
-        setAuthToken(data.token);
-        navigate('/dashboard');
+      if (authToken) {
+        await finalizeAuthenticatedSession(authToken);
         return;
       }
 
-      setLoginError('Não foi possível autenticar. Tente novamente.');
+      if (twoFactorFlags) {
+        const serverMessage = extractServerMessage(dataObject);
+        setLoginError(serverMessage || 'Não foi possível iniciar a verificação em duas etapas. Tente novamente.');
+        return;
+      }
+
+      setLoginError('Não foi possível autenticar. Verifique seu CPF e senha.');
     } catch (error) {
       console.error('Erro ao autenticar usuário', error);
-      setLoginError('Credenciais inválidas. Verifique seu CPF e senha.');
+
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          setLoginError('Credenciais inválidas. Verifique seu CPF e senha.');
+        } else if (typeof error.response?.data === 'string' && error.response.data.trim()) {
+          setLoginError(error.response.data);
+        } else {
+          setLoginError('Erro ao autenticar. Tente novamente.');
+        }
+      } else {
+        setLoginError('Erro ao autenticar. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -141,25 +216,34 @@ const Login: React.FC = () => {
     try {
       const { data } = await api.post<TwoFAResponse>(
         '/auth/verify',
-        { code: twoFactorCode },
+        { code: Number(twoFactorCode) || twoFactorCode },
         {
           headers: {
-            Authorization: `Bearer ${twoFactorToken}`
-          }
+            Authorization: `Bearer ${twoFactorToken}`,
+          },
         }
       );
 
-      if (data?.token) {
-        setAuthToken(data.token);
+      if (data?.token && (data.status === 'authenticated' || !data.status || data.status === 'success')) {
         resetTwoFactorState();
-        navigate('/dashboard');
+        await finalizeAuthenticatedSession(data.token);
+        return;
+      }
+
+      if (data?.status === 'invalid_code') {
+        setLoginError('Código 2FA inválido. Tente novamente.');
         return;
       }
 
       setLoginError('Não foi possível concluir a verificação. Tente novamente.');
     } catch (error) {
       console.error('Erro ao verificar código 2FA', error);
-      setLoginError('Código 2FA inválido. Tente novamente.');
+
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        setLoginError('Código 2FA inválido. Tente novamente.');
+      } else {
+        setLoginError('Não foi possível concluir a verificação. Tente novamente.');
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -185,37 +269,31 @@ const Login: React.FC = () => {
               ))}
             </div>
           </div>
-          
+
           {/* Formas geométricas elegantes */}
           <div className="absolute top-32 right-32 w-40 h-40 border border-[#49C5B6]/30 rounded-2xl transform rotate-12"></div>
           <div className="absolute bottom-40 left-20 w-32 h-32 bg-[#49C5B6]/10 rounded-full"></div>
           <div className="absolute top-1/2 right-16 w-24 h-24 border border-white/20 rounded-lg transform -rotate-6"></div>
         </div>
-        
+
         {/* Conteúdo do painel */}
         <div className="relative z-10 flex flex-col justify-center items-start w-full p-16 text-white">
           {/* Logo e branding */}
           <div className="mb-16">
             <div className="flex items-center space-x-6 mb-8">
               <div className="w-24 h-24 bg-white backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg border border-white/20 p-3">
-                <img 
-                  src="/assets/logo_.png" 
-                  alt="ContainerView Logo" 
-                  className="w-full h-full object-contain"
-                />
+                <img src="/assets/logo_.png" alt="ContainerView Logo" className="w-full h-full object-contain" />
               </div>
               <div>
                 <h1 className="text-5xl font-bold tracking-tight">ContainerView</h1>
                 <p className="text-[var(--muted)] font-medium mt-1">Sistema de Gestão Empresarial</p>
               </div>
             </div>
-            
+
             <div className="max-w-md">
-              <h2 className="text-2xl font-semibold mb-4 text-[#49C5B6]">
-                Bem-vindo de volta
-              </h2>
+              <h2 className="text-2xl font-semibold mb-4 text-[#49C5B6]">Bem-vindo de volta</h2>
               <p className="text-[var(--muted)] text-lg leading-relaxed">
-                Acesse sua conta para gerenciar operações de contêineres com máxima eficiência e segurança
+                Acesse sua conta para gerenciar operações de contêineres com máxima eficiência e segurança.
               </p>
             </div>
           </div>
@@ -227,28 +305,28 @@ const Login: React.FC = () => {
                 <Shield className="w-5 h-5 text-[#49C5B6]" />
               </div>
               <div>
-                <h4 className="font-semibold mb-1">Segurança Empresarial</h4>
-                <p className="text-sm text-[var(--muted)]">Autenticação robusta e controle de acesso avançado</p>
+                <h4 className="font-semibold mb-1">Segurança empresarial</h4>
+                <p className="text-sm text-[var(--muted)]">Autenticação robusta e controle de acesso avançado.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start space-x-4">
               <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Building2 className="w-5 h-5 text-[#49C5B6]" />
               </div>
               <div>
-                <h4 className="font-semibold mb-1">Gestão Centralizada</h4>
-                <p className="text-sm text-[var(--muted)]">Controle total de operações e relatórios detalhados</p>
+                <h4 className="font-semibold mb-1">Gestão centralizada</h4>
+                <p className="text-sm text-[var(--muted)]">Controle total de operações e relatórios detalhados.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start space-x-4">
               <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <CheckCircle className="w-5 h-5 text-[#49C5B6]" />
               </div>
               <div>
-                <h4 className="font-semibold mb-1">Auditoria Completa</h4>
-                <p className="text-sm text-[var(--muted)]">Rastreabilidade total e conformidade garantida</p>
+                <h4 className="font-semibold mb-1">Auditoria completa</h4>
+                <p className="text-sm text-[var(--muted)]">Rastreabilidade total e conformidade garantida.</p>
               </div>
             </div>
 
@@ -257,28 +335,8 @@ const Login: React.FC = () => {
                 <Building2 className="w-5 h-5 text-[#49C5B6]" />
               </div>
               <div>
-                <h4 className="font-semibold mb-1">Relatórios Avançados</h4>
-                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-[#49C5B6]" />
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Relatórios Avançados</h4>
-                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-[#49C5B6]" />
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Relatórios Avançados</h4>
-                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos</p>
+                <h4 className="font-semibold mb-1">Relatórios avançados</h4>
+                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos.</p>
               </div>
             </div>
           </div>
@@ -292,27 +350,21 @@ const Login: React.FC = () => {
           <div className="bg-[var(--surface)] rounded-2xl shadow-xl border border-[var(--border)] p-8 relative overflow-hidden">
             {/* Elemento decorativo */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#49C5B6]/5 rounded-full transform translate-x-12 -translate-y-12"></div>
-            
+
             {/* Título do formulário */}
             <div className="text-center mb-8 relative z-10">
               <div className="w-12 h-12 bg-[#49C5B6] rounded-xl flex items-center justify-center mb-4 mx-auto">
                 <Lock className="w-6 h-6 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-[var(--text)] mb-2">
-                Acesso ao Sistema
-              </h2>
-              <p className="text-[var(--muted)] text-sm">
-                Entre com suas credenciais para acessar o sistema
-              </p>
+              <h2 className="text-2xl font-bold text-[var(--text)] mb-2">Acesso ao Sistema</h2>
+              <p className="text-[var(--muted)] text-sm">Entre com suas credenciais para acessar o sistema</p>
             </div>
 
             {/* Formulário de Login */}
             <div className="space-y-6">
               {/* CPF */}
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">
-                  CPF
-                </label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">CPF</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <User className="h-5 w-5 text-[var(--muted)]" />
@@ -333,9 +385,7 @@ const Login: React.FC = () => {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">
-                  Senha
-                </label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Senha</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-[var(--muted)]" />
@@ -446,9 +496,7 @@ const Login: React.FC = () => {
 
           {/* Footer */}
           <div className="text-center mt-6">
-            <p className="text-xs text-[var(--muted)]">
-              © 2025 ContainerView. Todos os direitos reservados.
-            </p>
+            <p className="text-xs text-[var(--muted)]">© 2025 ContainerView. Todos os direitos reservados.</p>
           </div>
         </div>
       </div>
@@ -457,4 +505,3 @@ const Login: React.FC = () => {
 };
 
 export default Login;
- 

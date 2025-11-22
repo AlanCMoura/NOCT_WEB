@@ -15,7 +15,10 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) {
     config.headers = config.headers || {};
-    (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    const headers = config.headers as Record<string, string>;
+    if (!headers.Authorization) {
+      headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -23,8 +26,10 @@ api.interceptors.request.use((config) => {
 export const setAuthToken = (token: string | null) => {
   if (token) {
     localStorage.setItem('authToken', token);
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
     localStorage.removeItem('authToken');
+    delete api.defaults.headers.common.Authorization;
   }
 };
 

@@ -4,6 +4,7 @@ import { Search, Filter, Download, Upload, FileText } from 'lucide-react';
 import { containerCountFor } from '../mock/operationData';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import { getOperationStatus, type OperationStatus } from '../services/operationStatus';
 
 interface User { name: string; role: string; }
@@ -48,7 +49,7 @@ const StatusBadge: React.FC<{ status: OperationStatus }> = ({ status }) => {
 const Operations: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-  const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
+  const user = useSessionUser({ role: 'Administrador' });
 
   const [loading, setLoading] = useState(true);
   const [operations, setOperations] = useState<Operation[]>([]);

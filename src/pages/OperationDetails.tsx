@@ -5,6 +5,7 @@ import { Search, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import { OperationSchema } from '../validation/operation';
 import { computeStatus, getProgress, setComplete, setImages, statusWeight, ContainerStatus } from '../services/containerProgress';
 import { containerCountFor } from '../mock/operationData';
@@ -112,6 +113,7 @@ const OperationDetails: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const user = useSessionUser({ role: 'Administrador' });
   const initialCount = containerCountFor(decodedOperationId);
   const [containers, setContainers] = useState<Container[]>(() => generateContainers(initialCount));
   const opBackupRef = useRef<OperationInfo>(mockOperation);
@@ -211,11 +213,6 @@ const OperationDetails: React.FC = () => {
 
   const cancelEdit = () => {
     dispatch({ type: 'cancelEdit', backup: opBackupRef.current });
-  };
-
-  const user: User = {
-    name: 'Carlos Oliveira',
-    role: 'Administrador'
   };
 
   // navegação via SidebarProvider; handler antigo removido

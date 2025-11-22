@@ -5,6 +5,7 @@ import { Search, Edit } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
 import { containerCountFor } from '../mock/operationData';
+import { useSessionUser } from '../context/AuthContext';
 
 interface User { name: string; role: string; }
 
@@ -43,7 +44,7 @@ const OperationOverview: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
 
-  const user: User = { name: 'Carlos Oliveira', role: 'Administrador' };
+  const user = useSessionUser({ role: 'Administrador' });
   const { changePage } = useSidebar();
 
   const [rows, setRows] = useState<ContainerRow[]>(() => generateRows(containerCountFor(decodedOperationId)));

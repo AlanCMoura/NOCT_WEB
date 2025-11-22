@@ -1,6 +1,7 @@
-﻿import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import { useAuth, useSessionUser, AuthUser } from '../context/AuthContext';
 
 type Role = 'Administrador' | 'Gerente' | 'Inspetor';
 
@@ -35,17 +36,8 @@ const roleBadgeClass = (r: Role): string => {
   }
 };
 
-const Profile: React.FC = () => {
-  const navigate = useNavigate();
-
-  // Tenta ler do localStorage ('user' como JSON). Fallback para mock
-  let stored: ProfileUser | null = null;
-  try {
-    const raw = localStorage.getItem('user');
-    if (raw) stored = JSON.parse(raw);
-  } catch {}
-
-  const userProfile: ProfileUser = stored || {
+const deriveProfileFromAuth = (authUser: AuthUser | null): ProfileUser => {
+  const fallback: ProfileUser = {
     firstName: 'Carlos',
     lastName: 'Oliveira',
     email: 'carlos.oliveira@empresa.com',
@@ -57,12 +49,48 @@ const Profile: React.FC = () => {
     lastLoginAt: '2025-08-26 09:12',
   };
 
-  const sidebarUser: SidebarUser = {
-    name: `${userProfile.firstName} ${userProfile.lastName}`,
-    role: userProfile.role,
-  };
+  if (!authUser) {
+    return fallback;
+  }
 
-  
+  const nameParts = authUser.name?.trim().split(' ') ?? [];
+  const derivedFirst = nameParts[0] ?? '';
+  const derivedLast = nameParts.slice(1).join(' ');
+
+  const firstName = authUser.firstName || derivedFirst || fallback.firstName;
+  const lastName = authUser.lastName || derivedLast || fallback.lastName;
+
+  const allowedRoles: Role[] = ['Administrador', 'Gerente', 'Inspetor'];
+  const normalizedRole = allowedRoles.includes(authUser.role as Role)
+    ? (authUser.role as Role)
+    : fallback.role;
+
+  return {
+    firstName,
+    lastName,
+    email: authUser.email || fallback.email,
+    cpf: authUser.cpf || fallback.cpf,
+    role: normalizedRole,
+    phone: (authUser.phone as string) || fallback.phone,
+    twoFactor: Boolean(
+      authUser.twoFactorEnabled ?? (authUser as { twoFactor?: boolean }).twoFactor ?? fallback.twoFactor
+    ),
+    createdAt: authUser.createdAt || fallback.createdAt,
+    lastLoginAt: authUser.lastLoginAt || fallback.lastLoginAt,
+  };
+};
+
+const Profile: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const sessionUser = useSessionUser();
+
+  const userProfile = useMemo(() => deriveProfileFromAuth(user), [user]);
+
+  const sidebarUser: SidebarUser = {
+    name: sessionUser.name,
+    role: sessionUser.role,
+  };
 
   return (
     <div className="flex h-screen bg-app">

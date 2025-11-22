@@ -3,7 +3,8 @@ import { Eye, EyeOff, Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
-import { registerUser } from '../services/auth';
+import { useSessionUser } from '../context/AuthContext';
+import { registerUser, setupTwoFactorAuth, TotpSetupResponse, RegisterUserResponse } from '../services/auth';
 
 interface UserLogged {
   name: string;
@@ -57,7 +58,7 @@ const formatCpf = (value: string): string => {
 const Users: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
-  const currentUser: UserLogged = { name: 'Carlos Oliveira', role: 'Supervisor' };
+  const currentUser: UserLogged = useSessionUser({ role: 'Supervisor' });
 
   const [users, setUsers] = useState<ManagedUser[]>(mockUsers);
   const [search, setSearch] = useState('');
@@ -78,8 +79,12 @@ const Users: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [pageAlert, setPageAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isTwoFactorModalOpen, setIsTwoFactorModalOpen] = useState(false);
+  const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
+  const [twoFactorSetupInfo, setTwoFactorSetupInfo] = useState<TotpSetupResponse | null>(null);
+  const [twoFactorSetupError, setTwoFactorSetupError] = useState<string | null>(null);
 
-  const resetForm = () => {
+  const resetForm = (options?: { keepTwoFactorModal?: boolean }) => {
     setFirstName('');
     setLastName('');
     setCpf('');
@@ -92,9 +97,49 @@ const Users: React.FC = () => {
     setShowConfirm(false);
     setFormError(null);
     setIsSubmitting(false);
+
+    if (!options?.keepTwoFactorModal) {
+      setIsTwoFactorModalOpen(false);
+      setTwoFactorSetupInfo(null);
+      setTwoFactorSetupError(null);
+    }
+
+    setIsTwoFactorLoading(false);
   };
 
   const cpfDigits = cpf.replace(/\D/g, '');
+
+  const loadTwoFactorSetup = async () => {
+    setIsTwoFactorLoading(true);
+    setTwoFactorSetupInfo(null);
+    setTwoFactorSetupError(null);
+
+    try {
+      const setupData = await setupTwoFactorAuth();
+      setTwoFactorSetupInfo(setupData);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Nao foi possivel gerar o QR Code. Tente novamente.';
+      setTwoFactorSetupError(message);
+    } finally {
+      setIsTwoFactorLoading(false);
+    }
+  };
+
+  const handleTwoFactorToggle = (value: boolean) => {
+    setTwoFactor(value);
+
+    if (!value) {
+      setIsTwoFactorModalOpen(false);
+      setTwoFactorSetupInfo(null);
+      setTwoFactorSetupError(null);
+      setIsTwoFactorLoading(false);
+    }
+  };
+
+  const closeTwoFactorModal = () => {
+    setIsTwoFactorModalOpen(false);
+  };
 
   const handleSave = async () => {
     if (!isValid || isSubmitting) return;
@@ -127,7 +172,7 @@ const Users: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const successMessage = await registerUser(payload);
+      const response: RegisterUserResponse = await registerUser(payload);
 
       const newUser: ManagedUser = {
         id: String(Date.now()),
@@ -140,12 +185,24 @@ const Users: React.FC = () => {
       };
 
       setUsers((prev) => [newUser, ...prev]);
-      setPageAlert({ type: 'success', message: successMessage || 'Usuário cadastrado com sucesso' });
+      setPageAlert({ type: 'success', message: response.message || 'Usuário cadastrado com sucesso' });
       setIsOpen(false);
       setEditingUser(null);
-      resetForm();
+
+      // Se 2FA veio do backend, exibe QR Code e segredo retornados
+      if (twoFactor && response.totpSecret && response.qrCodeDataUri) {
+        setTwoFactorSetupInfo({
+          secret: response.totpSecret,
+          qrCodeDataUri: response.qrCodeDataUri,
+          message: response.message || 'Escaneie o QR Code com seu aplicativo Authenticator',
+        });
+        setIsTwoFactorModalOpen(true);
+        resetForm({ keepTwoFactorModal: true });
+      } else {
+        resetForm();
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel cadastrar o usuÃ¡rio. Tente novamente.';
+      const message = error instanceof Error ? error.message : 'Não foi possível cadastrar o usuário. Tente novamente.';
       setFormError(message);
     } finally {
       setIsSubmitting(false);
@@ -458,7 +515,7 @@ const Users: React.FC = () => {
                   <h4 className="text-sm font-semibold text-[var(--text)]">AutenticaÃ§Ã£o de Dois Fatores (2FA)</h4>
                   <p className="text-xs text-[var(--muted)]">Habilitar verificaÃ§Ã£o por email para maior seguranÃ§a</p>
                 </div>
-                <Toggle checked={twoFactor} onChange={setTwoFactor} />
+                <Toggle checked={twoFactor} onChange={handleTwoFactorToggle} />
               </div>
             </div>
 
@@ -475,6 +532,75 @@ const Users: React.FC = () => {
                 className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${submitDisabled ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 {submitLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isTwoFactorModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={closeTwoFactorModal} />
+          <div className="relative bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+            <div className="flex items-start justify-between px-6 py-5 border-b border-[var(--border)]">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--text)]">Configurar autenticacao em 2 fatores</h3>
+                <p className="text-sm text-[var(--muted)] mt-1">
+                  Compartilhe o QR Code gerado com o usuario para finalizar a configuracao.
+                </p>
+              </div>
+              <button onClick={closeTwoFactorModal} className="text-gray-400 hover:text-[var(--muted)]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              {isTwoFactorLoading && (
+                <div className="flex items-center gap-3 text-[var(--muted)]">
+                  <span className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" aria-hidden />
+                  <span>Gerando QR Code para autenticacao...</span>
+                </div>
+              )}
+
+              {!isTwoFactorLoading && twoFactorSetupError && (
+                <>
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                    {twoFactorSetupError}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadTwoFactorSetup}
+                    className="w-full px-4 py-2 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  >
+                    Tentar novamente
+                  </button>
+                </>
+              )}
+
+              {!isTwoFactorLoading && !twoFactorSetupError && twoFactorSetupInfo && (
+                <div className="space-y-4">
+                  <p className="text-sm text-[var(--muted)]">{twoFactorSetupInfo.message}</p>
+                  <div className="flex flex-col items-center gap-3">
+                    <img
+                      src={twoFactorSetupInfo.qrCodeDataUri}
+                      alt="QR Code de autenticacao em 2 fatores"
+                      className="w-48 h-48 rounded-lg border border-[var(--border)] bg-white p-2"
+                    />
+                    <p className="text-xs text-[var(--muted)] text-center">
+                      Utilize aplicativos como Google Authenticator ou Microsoft Authenticator para escanear.
+                    </p>
+                  </div>
+                  <div className="bg-[var(--hover)] rounded-lg p-4">
+                    <p className="text-sm font-semibold text-[var(--text)]">Chave secreta</p>
+                    <p className="font-mono text-lg text-teal-600 break-all mt-2">{twoFactorSetupInfo.secret}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-[var(--border)] flex justify-end">
+              <button
+                onClick={closeTwoFactorModal}
+                className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
+              >
+                Concluir
               </button>
             </div>
           </div>

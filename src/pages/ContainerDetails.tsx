@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
+import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection from '../components/ContainerImageSection';
 import { computeStatus, getProgress, setImages, setComplete } from '../services/containerProgress';
 
@@ -119,6 +120,7 @@ const ContainerDetails: React.FC = () => {
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
+  const user = useSessionUser({ role: 'Administrador' });
   const [info, setInfo] = useState<ContainerInfo>(initialInfo);
   const [imageSections, setImageSections] = useState<Record<string, ImageItem[]>>(imagesSections);
   const [isEditing, setIsEditing] = useState(false);
@@ -250,11 +252,6 @@ const ContainerDetails: React.FC = () => {
   const handleSave = (): void => {
     alert('Salvar informações em breve!');
     setIsEditing(false);
-  };
-
-  const user: User = {
-    name: 'Carlos Oliveira',
-    role: 'Administrador'
   };
 
   // navegação via SidebarProvider; handler antigo removido
