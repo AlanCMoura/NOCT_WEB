@@ -12,8 +12,12 @@ export const api = axios.create({
 
 // Attach Authorization header from localStorage token for standard requests
 api.interceptors.request.use((config) => {
+  const url = config.url || '';
+  const authPaths = ['/auth/login', '/auth/register', '/auth/verify', '/auth/2fa/setup'];
+  const skipAuth = authPaths.some((path) => url.includes(path));
+
   const token = localStorage.getItem('authToken');
-  if (token) {
+  if (token && !skipAuth) {
     config.headers = config.headers || {};
     const headers = config.headers as Record<string, string>;
     if (!headers.Authorization) {

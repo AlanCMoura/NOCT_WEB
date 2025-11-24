@@ -72,6 +72,16 @@ const extractServerMessage = (payload: Record<string, unknown>): string | null =
   return null;
 };
 
+const toBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return ['true', '1', 'yes', 'y'].includes(normalized);
+  }
+  if (typeof value === 'number') return value === 1;
+  return false;
+};
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login: persistSession, refreshUser } = useAuth();
@@ -156,30 +166,30 @@ const Login: React.FC = () => {
 
       const temp = extractTempToken(dataObject);
       const authToken = extractAuthToken(dataObject);
-      const twoFactorFlags =
-        Boolean((dataObject as LoginResponse).requiresTwoFactor) ||
-        Boolean((dataObject as LoginResponse).twoFactorRequired) ||
-        Boolean((dataObject as LoginResponse).twoFactorEnabled);
+      const requiresTwoFactor =
+        toBoolean((dataObject as LoginResponse).requiresTwoFactor) ||
+        toBoolean((dataObject as LoginResponse).twoFactorRequired) ||
+        toBoolean((dataObject as LoginResponse).twoFactorEnabled);
 
-      if (temp) {
+      if (authToken && !requiresTwoFactor) {
+        await finalizeAuthenticatedSession(authToken);
+        return;
+      }
+
+      if (requiresTwoFactor && temp) {
         setTwoFactorRequired(true);
         setTwoFactorToken(temp);
         setTwoFactorCode('');
         return;
       }
 
-      if (authToken) {
-        await finalizeAuthenticatedSession(authToken);
-        return;
-      }
-
-      if (twoFactorFlags) {
+      if (requiresTwoFactor) {
         const serverMessage = extractServerMessage(dataObject);
-        setLoginError(serverMessage || 'Não foi possível iniciar a verificação em duas etapas. Tente novamente.');
+        setLoginError(serverMessage || 'Nao foi possivel iniciar a verificacao em duas etapas. Tente novamente.');
         return;
       }
 
-      setLoginError('Não foi possível autenticar. Verifique seu CPF e senha.');
+      setLoginError('Nao foi possivel autenticar. Verifique seu CPF e senha.');
     } catch (error) {
       console.error('Erro ao autenticar usuário', error);
 
@@ -505,3 +515,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+

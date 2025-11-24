@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { Eye, EyeOff, Plus, Search, X, Edit, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Eye, EyeOff, Plus, Search, X, Edit, Trash2, RefreshCcw } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { registerUser, setupTwoFactorAuth, TotpSetupResponse, RegisterUserResponse } from '../services/auth';
+import { ApiUser, deleteUserById, listUsers, updateUserById } from '../services/users';
 
 interface UserLogged {
   name: string;
@@ -18,8 +18,14 @@ const ROLE_TO_API: Record<Role, string> = {
   Inspetor: 'INSPETOR',
 };
 
+const API_ROLE_TO_UI: Record<string, Role> = {
+  ADMIN: 'Administrador',
+  GERENTE: 'Gerente',
+  INSPETOR: 'Inspetor',
+};
+
 interface ManagedUser {
-  id: string;
+  id: number | string;
   firstName: string;
   lastName: string;
   cpf: string;
@@ -28,14 +34,8 @@ interface ManagedUser {
   twoFactor: boolean;
 }
 
-const mockUsers: ManagedUser[] = [
-  { id: '1', firstName: 'Ana', lastName: 'Silva', cpf: '123.456.789-00', email: 'ana@empresa.com', role: 'Administrador', twoFactor: true },
-  { id: '2', firstName: 'Bruno', lastName: 'Oliveira', cpf: '987.654.321-00', email: 'bruno@empresa.com', role: 'Gerente', twoFactor: false },
-  { id: '3', firstName: 'Carla', lastName: 'Souza', cpf: '111.222.333-44', email: 'carla@empresa.com', role: 'Inspetor', twoFactor: false },
-];
-
 // Toggle UI
-const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }>= ({ checked, onChange, disabled }) => (
+const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ checked, onChange, disabled }) => (
   <button
     type="button"
     aria-pressed={checked}
@@ -55,13 +55,38 @@ const formatCpf = (value: string): string => {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 };
 
+const mapApiUserToManaged = (user: ApiUser): ManagedUser => {
+  const roleFromApi = user.role ? API_ROLE_TO_UI[user.role] ?? 'Inspetor' : 'Inspetor';
+  const nameParts = (user.name ?? '').trim().split(' ').filter(Boolean);
+  const firstName = user.firstName ?? nameParts[0] ?? 'Usuario';
+  const lastName = user.lastName ?? (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '');
+  const cpfValue = typeof user.cpf === 'string' ? user.cpf : '';
+  const twoFactorEnabled =
+    Boolean((user as unknown as { twoFactor?: boolean }).twoFactor) || Boolean(user.twoFactorEnabled);
+
+  return {
+    id: user.id ?? String(Date.now()),
+    firstName,
+    lastName,
+    cpf: formatCpf(cpfValue),
+    email: user.email ?? '',
+    role: roleFromApi,
+    twoFactor: twoFactorEnabled,
+  };
+};
+
 const Users: React.FC = () => {
-  const navigate = useNavigate();
+  const PAGE_SIZE = 10;
   const { changePage } = useSidebar();
   const currentUser: UserLogged = useSessionUser({ role: 'Supervisor' });
 
-  const [users, setUsers] = useState<ManagedUser[]>(mockUsers);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
 
@@ -109,6 +134,51 @@ const Users: React.FC = () => {
 
   const cpfDigits = cpf.replace(/\D/g, '');
 
+  const fetchUsers = useCallback(
+    async (targetPage = 0) => {
+      setIsLoadingUsers(true);
+      setListError(null);
+
+      try {
+        const data = await listUsers({
+          page: targetPage,
+          size: PAGE_SIZE,
+          sortBy: 'id',
+          sortDirection: 'ASC',
+        });
+
+        const mapped = (data?.content ?? []).map(mapApiUserToManaged);
+        setUsers(mapped);
+        setPage(data?.number ?? targetPage);
+        setTotalPages(data?.totalPages ?? 0);
+        setTotalUsers(data?.totalElements ?? mapped.length);
+        return data;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Nao foi possivel carregar os Usuarios.';
+        setListError(message);
+        return undefined;
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    },
+    [PAGE_SIZE]
+  );
+
+  useEffect(() => {
+    fetchUsers(page);
+  }, [fetchUsers, page]);
+
+  const refreshCurrentPage = useCallback(async () => {
+    const data = await fetchUsers(page);
+
+    if (data && data.totalPages > 0 && page >= data.totalPages) {
+      const lastPage = Math.max(0, data.totalPages - 1);
+      if (lastPage !== page) {
+        setPage(lastPage);
+      }
+    }
+  }, [fetchUsers, page]);
+
   const loadTwoFactorSetup = async () => {
     setIsTwoFactorLoading(true);
     setTwoFactorSetupInfo(null);
@@ -146,27 +216,46 @@ const Users: React.FC = () => {
 
     setFormError(null);
 
-    if (editingUser) {
-      setUsers(prev =>
-        prev.map(u =>
-          u.id === editingUser.id ? { ...editingUser, firstName, lastName, cpf, email, role, twoFactor } : u
-        )
-      );
+    const commonPayload = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      cpf: cpfDigits,
+      email: email.trim(),
+      role: ROLE_TO_API[role] ?? role,
+      twoFactorEnabled: twoFactor,
+    };
 
-      setIsOpen(false);
-      setEditingUser(null);
-      resetForm();
+    if (editingUser) {
+      setIsSubmitting(true);
+
+      try {
+        const updatedUser = await updateUserById(editingUser.id, commonPayload);
+        const mapped = mapApiUserToManaged(updatedUser);
+
+        setUsers((prev) => prev.map((u) => (String(u.id) === String(mapped.id) ? mapped : u)));
+        setPageAlert({ type: 'success', message: 'Usuario atualizado com sucesso.' });
+        setIsOpen(false);
+        setEditingUser(null);
+        resetForm();
+        await refreshCurrentPage();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Nao foi possivel atualizar o usuario. Tente novamente.';
+        setFormError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+
+      return;
+    }
+
+    if (!password || password !== confirm) {
+      setFormError('As senhas precisam ser iguais.');
       return;
     }
 
     const payload = {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      cpf: cpf.trim(),
-      email: email.trim(),
+      ...commonPayload,
       password,
-      role: ROLE_TO_API[role] ?? role,
-      twoFactorEnabled: twoFactor,
     };
 
     setIsSubmitting(true);
@@ -174,20 +263,11 @@ const Users: React.FC = () => {
     try {
       const response: RegisterUserResponse = await registerUser(payload);
 
-      const newUser: ManagedUser = {
-        id: String(Date.now()),
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        cpf: formatCpf(payload.cpf),
-        email: payload.email,
-        role,
-        twoFactor,
-      };
-
-      setUsers((prev) => [newUser, ...prev]);
-      setPageAlert({ type: 'success', message: response.message || 'Usuário cadastrado com sucesso' });
+      setPageAlert({ type: 'success', message: response.message || 'Usuario cadastrado com sucesso.' });
       setIsOpen(false);
       setEditingUser(null);
+      setPage(0);
+      await fetchUsers(0);
 
       // Se 2FA veio do backend, exibe QR Code e segredo retornados
       if (twoFactor && response.totpSecret && response.qrCodeDataUri) {
@@ -202,7 +282,7 @@ const Users: React.FC = () => {
         resetForm();
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível cadastrar o usuário. Tente novamente.';
+      const message = error instanceof Error ? error.message : 'Nao foi possivel cadastrar o usuario. Tente novamente.';
       setFormError(message);
     } finally {
       setIsSubmitting(false);
@@ -226,8 +306,8 @@ const Users: React.FC = () => {
 
   const submitDisabled = !isValid || isSubmitting;
   const submitLabel = editingUser
-    ? (isSubmitting ? 'Salvando...' : 'Salvar Alteraï¿½ï¿½ï¿½ï¿½es')
-    : (isSubmitting ? 'Cadastrando...' : 'Cadastrar UsuÇ­rio');
+    ? (isSubmitting ? 'Salvando...' : 'Salvar alteracoes')
+    : (isSubmitting ? 'Cadastrando...' : 'Cadastrar usuario');
 
   const startCreate = () => {
     setEditingUser(null);
@@ -250,13 +330,20 @@ const Users: React.FC = () => {
     setIsOpen(true);
   };
 
-  const deleteUser = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este usuÃ¡rio?')) {
-      setUsers(prev => prev.filter(u => u.id !== id));
+  const deleteUser = async (id: number | string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este usuario?')) return;
+
+    try {
+      await deleteUserById(id);
+      setPageAlert({ type: 'success', message: 'Usuario excluido com sucesso.' });
+      await refreshCurrentPage();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel excluir o usuario.';
+      setPageAlert({ type: 'error', message });
     }
   };
 
-  // navegaÃ§Ã£o via SidebarProvider; handler antigo removido
+  // navegacao via SidebarProvider; handler antigo removido
 
   const roleBadgeClass = (r: Role): string => {
     switch (r) {
@@ -270,6 +357,15 @@ const Users: React.FC = () => {
     }
   };
 
+  const goToPreviousPage = () => {
+    if (page > 0) setPage((prev) => prev - 1);
+  };
+
+  const goToNextPage = () => {
+    if (totalPages === 0) return;
+    if (page + 1 < totalPages) setPage((prev) => prev + 1);
+  };
+
   return (
     <div className="flex h-screen bg-app">
       <Sidebar user={currentUser} />
@@ -278,8 +374,8 @@ const Users: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">UsuÃ¡rios</h1>
-              <p className="text-sm text-[var(--muted)]">Gerenciamento de usuÃ¡rios do sistema</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Usuarios</h1>
+              <p className="text-sm text-[var(--muted)]">Gerenciamento de usuarios do sistema</p>
             </div>
 
             {formError && (
@@ -314,7 +410,7 @@ const Users: React.FC = () => {
             >
               <div className="pr-4">
                 <p className="font-semibold">
-                  {pageAlert.type === 'success' ? 'Cadastro realizado' : 'Não foi possível completar o cadastro'}
+                  {pageAlert.type === 'success' ? 'Cadastro realizado' : 'Nao foi possivel completar a acao'}
                 </p>
                 <p className="mt-1">{pageAlert.message}</p>
               </div>
@@ -330,7 +426,18 @@ const Users: React.FC = () => {
           )}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">UsuÃ¡rios Cadastrados</h2>
+              <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                <span>Total: {totalUsers}</span>
+                <button
+                  type="button"
+                  onClick={() => fetchUsers(page)}
+                  className="inline-flex items-center gap-1 text-[var(--text)] border border-[var(--border)] rounded-md px-2 py-1 hover:bg-[var(--hover)]"
+                  disabled={isLoadingUsers}
+                >
+                  <RefreshCcw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </button>
+              </div>
               <div className="flex flex-1 sm:flex-initial gap-3">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -347,7 +454,7 @@ const Users: React.FC = () => {
                   className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar UsuÃ¡rio
+                  Cadastrar Usuario
                 </button>
               </div>
             </div>
@@ -361,49 +468,100 @@ const Users: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CPF</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Perfil</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">2FA</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">AÃ§Ãµes</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-                  {filtered.map((u) => (
-                    <tr key={u.id} className="hover:bg-[var(--hover)]">
-                      <td className="px-6 py-3 text-sm text-[var(--text)]">{u.firstName} {u.lastName}</td>
-                      <td className="px-6 py-3 text-sm text-[var(--text)]">{u.email}</td>
-                      <td className="px-6 py-3 text-sm text-[var(--text)]">{u.cpf}</td>
-                      <td className="px-6 py-3 text-sm">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(u.role)}`}>{u.role}</span>
-                      </td>
-                      <td className="px-6 py-3 text-sm">
-                        {u.twoFactor ? (
-                          <span className="text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-semibold">Ativo</span>
-                        ) : (
-                          <span className="text-[var(--text)] bg-app px-2 py-1 rounded-full text-xs font-semibold">Desativado</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-right">
-                        <div className="inline-flex gap-2">
-                          <button
-                            onClick={() => startEdit(u)}
-                            className="px-2 py-1 rounded-md border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1"
-                            title="Editar"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span className="hidden sm:inline">Editar</span>
-                          </button>
-                          <button
-                            onClick={() => deleteUser(u.id)}
-                            className="px-2 py-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Excluir</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+  {isLoadingUsers ? (
+    <tr>
+      <td colSpan={6} className="px-6 py-6 text-sm text-[var(--muted)]">
+        Carregando Usuarios...
+      </td>
+    </tr>
+  ) : listError ? (
+    <tr>
+      <td colSpan={6} className="px-6 py-6 text-sm text-red-700">
+        <div className="flex items-center justify-between">
+          <span>{listError}</span>
+          <button
+            type="button"
+            onClick={() => fetchUsers(page)}
+            className="px-3 py-1 rounded-md border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)]"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </td>
+    </tr>
+  ) : filtered.length === 0 ? (
+    <tr>
+      <td colSpan={6} className="px-6 py-6 text-sm text-[var(--muted)]">
+        Nenhum usuario encontrado.
+      </td>
+    </tr>
+  ) : (
+    filtered.map((u) => (
+      <tr key={u.id} className="hover:bg-[var(--hover)]">
+        <td className="px-6 py-3 text-sm text-[var(--text)]">{u.firstName} {u.lastName}</td>
+        <td className="px-6 py-3 text-sm text-[var(--text)]">{u.email}</td>
+        <td className="px-6 py-3 text-sm text-[var(--text)]">{u.cpf}</td>
+        <td className="px-6 py-3 text-sm">
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(u.role)}`}>{u.role}</span>
+        </td>
+        <td className="px-6 py-3 text-sm">
+          {u.twoFactor ? (
+            <span className="text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-semibold">Ativo</span>
+          ) : (
+            <span className="text-[var(--text)] bg-app px-2 py-1 rounded-full text-xs font-semibold">Desativado</span>
+          )}
+        </td>
+        <td className="px-6 py-3 text-sm text-right">
+          <div className="inline-flex gap-2">
+            <button
+              onClick={() => startEdit(u)}
+              className="px-2 py-1 rounded-md border border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1"
+              title="Editar"
+            >
+              <Edit className="w-4 h-4" />
+              <span className="hidden sm:inline">Editar</span>
+            </button>
+            <button
+              onClick={() => deleteUser(u.id)}
+              className="px-2 py-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
+              title="Excluir"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Excluir</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
               </table>
+            </div>
+
+            <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between text-sm text-[var(--muted)]">
+              <div>
+                Pagina {totalPages === 0 ? 0 : page + 1} de {totalPages}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={page === 0 || isLoadingUsers}
+                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={goToNextPage}
+                  disabled={isLoadingUsers || totalPages === 0 || page + 1 >= totalPages}
+                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Proximo
+                </button>
+              </div>
             </div>
           </section>
         </main>
@@ -415,7 +573,7 @@ const Users: React.FC = () => {
           <div className="absolute inset-0 bg-black/40" onClick={() => setIsOpen(false)} />
           <div className="relative bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
-              <h3 className="text-lg font-semibold text-[var(--text)]">{editingUser ? 'Editar UsuÃ¡rio' : 'Cadastrar Novo UsuÃ¡rio'}</h3>
+              <h3 className="text-lg font-semibold text-[var(--text)]">{editingUser ? 'Editar Usuario' : 'Cadastrar Novo Usuario'}</h3>
               <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-[var(--muted)]">
                 <X className="w-5 h-5" />
               </button>
@@ -464,8 +622,8 @@ const Users: React.FC = () => {
 
               <div className="rounded-xl border border-[var(--border)] bg-[var(--hover)]">
                 <div className="px-4 pt-4">
-                  <h4 className="text-sm font-semibold text-[var(--text)]">Perfil de AÃ§Ãµesso</h4>
-                  <p className="text-xs text-[var(--muted)] mb-3">Selecione um perfil de acesso</p>
+                  <h4 className="text-sm font-semibold text-[var(--text)]">Perfil de Acesso</h4>
+                  <p className="text-xs text-[var(--muted)] mb-3">Selecione um Perfil de Acesso</p>
                 </div>
                 <div className="px-4 pb-4">
                   <label className="block text-sm font-medium text-[var(--text)] mb-1">Perfil <span className="text-red-500">*</span></label>
@@ -512,8 +670,8 @@ const Users: React.FC = () => {
 
               <div className="rounded-xl border border-[var(--border)] p-4 flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-semibold text-[var(--text)]">AutenticaÃ§Ã£o de Dois Fatores (2FA)</h4>
-                  <p className="text-xs text-[var(--muted)]">Habilitar verificaÃ§Ã£o por email para maior seguranÃ§a</p>
+                  <h4 className="text-sm font-semibold text-[var(--text)]">Autenticacao de Dois Fatores (2FA)</h4>
+                  <p className="text-xs text-[var(--muted)]">Habilitar verificacao por email para maior seguranca</p>
                 </div>
                 <Toggle checked={twoFactor} onChange={handleTwoFactorToggle} />
               </div>
@@ -611,6 +769,20 @@ const Users: React.FC = () => {
 };
 
 export default Users;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
