@@ -1,34 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Upload, FileText } from 'lucide-react';
-import { containerCountFor } from '../mock/operationData';
+import { Search, Filter, Download, Upload, FileText, RefreshCcw } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { getOperationStatus, type OperationStatus } from '../services/operationStatus';
+import { listOperations, type ApiOperation } from '../services/operations';
 
 interface User { name: string; role: string; }
 
-interface Operation {
+interface OperationItem {
   id: string;
-  Reserva: string;
+  ctv: string;
+  reserva: string;
   shipName: string;
-  date: string; // ISO
+  date: string; // ISO or string
   status: OperationStatus;
   containerCount: number;
 }
 
-const mockOperations: Operation[] = [
-  { id: 'AMV-12345/25', Reserva: 'COD123', shipName: 'MSC Fantasia',    date: '2025-08-15T14:30:00Z', status: 'Aberta',  containerCount: 28 },
-  { id: 'AMV-12346/25', Reserva: 'COD123', shipName: 'Maersk Line',      date: '2025-08-15T10:15:00Z', status: 'Aberta',  containerCount: 34 },
-  { id: 'AMV-12344/25', Reserva: 'COD123', shipName: 'Hamburg S�d',      date: '2025-08-14T16:45:00Z', status: 'Fechada', containerCount: 22 },
-  { id: 'AMV-12343/25', Reserva: 'COD123', shipName: 'CMA CGM',          date: '2025-08-14T09:20:00Z', status: 'Fechada', containerCount: 40 },
-  { id: 'AMV-12342/25', Reserva: 'COD123', shipName: 'Evergreen Marine', date: '2025-08-13T15:10:00Z', status: 'Aberta',  containerCount: 24 },
-  { id: 'AMV-12341/25', Reserva: 'COD123', shipName: 'COSCO Shipping',   date: '2025-08-13T11:30:00Z', status: 'Aberta',  containerCount: 31 },
-];
-
 const formatDate = (iso: string) => {
+  if (!iso) return '-';
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
@@ -37,12 +31,86 @@ const formatDate = (iso: string) => {
   return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
 };
 
+const normalizeStatus = (value: unknown): OperationStatus => {
+  const text = String(value ?? '').toLowerCase();
+  if (text.includes('fech') || text.includes('close') || text.includes('final')) return 'Fechada';
+  return 'Aberta';
+};
+
+const parseDateValue = (value: unknown): string => {
+  if (!value) return '';
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'string') return value;
+  return '';
+};
+
+const mapApiOperation = (op: ApiOperation): OperationItem => {
+  const idValue =
+    op.id ??
+    op.code ??
+    op.booking ??
+    op.bookingCode ??
+    op.reserva ??
+    op.reservation ??
+    op.ctv ??
+    op.amv ??
+    '---';
+  const id = String(idValue);
+
+  const ctv = String(
+    op.ctv ??
+      op.amv ??
+      op.ship ??
+      op.code ??
+      op.booking ??
+      op.bookingCode ??
+      op.reserva ??
+      op.reservation ??
+      id
+  );
+  const reserva = String(
+    op.reserva ?? op.reservation ?? op.booking ?? op.bookingCode ?? op.code ?? ''
+  );
+  const shipName = String(
+    op.shipName ?? op.ship ?? op.vesselName ?? op.vessel ?? op.navio ?? id
+  );
+  const dateSource =
+    parseDateValue(op.updatedAt) ||
+    parseDateValue(op.createdAt) ||
+    parseDateValue(op.arrivalDate) ||
+    parseDateValue(op.deadline) ||
+    parseDateValue(op.deadlineDraft) ||
+    parseDateValue(op.loadDeadline) ||
+    parseDateValue(op.data) ||
+    parseDateValue(op.entrega);
+
+  const baseStatus = normalizeStatus(op.status);
+  const persistedStatus = getOperationStatus(id);
+  const status = persistedStatus ?? baseStatus;
+
+  const containerCount =
+    op.containerCount ??
+    (Array.isArray(op.containers) ? op.containers.length : undefined) ??
+    (Array.isArray(op.containerList) ? op.containerList.length : undefined) ??
+    0;
+
+  return {
+    id,
+    ctv,
+    reserva: reserva || '---',
+    shipName,
+    date: dateSource,
+    status,
+    containerCount,
+  };
+};
+
 const StatusBadge: React.FC<{ status: OperationStatus }> = ({ status }) => {
   const map = {
     Aberta: { label: 'Aberta', className: 'bg-green-100 text-green-800' },
     Fechada: { label: 'Fechada', className: 'bg-blue-100 text-blue-800' },
   } as const;
-  const cfg = map[status];
+  const cfg = map[status] ?? map.Aberta;
   return <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${cfg.className}`}>{cfg.label}</span>;
 };
 
@@ -51,32 +119,62 @@ const Operations: React.FC = () => {
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Administrador' });
 
+  const PAGE_SIZE = 10;
   const [loading, setLoading] = useState(true);
-  const [operations, setOperations] = useState<Operation[]>([]);
+  const [operations, setOperations] = useState<OperationItem[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalOperations, setTotalOperations] = useState(0);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const fetchOperations = useCallback(
+    async (targetPage = 0) => {
+      setLoading(true);
+      setListError(null);
+      try {
+        const data = await listOperations({ page: targetPage, size: PAGE_SIZE, sortBy: 'id', sortDirection: 'ASC' });
+        const mapped = (data?.content ?? []).map(mapApiOperation);
+        setOperations(mapped);
+        setPage(data?.number ?? targetPage);
+        setTotalPages(data?.totalPages ?? 0);
+        setTotalOperations(data?.totalElements ?? mapped.length);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Nao foi possivel carregar as operacoes.';
+        setListError(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [PAGE_SIZE]
+  );
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      const withStatus = mockOperations.map((op) => {
-        const stored = getOperationStatus(op.id);
-        return stored ? { ...op, status: stored } : op;
-      });
-      setOperations(withStatus);
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(t);
-  }, []);
+    fetchOperations(page);
+  }, [fetchOperations, page]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return operations;
     return operations.filter((op) =>
-      op.id.toLowerCase().includes(q) || op.shipName.toLowerCase().includes(q) || op.Reserva.toLowerCase().includes(q)
+      op.ctv.toLowerCase().includes(q) ||
+      op.id.toLowerCase().includes(q) ||
+      op.reserva.toLowerCase().includes(q) ||
+      op.shipName.toLowerCase().includes(q)
     );
   }, [operations, search]);
 
   const handleNew = () => navigate('/operations/new');
   const handleView = (id: string) => navigate(`/operations/${encodeURIComponent(id)}`);
+
+  const goToPrevious = () => {
+    if (page > 0) setPage((prev) => prev - 1);
+  };
+
+  const goToNext = () => {
+    if (totalPages === 0) return;
+    if (page + 1 < totalPages) setPage((prev) => prev + 1);
+  };
 
   return (
     <div className="flex h-screen bg-app">
@@ -86,8 +184,8 @@ const Operations: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Operações</h1>
-              <p className="text-sm text-[var(--muted)]">Gerencie as operações portuárias e inspeções</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Operacoes</h1>
+              <p className="text-sm text-[var(--muted)]">Gerencie as operacoes portuarias e inspecoes</p>
             </div>
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -104,7 +202,6 @@ const Operations: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          {/* Barra de ações */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-5 h-5" />
@@ -113,10 +210,18 @@ const Operations: React.FC = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-[var(--border)] rounded-lg text-sm placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-[var(--surface)] text-[var(--text)]"
-                placeholder="Pesquisar por AMV, reserva ou navio..."
+                placeholder="Pesquisar por CTV, reserva ou navio..."
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              <button
+                type="button"
+                onClick={() => fetchOperations(page)}
+                className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors"
+                disabled={loading}
+              >
+                <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+              </button>
               <button className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
                 <Filter className="w-4 h-4" />
               </button>
@@ -124,13 +229,12 @@ const Operations: React.FC = () => {
                 <Download className="w-4 h-4 mr-2" /> Importar
               </button>
               <button onClick={handleNew} className="inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 transition-colors">
-                <Upload className="w-4 h-4 mr-2" /> Nova Operação
+                <Upload className="w-4 h-4 mr-2" /> Nova Operacao
               </button>
             </div>
           </div>
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-
             {loading ? (
               <div className="p-6">
                 <div className="animate-pulse space-y-4">
@@ -146,36 +250,47 @@ const Operations: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : listError ? (
+              <div className="p-6 text-sm text-red-700 flex items-center justify-between">
+                <span>{listError}</span>
+                <button
+                  type="button"
+                  onClick={() => fetchOperations(page)}
+                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg bg-[var(--surface)] hover:bg-[var(--hover)] text-[var(--text)]"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="mx-auto h-12 w-12 text-[var(--muted)] mb-4" />
-                <p className="text-[var(--muted)]">Nenhuma operação encontrada</p>
+                <p className="text-[var(--muted)]">Nenhuma operacao encontrada</p>
                 <p className="text-sm text-[var(--muted)] mt-1">Tente ajustar os filtros ou buscar por outros termos</p>
               </div>
             ) : (
               <table className="w-full text-center">
                 <thead className="bg-[var(--hover)]">
                   <tr>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">AMV</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CTV</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Reserva</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Navio</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Containers</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
                   {filtered.map((op) => (
-                    <tr key={op.id} className="hover:bg-[var(--hover)] transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{op.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.Reserva}</td>
+                    <tr key={op.id || op.ctv} className="hover:bg-[var(--hover)] transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{op.ctv || op.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.reserva || '---'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.shipName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{formatDate(op.date)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text)]">{op.containerCount}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={op.status} /></td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm ">
-                        <button onClick={() => handleView(op.id)} className="text-teal-600 hover:text-teal-800 transition-colors font-medium">Ver Detalhes</button>
+                        <button onClick={() => handleView(op.id || op.ctv)} className="text-teal-600 hover:text-teal-800 transition-colors font-medium">Ver Detalhes</button>
                       </td>
                     </tr>
                   ))}
@@ -184,19 +299,26 @@ const Operations: React.FC = () => {
             )}
           </div>
 
-          {/* Paginação */}
-          {filtered.length > 0 && (
+          {filtered.length > 0 && !loading && !listError && (
             <div className="px-6 py-4 border-t border-[var(--border)]">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-[var(--muted)]">
-                  Mostrando <span className="font-medium">1</span> a <span className="font-medium">{Math.min(10, filtered.length)}</span> de <span className="font-medium">{filtered.length}</span> resultados
+                  Pagina {totalPages === 0 ? 0 : page + 1} de {totalPages} | Total: {totalOperations}
                 </div>
                 <div className="flex gap-2">
-                  <button disabled className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                  <button
+                    onClick={goToPrevious}
+                    disabled={page === 0}
+                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
                     Anterior
                   </button>
-                  <button disabled className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    Próximo
+                  <button
+                    onClick={goToNext}
+                    disabled={totalPages === 0 || page + 1 >= totalPages}
+                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Proximo
                   </button>
                 </div>
               </div>
@@ -209,5 +331,3 @@ const Operations: React.FC = () => {
 };
 
 export default Operations;
-
-

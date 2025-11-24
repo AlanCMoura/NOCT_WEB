@@ -1,26 +1,18 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
+import { deleteSackImage, getSackImages, uploadSackImages } from '../services/operations';
 
 interface User {
   name: string;
   role: string;
 }
 
-const initialSacaria: SectionImageItem[] = [
-  { url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80' },
-  { url: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80' }
-];
+type SackImageItem = SectionImageItem & { id?: string | number };
 
 const IMAGES_PER_VIEW = 3;
 
@@ -31,15 +23,43 @@ const Sacaria: React.FC = () => {
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Supervisor' });
 
-  const [images, setImages] = useState<SectionImageItem[]>(initialSacaria);
+  const [images, setImages] = useState<SackImageItem[]>([]);
   const [startIndex, setStartIndex] = useState<number>(0);
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const imagesBackupRef = useRef<SectionImageItem[]>(initialSacaria);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [marcacao, setMarcacao] = useState<string>('');
-  const marcacaoBackupRef = useRef<string>('');
-
   const [modal, setModal] = useState<{ index: number } | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mapImages = (list: any[]): SackImageItem[] =>
+    list
+      .map((img) => {
+        const url = img?.url ?? img?.imageUrl ?? img?.signedUrl ?? '';
+        if (!url) return null;
+        return { id: img?.id, url } as SackImageItem;
+      })
+      .filter((x): x is SackImageItem => Boolean(x));
+
+  const loadImages = async () => {
+    if (!operationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getSackImages(operationId);
+      setImages(mapImages(data));
+      setStartIndex(0);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Nao foi possivel carregar a sacaria.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadImages();
+  }, [operationId]);
 
   const next = () => {
     const maxIndex = Math.max(0, images.length - IMAGES_PER_VIEW);
@@ -55,11 +75,22 @@ const Sacaria: React.FC = () => {
   const prevInModal = () => setModal((m) => (m ? { index: Math.max(0, m.index - 1) } : m));
   const nextInModal = () => setModal((m) => (m ? { index: Math.min(images.length - 1, m.index + 1) } : m));
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     if (!isEditing) return;
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
-    if (files.length) setImages((prev) => [...prev, ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))]);
+    if (!files.length || !operationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await uploadSackImages(operationId, files);
+      await loadImages();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao enviar imagens.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectImages = () => {
@@ -67,61 +98,77 @@ const Sacaria: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isEditing || !e.target.files) return;
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isEditing || !e.target.files || !operationId) return;
     const files = Array.from(e.target.files).filter((f) => f.type.startsWith('image/'));
-    if (files.length) setImages((prev) => [...prev, ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))]);
     e.target.value = '';
-  };
-
-  const handleRemoveImage = (index: number) => {
-    if (!isEditing) return;
-    setImages((prev) => {
-      const list = [...prev];
-      const [removed] = list.splice(index, 1);
-      if (removed && (removed as any).file) URL.revokeObjectURL(removed.url);
-      return list;
-    });
-  };
-
-  const saveEdit = () => {
-    alert('Sacaria atualizada!');
-    setIsEditing(false);
-  };
-
-  const startEdit = () => {
-    imagesBackupRef.current = images;
-    marcacaoBackupRef.current = marcacao;
-    setIsEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setImages(imagesBackupRef.current);
-    setMarcacao(marcacaoBackupRef.current);
-    setIsEditing(false);
-  };
-
-  const deleteSacaria = () => {
-    if (window.confirm('Tem certeza que deseja excluir todas as imagens da sacaria?')) {
-      images.forEach((img) => {
-        if ((img as any).file) URL.revokeObjectURL(img.url);
-      });
-      setImages([]);
-    alert('Sacaria excluída!');
+    if (!files.length) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await uploadSackImages(operationId, files);
+      await loadImages();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao enviar imagens.';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
-  
+  const handleRemoveImage = async (index: number) => {
+    if (!isEditing) return;
+    const target = images[index];
+    if (!target) return;
+    if (!operationId || target.id === undefined || target.id === null) {
+      setImages((prev) => prev.filter((_, i) => i !== index));
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await deleteSackImage(operationId, target.id);
+      await loadImages();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover imagem.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveEdit = () => setIsEditing(false);
+  const startEdit = () => setIsEditing(true);
+  const cancelEdit = () => setIsEditing(false);
+
+  const deleteSacaria = async () => {
+    if (!operationId) return;
+    if (!window.confirm('Tem certeza que deseja excluir todas as imagens da sacaria?')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      for (const img of images) {
+        if (img.id === undefined || img.id === null) continue;
+        await deleteSackImage(operationId, img.id);
+      }
+      await loadImages();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao excluir sacaria.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-  <div className="flex h-screen bg-app">
+    <div className="flex h-screen bg-app">
       <Sidebar user={user} />
 
-  <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria • Operação {decodedOperationId}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria - Operacao {decodedOperationId}</h1>
               <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
             </div>
             <div className="flex items-center gap-4">
@@ -146,6 +193,11 @@ const Sacaria: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
           <ContainerImageSection
             title="Sacaria"
@@ -160,8 +212,15 @@ const Sacaria: React.FC = () => {
             onPrev={prev}
             onNext={next}
             onReorderImage={(fromIdx, toIdx) => {
-              setImages(prev => {
-                if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= prev.length || toIdx >= prev.length) return prev;
+              setImages((prev) => {
+                if (
+                  fromIdx === toIdx ||
+                  fromIdx < 0 ||
+                  toIdx < 0 ||
+                  fromIdx >= prev.length ||
+                  toIdx >= prev.length
+                )
+                  return prev;
                 const arr = prev.slice();
                 const item = arr[fromIdx];
                 arr.splice(fromIdx, 1);
@@ -204,6 +263,7 @@ const Sacaria: React.FC = () => {
                   className={`px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 ${
                     isEditing ? 'hidden' : ''
                   }`}
+                  disabled={loading || images.length === 0}
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Sacaria
@@ -215,16 +275,16 @@ const Sacaria: React.FC = () => {
           {/* input oculto para upload */}
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
-          {/* Campo de texto: Marcação da sacaria */}
+          {/* Campo de texto: Marcacao da sacaria */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6">
-              <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcação da sacaria</label>
+              <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcacao da sacaria</label>
               {isEditing ? (
                 <textarea
                   value={marcacao}
                   onChange={(e) => setMarcacao(e.target.value)}
                   rows={3}
-                  placeholder="Digite a marcação da sacaria..."
+                  placeholder="Digite a marcacao da sacaria..."
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               ) : (
@@ -289,7 +349,9 @@ const Sacaria: React.FC = () => {
 
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-center bg-black/50 rounded-lg px-4 py-2">
               <p className="text-lg font-medium">Sacaria</p>
-              <p className="text-sm opacity-75">{modal.index + 1} de {images.length}</p>
+              <p className="text-sm opacity-75">
+                {modal.index + 1} de {images.length}
+              </p>
             </div>
           </div>
         </div>
@@ -299,4 +361,3 @@ const Sacaria: React.FC = () => {
 };
 
 export default Sacaria;
-

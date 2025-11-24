@@ -1,10 +1,10 @@
 export const OPERATION_CONTAINER_COUNTS: Record<string, number> = {
-  'AMV-12345/25': 28,
-  'AMV-12346/25': 34,
-  'AMV-12344/25': 22,
-  'AMV-12343/25': 40,
-  'AMV-12342/25': 24,
-  'AMV-12341/25': 31,
+  'CTV-12345/25': 28,
+  'CTV-12346/25': 34,
+  'CTV-12344/25': 22,
+  'CTV-12343/25': 40,
+  'CTV-12342/25': 24,
+  'CTV-12341/25': 31,
 };
 
 export const containerCountFor = (operationId: string | undefined): number => {

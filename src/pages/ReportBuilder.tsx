@@ -24,7 +24,7 @@ interface UserLogged { name: string; role: string }
 type ReportType = 'operacoes' | 'containers' | 'performance' | 'auditoria';
 
 const types: { id: ReportType; title: string; desc: string; color: string; emoji: string }[] = [
-  { id: 'operacoes', title: 'Operações Portuárias', desc: 'AMV, navios, performance e estatísticas operacionais', color: 'ring-teal-300', emoji: '📊' },
+  { id: 'operacoes', title: 'Operações Portuárias', desc: 'CTV, navios, performance e estatísticas operacionais', color: 'ring-teal-300', emoji: '📊' },
   { id: 'containers', title: 'Containers & Inspeções', desc: 'Detalhes de containers, fotos e categorias de inspeção', color: 'ring-amber-300', emoji: '📦' },
   { id: 'performance', title: 'Performance & KPIs', desc: 'Métricas de performance, tempo médio e produtividade', color: 'ring-violet-300', emoji: '⚡' },
   { id: 'auditoria', title: 'Trilha de Auditoria', desc: 'Log de ações, alterações e compliance', color: 'ring-indigo-300', emoji: '🔎' },
@@ -47,7 +47,7 @@ const ReportBuilder: React.FC = () => {
   const [terminal, setTerminal] = useState('Todos os terminais');
   const [status, setStatus] = useState('Todos os status');
   const [usuario, setUsuario] = useState('Todos os usuários');
-  const [fields, setFields] = useState({ amv: true, containers: true, fotos: false, timestamps: true, usuarios: false, auditoria: false });
+  const [fields, setFields] = useState({ ctv: true, containers: true, fotos: false, timestamps: true, usuarios: false, auditoria: false });
   const [obs, setObs] = useState('');
 
   // Simple presets via query param
@@ -82,7 +82,7 @@ const ReportBuilder: React.FC = () => {
     setTerminal('Todos os terminais');
     setStatus('Todos os status');
     setUsuario('Todos os usuários');
-    setFields({ amv: true, containers: true, fotos: false, timestamps: true, usuarios: false, auditoria: false });
+    setFields({ ctv: true, containers: true, fotos: false, timestamps: true, usuarios: false, auditoria: false });
     setObs('');
   };
 
@@ -226,9 +226,9 @@ const ReportBuilder: React.FC = () => {
                 <div>
                   <div className="text-sm font-medium mb-2 text-[var(--text)]">Campos a Incluir</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.amv ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
+                    <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.ctv ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
                       <ClipboardList className="w-4 h-4" />
-                      <input type="checkbox" checked={fields.amv} onChange={() => toggle('amv')} /> AMV
+                      <input type="checkbox" checked={fields.ctv} onChange={() => toggle('ctv')} /> CTV
                     </label>
                     <label className={`flex items-center gap-2 p-3 rounded-lg border ${fields.containers ? 'border-teal-300 bg-teal-50' : 'border-[var(--border)]'}`}>
                       <ClipboardList className="w-4 h-4" />
@@ -284,3 +284,4 @@ const ReportBuilder: React.FC = () => {
 };
 
 export default ReportBuilder;
+

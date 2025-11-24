@@ -8,6 +8,7 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { OperationSchema } from '../validation/operation';
 import { computeStatus, getProgress, setComplete, setImages, statusWeight, ContainerStatus } from '../services/containerProgress';
+import { deleteOperation } from '../services/operations';
 import { containerCountFor } from '../mock/operationData';
 
 interface User {
@@ -20,11 +21,11 @@ interface OperationInfo {
   local: string;
   reserva: string;
   deadline: string;
-  ship: string;
+  ctv: string;
   cliente: string;
   exporter: string;
   destination: string;
-  navio: string;
+  ship: string;
   data: string;
   entrega: string;
 }
@@ -69,10 +70,10 @@ const mockOperation: OperationInfo = {
   reserva: 'COD123',
   cliente: 'MSC',
   deadline: '20/07/2025',
-  ship: 'AMV-12345/25',
+  ctv: 'CTV-12345/25',
   exporter: 'Empresa Exportadora S.A.',
   destination: 'Destino',
-  navio: 'MSC Fantasia',
+  ship: 'MSC Fantasia',
   data: '15/09/2025',
   entrega: '20/08/2025'
 };
@@ -118,6 +119,8 @@ const OperationDetails: React.FC = () => {
   const [containers, setContainers] = useState<Container[]>(() => generateContainers(initialCount));
   const opBackupRef = useRef<OperationInfo>(mockOperation);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Ordenação e Paginação
   const PAGE_SIZE = 10;
@@ -150,16 +153,7 @@ const OperationDetails: React.FC = () => {
   const paginated = useMemo(() => filteredContainers.slice(startIdx, endIdx), [filteredContainers, startIdx, endIdx]);
 
   // Sacaria - imagens e navegação do carrossel
-  const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([
-    { url: 'https://via.placeholder.com/400x300/e3f2fd/1976d2?text=Sacaria+1' },
-    { url: 'https://via.placeholder.com/400x300/e8f5e9/4caf50?text=Sacaria+2' },
-    { url: 'https://via.placeholder.com/400x300/fff3e0/ff9800?text=Sacaria+3' },
-    { url: 'https://via.placeholder.com/400x300/fce4ec/e91e63?text=Sacaria+4' },
-    { url: 'https://via.placeholder.com/400x300/f3e5f5/9c27b0?text=Sacaria+5' },
-    { url: 'https://via.placeholder.com/400x300/e0f2f1/00695c?text=Sacaria+6' },
-    { url: 'https://via.placeholder.com/400x300/fff8e1/f57f17?text=Sacaria+7' },
-    { url: 'https://via.placeholder.com/400x300/ffebee/c62828?text=Sacaria+8' }
-  ]);
+  const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([]);
   const [sacariaIndex, setSacariaIndex] = useState<number>(0);
   const SACARIA_PER_VIEW = 5;
   const sacariaInputRef = useRef<HTMLInputElement | null>(null);
@@ -215,6 +209,23 @@ const OperationDetails: React.FC = () => {
     dispatch({ type: 'cancelEdit', backup: opBackupRef.current });
   };
 
+  const handleDeleteOperation = async () => {
+    if (!decodedOperationId) return;
+    const confirmed = window.confirm('Tem certeza que deseja excluir a Operacao ' + decodedOperationId + '?');
+    if (!confirmed) return;
+    setDeleteError(null);
+    setDeleteLoading(true);
+    try {
+      await deleteOperation(decodedOperationId);
+      navigate('/operations');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel excluir a operacao.';
+      setDeleteError(msg);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   // navegação via SidebarProvider; handler antigo removido
 
   const handleContainerClick = (containerId: string): void => {
@@ -249,6 +260,11 @@ const OperationDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
+          {deleteError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {deleteError}
+            </div>
+          )}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -303,16 +319,12 @@ const OperationDetails: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm('Tem certeza que deseja excluir a Operacao ' + decodedOperationId + '?')) {
-                            alert('Operacao ' + decodedOperationId + ' excluida!');
-                            navigate('/operations');
-                          }
-                        }}
-                        className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
+                        onClick={handleDeleteOperation}
+                        disabled={deleteLoading}
+                        className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="w-4 h-4" />
-                        Excluir Operacao
+                        {deleteLoading ? 'Excluindo...' : 'Excluir Operacao'}
                       </button>
                       <button
                         type="button"
@@ -332,12 +344,12 @@ const OperationDetails: React.FC = () => {
                 <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
               </div>
               <div>
-                <span className="text-[var(--muted)] block">Operação</span>
+                <span className="text-[var(--muted)] block">CTV</span>
                 {isEditing ? (<>
-                  <input value={opInfo.ship} onChange={e=>dispatch({ type: 'update', field: 'ship', value: e.target.value })} aria-invalid={!!errors.ship} aria-describedby={errors.ship ? 'ship-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.ship && (<p id="ship-error" className="mt-1 text-xs text-red-600">{errors.ship}</p>)}
+                  <input value={opInfo.ctv} onChange={e=>dispatch({ type: 'update', field: 'ctv', value: e.target.value })} aria-invalid={!!errors.ctv} aria-describedby={errors.ctv ? 'ctv-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  {errors.ctv && (<p id="ctv-error" className="mt-1 text-xs text-red-600">{errors.ctv}</p>)}
                 </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.ship}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.ctv}</span>
                 )}
               </div>
               <div>
@@ -370,10 +382,10 @@ const OperationDetails: React.FC = () => {
               <div>
                 <span className="text-[var(--muted)] block">Navio</span>
                 {isEditing ? (<>
-                  <input value={opInfo.navio} onChange={e=>dispatch({ type: 'update', field: 'navio', value: e.target.value })} aria-invalid={!!errors.navio} aria-describedby={errors.navio ? 'navio-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                  {errors.navio && (<p id="navio-error" className="mt-1 text-xs text-red-600">{errors.navio}</p>)}
+                  <input value={opInfo.ship} onChange={e=>dispatch({ type: 'update', field: 'ship', value: e.target.value })} aria-invalid={!!errors.ship} aria-describedby={errors.ship ? 'ship-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  {errors.ship && (<p id="ship-error" className="mt-1 text-xs text-red-600">{errors.ship}</p>)}
                 </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.navio}</span>
+                  <span className="text-[var(--text)] font-medium">{opInfo.ship}</span>
                 )}
               </div>
               <div>
@@ -508,6 +520,15 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
+
+
+
+
+
+
+
+
+
 
 
 
