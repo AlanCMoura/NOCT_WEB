@@ -25,13 +25,18 @@ export interface TotpSetupResponse {
   message: string;
 }
 
-const DEFAULT_SUCCESS = 'Usuário registrado com sucesso';
-const DEFAULT_ERROR = 'Não foi possível concluir o cadastro. Tente novamente.';
-const DEFAULT_2FA_ERROR = 'Não foi possível iniciar a configuração de 2FA.';
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const DEFAULT_SUCCESS = 'Usuario registrado com sucesso';
+const DEFAULT_ERROR = 'Nao foi possivel concluir o cadastro. Tente novamente.';
+const DEFAULT_2FA_ERROR = 'Nao foi possivel iniciar a configuracao de 2FA.';
 
 export async function registerUser(payload: RegisterUserPayload): Promise<RegisterUserResponse> {
   try {
-    const { data } = await api.post('/auth/register', payload);
+    const { data } = await api.post('/auth/register', payload, { headers: getAuthHeaders() });
 
     if (typeof data === 'string') {
       return {
@@ -70,6 +75,10 @@ export async function registerUser(payload: RegisterUserPayload): Promise<Regist
       const responseData = response?.data;
       const statusPrefix = response?.status ? `[${response.status}] ` : '';
 
+      if (response?.status === 401 || response?.status === 403) {
+        throw new Error('Sessao expirada ou sem permissao para cadastrar usuarios. Faça login com um usuario autorizado.');
+      }
+
       if (typeof responseData === 'string' && responseData.trim()) {
         throw new Error(`${statusPrefix}${responseData}`);
       }
@@ -92,10 +101,12 @@ export async function registerUser(payload: RegisterUserPayload): Promise<Regist
   }
 }
 
-// Mantém para cenários em que o usuário logado precisa gerar um novo QR code
+// Mantem para cenarios em que o usuario logado precisa gerar um novo QR code
 export async function setupTwoFactorAuth(): Promise<TotpSetupResponse> {
   try {
-    const { data } = await api.post<TotpSetupResponse>('/auth/2fa/setup');
+    const { data } = await api.post<TotpSetupResponse>('/auth/2fa/setup', undefined, {
+      headers: getAuthHeaders(),
+    });
 
     if (data && typeof data === 'object' && 'secret' in data && 'qrCodeDataUri' in data) {
       return {
@@ -110,6 +121,48 @@ export async function setupTwoFactorAuth(): Promise<TotpSetupResponse> {
     if (axios.isAxiosError(error)) {
       const responseData = error.response?.data;
       const statusPrefix = error.response?.status ? `[${error.response.status}] ` : '';
+
+      if (typeof responseData === 'string' && responseData.trim()) {
+        throw new Error(`${statusPrefix}${responseData}`);
+      }
+
+      if (responseData && typeof responseData === 'object') {
+        const { message, error: errorMsg } = responseData as { message?: string; error?: string };
+        if (message || errorMsg) {
+          throw new Error(`${statusPrefix}${message ?? errorMsg}`);
+        }
+      }
+
+      if (error.response?.statusText) {
+        throw new Error(`${statusPrefix}${error.response.statusText}`);
+      }
+    }
+
+    throw new Error(DEFAULT_2FA_ERROR);
+  }
+}
+
+// Permite que um administrador gere o QR Code para um usuario recem-criado
+export async function setupTwoFactorForUser(cpf: string): Promise<TotpSetupResponse> {
+  try {
+    const targetCpf = encodeURIComponent(cpf.trim());
+    const { data } = await api.post<TotpSetupResponse>(`/auth/2fa/setup/${targetCpf}`, undefined, {
+      headers: getAuthHeaders(),
+    });
+
+    if (data && typeof data === 'object' && 'secret' in data && 'qrCodeDataUri' in data) {
+      return {
+        secret: data.secret,
+        qrCodeDataUri: data.qrCodeDataUri,
+        message: data.message || 'Escaneie o QR Code com seu aplicativo Authenticator',
+      };
+    }
+
+    throw new Error('Resposta inesperada do servidor ao configurar 2FA para o usuario.');
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const responseData = error.response?.data;
+      const statusPrefix = error.response?.status ? `[${error.response?.status}] ` : '';
 
       if (typeof responseData === 'string' && responseData.trim()) {
         throw new Error(`${statusPrefix}${responseData}`);

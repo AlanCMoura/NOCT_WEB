@@ -1,6 +1,6 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
-const DEV_PROXY_PREFIX = '/__ctapi';
+const DEV_PROXY_PREFIX = '/ctapi';
 const TARGET_API = 'https://api.ct-view.com';
 
 module.exports = function setupProxy(app) {

@@ -157,7 +157,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
     try {
       const { data } = await api.post<LoginResponse>('/auth/login', {
-        cpf: loginData.cpf.trim(),
+        cpf: loginData.cpf.trim(), // backend espera CPF mascarado
         password,
       });
 

@@ -3,7 +3,7 @@ import { Eye, EyeOff, Plus, Search, X, Edit, Trash2, RefreshCcw } from 'lucide-r
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { registerUser, setupTwoFactorAuth, TotpSetupResponse, RegisterUserResponse } from '../services/auth';
+import { registerUser, setupTwoFactorAuth, setupTwoFactorForUser, TotpSetupResponse, RegisterUserResponse } from '../services/auth';
 import { ApiUser, deleteUserById, listUsers, updateUserById } from '../services/users';
 
 interface UserLogged {
@@ -219,7 +219,7 @@ const Users: React.FC = () => {
     const commonPayload = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      cpf: cpfDigits,
+      cpf: cpf, // backend espera CPF com mascara
       email: email.trim(),
       role: ROLE_TO_API[role] ?? role,
       twoFactorEnabled: twoFactor,
@@ -269,21 +269,48 @@ const Users: React.FC = () => {
       setPage(0);
       await fetchUsers(0);
 
-      // Se 2FA veio do backend, exibe QR Code e segredo retornados
-      if (twoFactor && response.totpSecret && response.qrCodeDataUri) {
-        setTwoFactorSetupInfo({
-          secret: response.totpSecret,
-          qrCodeDataUri: response.qrCodeDataUri,
-          message: response.message || 'Escaneie o QR Code com seu aplicativo Authenticator',
-        });
-        setIsTwoFactorModalOpen(true);
-        resetForm({ keepTwoFactorModal: true });
+      // Se 2FA estavel, garante exibição do QR Code retornado ou busca via endpoint dedicado
+      if (twoFactor) {
+        setIsTwoFactorLoading(true);
+        setTwoFactorSetupError(null);
+
+        const cpfToSetup = payload.cpf;
+        let setupInfo: TotpSetupResponse | null = null;
+
+        if (response.totpSecret && response.qrCodeDataUri) {
+          setupInfo = {
+            secret: response.totpSecret,
+            qrCodeDataUri: response.qrCodeDataUri,
+            message: response.message || 'Escaneie o QR Code com seu aplicativo Authenticator',
+          };
+        } else {
+          try {
+            setupInfo = await setupTwoFactorForUser(cpfToSetup);
+          } catch (setupError) {
+            const message =
+              setupError instanceof Error
+                ? setupError.message
+                : 'Nao foi possivel gerar o QR Code. Tente novamente.';
+            setTwoFactorSetupError(message);
+          }
+        }
+
+        if (setupInfo) {
+          setTwoFactorSetupInfo(setupInfo);
+          setIsTwoFactorModalOpen(true);
+          resetForm({ keepTwoFactorModal: true });
+        } else {
+          resetForm();
+        }
+
+        setIsTwoFactorLoading(false);
       } else {
         resetForm();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nao foi possivel cadastrar o usuario. Tente novamente.';
       setFormError(message);
+      setPageAlert({ type: 'error', message });
     } finally {
       setIsSubmitting(false);
     }
