@@ -1,15 +1,12 @@
-﻿import React, { useRef, useState, useCallback } from 'react';
-import { useMemo, useEffect, useReducer } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Trash2, Plus } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { OperationSchema } from '../validation/operation';
-import { computeStatus, getProgress, setComplete, setImages, statusWeight, ContainerStatus } from '../services/containerProgress';
-import { deleteOperation } from '../services/operations';
-import { containerCountFor } from '../mock/operationData';
+import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
+import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
 
 interface User {
   name: string;
@@ -44,41 +41,96 @@ interface Container {
 // Local image item type (avoids heavy component import here)
 type SectionImageItem = { file?: File; url: string };
 
-// Gera containers mock a partir de uma contagem
-const generateContainers = (count: number): Container[] => {
-  const list: Container[] = [];
-  for (let i = 0; i < count; i++) {
-    const num = 100001 + i;
-    const peso = 27000 + ((i * 123) % 2500);
-    list.push({
-      id: `CNTR ${num}-${(i % 9) + 1}`,
-      pesoBruto: `${peso}kg`,
-      lacreAgencia: `AG-${1000 + i}`,
-      lacrePrincipal: `LP-${2000 + i}`,
-      lacreOutros: i % 3 === 0 ? `ALT-${i % 10}` : '',
-      qtdSacarias: 6 + (i % 7),
-      terminal: `Terminal ${1 + (i % 4)}`,
-      data: `2025-09-${String(15 + (i % 15)).padStart(2, '0')}`,
-    });
-  }
-  return list;
+const coalesceText = (...values: unknown[]): string => {
+  const found = values.find((v) => v !== undefined && v !== null && String(v).trim() !== '');
+  return found === undefined || found === null ? '' : String(found);
 };
 
-const mockOperation: OperationInfo = {
-  id: 'OP-01',
-  local: 'Terminal Portuario Santos',
-  reserva: 'COD123',
-  cliente: 'MSC',
-  deadline: '20/07/2025',
-  ctv: 'CTV-12345/25',
-  exporter: 'Empresa Exportadora S.A.',
-  destination: 'Destino',
-  ship: 'MSC Fantasia',
-  data: '15/09/2025',
-  entrega: '20/08/2025'
+const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
+  const text = String(value ?? '').toLowerCase();
+  if (text.includes('fech') || text.includes('close') || text.includes('final')) return 'Fechada';
+  return 'Aberta';
 };
 
+const toDateOnly = (value: string): string => {
+  if (!value) return '';
+  // Remove fração de tempo, mantendo apenas yyyy-MM-dd
+  const tIndex = value.indexOf('T');
+  return tIndex > 0 ? value.slice(0, tIndex) : value;
+};
 
+const mapOperation = (op: ApiOperation): OperationInfo => {
+  const idValue = coalesceText(
+    op.id,
+    op.code,
+    op.booking,
+    op.bookingCode,
+    op.reserva,
+    op.reservation,
+    op.ctv,
+    op.amv,
+    '---'
+  );
+
+  return {
+    id: idValue,
+    local: coalesceText(op.terminal, op.destination),
+    reserva: coalesceText(op.reserva, op.reservation, op.booking, op.bookingCode, op.code),
+    ctv: coalesceText(op.ctv, op.amv, op.ship, op.code, op.booking, idValue),
+    cliente: coalesceText(op.cliente, op.refClient),
+    exporter: coalesceText(op.exporter),
+    destination: coalesceText(op.destination),
+    ship: coalesceText(op.shipName, op.ship, op.vesselName, op.vessel, op.navio),
+    data: toDateOnly(coalesceText(op.data, op.arrivalDate)),
+    entrega: toDateOnly(coalesceText(op.entrega, op.loadDeadline)),
+    deadline: toDateOnly(coalesceText(op.deadlineDraft, op.loadDeadline, op.deadline)),
+  };
+};
+
+const mapContainers = (data: ApiOperation): Container[] => {
+  const list = Array.isArray(data.containers)
+    ? data.containers
+    : Array.isArray(data.containerList)
+      ? data.containerList
+      : [];
+
+  return list.map((item, index) => {
+    const c = item as Record<string, unknown>;
+    const id = coalesceText(
+      c?.id,
+      c?.container,
+      c?.name,
+      c?.codigo,
+      c?.identificacao,
+      `CONT-${index + 1}`
+    );
+
+    return {
+      id,
+      pesoBruto: coalesceText(c?.pesoBruto, c?.peso, c?.grossWeight),
+      lacreAgencia: coalesceText(c?.lacreAgencia, c?.sealAgency),
+      lacrePrincipal: coalesceText(c?.lacrePrincipal, c?.seal),
+      lacreOutros: coalesceText(c?.lacreOutros),
+      qtdSacarias: typeof c?.qtdSacarias === 'number' ? c.qtdSacarias : undefined,
+      terminal: coalesceText(c?.terminal),
+      data: coalesceText(c?.data, c?.date),
+    };
+  });
+};
+
+const emptyOperation: OperationInfo = {
+  id: '',
+  local: '',
+  reserva: '',
+  cliente: '',
+  deadline: '',
+  ctv: '',
+  exporter: '',
+  destination: '',
+  ship: '',
+  data: '',
+  entrega: ''
+};
 
 const OperationDetails: React.FC = () => {
   type Field = keyof OperationInfo;
@@ -89,7 +141,8 @@ const OperationDetails: React.FC = () => {
     | { type: 'cancelEdit'; backup: OperationInfo }
     | { type: 'update'; field: Field; value: string }
     | { type: 'setEditing'; value: boolean }
-    | { type: 'setErrors'; errors: Errors };
+    | { type: 'setErrors'; errors: Errors }
+    | { type: 'hydrate'; opInfo: OperationInfo };
 
   const reducer = (state: OperationState, action: Action): OperationState => {
     switch (action.type) {
@@ -103,26 +156,35 @@ const OperationDetails: React.FC = () => {
         return { ...state, isEditing: action.value };
       case 'setErrors':
         return { ...state, errors: action.errors };
+      case 'hydrate':
+        return { ...state, opInfo: action.opInfo, isEditing: false, errors: {} };
       default:
         return state;
     }
   };
 
-  const [state, dispatch] = useReducer(reducer, { opInfo: mockOperation, isEditing: false, errors: {} });
+  const [state, dispatch] = useReducer(reducer, { opInfo: emptyOperation, isEditing: false, errors: {} });
   const { opInfo, isEditing, errors } = state;
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
   const navigate = useNavigate();
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Administrador' });
-  const initialCount = containerCountFor(decodedOperationId);
-  const [containers, setContainers] = useState<Container[]>(() => generateContainers(initialCount));
-  const opBackupRef = useRef<OperationInfo>(mockOperation);
+  const [containers, setContainers] = useState<Container[]>([]);
+  const opBackupRef = useRef<OperationInfo>(emptyOperation);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [loadingOp, setLoadingOp] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [savingOp, setSavingOp] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = useState<boolean>(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const isInitialLoading = loadingOp && !loadError && !opInfo.id;
 
-  // Ordenação e Paginação
+  // Ordenacao e Paginacao
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
   type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
@@ -141,18 +203,62 @@ const OperationDetails: React.FC = () => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
-  // Atualiza lista quando a operação mudar
+  // Carrega dados reais da operacao e containers (se retornados pela API)
   useEffect(() => {
-    const c = containerCountFor(decodedOperationId);
-    setContainers(generateContainers(c));
-    setPage(1);
+    if (!decodedOperationId) return;
+
+    let active = true;
+    const load = async () => {
+      setLoadingOp(true);
+      setLoadError(null);
+      setSaveError(null);
+      setSaveMessage(null);
+      setContainers([]);
+      setPage(1);
+
+      try {
+        const data = await getOperationById(decodedOperationId);
+        if (!active) return;
+
+        dispatch({ type: 'hydrate', opInfo: mapOperation(data) });
+        setOperationStatus(normalizeStatus(data.status));
+
+        const mappedContainers = mapContainers(data);
+        setContainers(mappedContainers);
+        setPage(1);
+      } catch (err) {
+        if (!active) return;
+        const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar a operacao.';
+        setLoadError(msg);
+      } finally {
+        if (active) setLoadingOp(false);
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
   }, [decodedOperationId]);
+
+  const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
+    ctv: data.ctv,
+    ship: data.ship,
+    terminal: data.local,
+    deadlineDraft: toDateOnly(data.deadline),
+    destination: data.destination,
+    arrivalDate: toDateOnly(data.data),
+    reservation: data.reserva,
+    refClient: data.cliente,
+    loadDeadline: toDateOnly(data.entrega),
+    exporter: data.exporter,
+  });
 
   const startIdx = (page - 1) * PAGE_SIZE;
   const endIdx = Math.min(startIdx + PAGE_SIZE, total);
   const paginated = useMemo(() => filteredContainers.slice(startIdx, endIdx), [filteredContainers, startIdx, endIdx]);
 
-  // Sacaria - imagens e navegação do carrossel
+  // Sacaria - imagens e navegacao do carrossel
   const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([]);
   const [sacariaIndex, setSacariaIndex] = useState<number>(0);
   const SACARIA_PER_VIEW = 5;
@@ -201,6 +307,8 @@ const OperationDetails: React.FC = () => {
   };
 
   const startEdit = () => {
+    setSaveMessage(null);
+    setSaveError(null);
     opBackupRef.current = opInfo;
     dispatch({ type: 'startEdit' });
   };
@@ -226,7 +334,69 @@ const OperationDetails: React.FC = () => {
     }
   };
 
-  // navegação via SidebarProvider; handler antigo removido
+  const handleSaveOperation = async () => {
+    if (savingOp) return;
+    setSaveError(null);
+    setSaveMessage(null);
+
+    if (!decodedOperationId) {
+      setSaveError('Operacao nao encontrada para atualizar.');
+      return;
+    }
+
+    try {
+      setSavingOp(true);
+      const payload = buildUpdatePayload(opInfo);
+      const updated = await updateOperation(decodedOperationId, payload);
+      dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
+      setOperationStatus(normalizeStatus(updated.status));
+      setSaveMessage('Operacao atualizada com sucesso.');
+      dispatch({ type: 'setEditing', value: false });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel atualizar a operacao.';
+      setSaveError(msg);
+    } finally {
+      setSavingOp(false);
+    }
+  };
+
+  const handleToggleStatus = async (checked: boolean) => {
+    if (!decodedOperationId) return;
+    setStatusError(null);
+
+    const numericId = Number(decodedOperationId);
+    const isNumericId = Number.isFinite(numericId);
+
+    // API só finaliza; se tentar reabrir, bloqueia e mantém estado
+    if (!checked) {
+      setStatusError('Reabertura nao suportada pela API.');
+      setOperationStatus('Fechada');
+      return;
+    }
+
+    if (operationStatus === 'Fechada') return;
+    if (!isNumericId) {
+      setStatusError('ID da operacao invalido para alterar status.');
+      return;
+    }
+
+    const prevStatus = operationStatus;
+
+    try {
+      setStatusLoading(true);
+      const updated = await completeOperationStatus(numericId);
+      dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
+      setOperationStatus(normalizeStatus(updated.status));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel atualizar o status.';
+      setStatusError(msg);
+      setOperationStatus(prevStatus);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  // navegacao via SidebarProvider; handler antigo removido
 
   const handleContainerClick = (containerId: string): void => {
     navigate(
@@ -242,8 +412,8 @@ const OperationDetails: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Operação {decodedOperationId}</h1>
-              <p className="text-sm text-[var(--muted)]">Detalhes da Operação</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Operacao {decodedOperationId}</h1>
+              <p className="text-sm text-[var(--muted)]">Detalhes da Operacao</p>
             </div>
             <div className="flex items-center gap-4">
               <button type="button" onClick={() => changePage('perfil')} aria-label="Acessar perfil" className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -260,9 +430,41 @@ const OperationDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
-          {deleteError && (
+          {loadingOp && (
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--hover)] px-4 py-3 text-sm text-[var(--text)]">
+              {loadError ? 'Erro ao carregar dados da operacao.' : 'Carregando dados da operacao...'}
+            </div>
+          )}
+          {loadError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {deleteError}
+              {loadError}
+            </div>
+          )}
+
+          {isInitialLoading ? (
+            <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm p-6 animate-pulse space-y-6">
+              <div className="h-4 w-1/2 bg-[var(--hover)] rounded"></div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="rounded-xl border border-[var(--border)] p-4 space-y-3">
+                    <div className="h-3 w-2/3 bg-[var(--hover)] rounded"></div>
+                    <div className="h-3 w-1/2 bg-[var(--hover)] rounded"></div>
+                    <div className="h-3 w-3/4 bg-[var(--hover)] rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+          {saveMessage && (
+            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              {saveMessage}
+            </div>
+          )}
+          {saveError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {saveError}
             </div>
           )}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
@@ -277,8 +479,12 @@ const OperationDetails: React.FC = () => {
                       checked={operationStatus === 'Fechada'}
                       checkedLabel="Fechada"
                       uncheckedLabel="Em andamento"
-                      onChange={(checked) => setOperationStatus(checked ? 'Fechada' : 'Aberta')}
+                      onChange={handleToggleStatus}
+                      disabled={statusLoading}
                     />
+                  )}
+                  {statusError && !isEditing && (
+                    <p className="text-xs text-red-600">{statusError}</p>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
@@ -296,13 +502,14 @@ const OperationDetails: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { alert('Operacao atualizada!'); dispatch({ type: 'setEditing', value: false }); }}
+                        onClick={handleSaveOperation}
+                        disabled={savingOp}
                         className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Salvar Operacao
+                        {savingOp ? 'Salvando...' : 'Salvar Operacao'}
                       </button>
                     </>
                   ) : (
@@ -400,10 +607,55 @@ const OperationDetails: React.FC = () => {
               <div>
                 <span className="text-[var(--muted)] block">Deadline Draft</span>
                 {isEditing ? (<>
-                  <input value={opInfo.deadline} onChange={e=>dispatch({ type: 'update', field: 'deadline', value: e.target.value })} aria-invalid={!!errors.deadline} aria-describedby={errors.deadline ? 'deadline-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <input
+                    type="date"
+                    value={opInfo.deadline}
+                    onChange={e=>dispatch({ type: 'update', field: 'deadline', value: e.target.value })}
+                    aria-invalid={!!errors.deadline}
+                    aria-describedby={errors.deadline ? 'deadline-error' : undefined}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
                   {errors.deadline && (<p id="deadline-error" className="mt-1 text-xs text-red-600">{errors.deadline}</p>)}
                 </>) : (
                   <span className="text-[var(--text)] font-medium">{opInfo.deadline}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-[var(--muted)] block">Ref. Cliente</span>
+                {isEditing ? (
+                  <input
+                    value={opInfo.cliente}
+                    onChange={(e) => dispatch({ type: 'update', field: 'cliente', value: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <span className="text-[var(--text)] font-medium">{opInfo.cliente || '-'}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-[var(--muted)] block">Data de Chegada</span>
+                {isEditing ? (
+                  <input
+                    type="date"
+                    value={opInfo.data}
+                    onChange={(e) => dispatch({ type: 'update', field: 'data', value: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <span className="text-[var(--text)] font-medium">{opInfo.data || '-'}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-[var(--muted)] block">Deadline de Carregamento</span>
+                {isEditing ? (
+                  <input
+                    type="date"
+                    value={opInfo.entrega}
+                    onChange={(e) => dispatch({ type: 'update', field: 'entrega', value: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <span className="text-[var(--text)] font-medium">{opInfo.entrega || '-'}</span>
                 )}
               </div>
             </div>
@@ -413,7 +665,7 @@ const OperationDetails: React.FC = () => {
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operção</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
               <div className="flex flex-1 sm:flex-initial gap-3 items-center">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -433,19 +685,27 @@ const OperationDetails: React.FC = () => {
                     title="Filtrar containers pelo status"
                   >
                     <option value="todos">Todos os Status</option>
-                    <option value="ni">Não inicializado</option>
+                    <option value="ni">Nao inicializado</option>
                     <option value="parcial">Parcial</option>
                     <option value="completo">Completo</option>
                   </select>
                 </div>
                 <button
-                  aria-label="Ver overview da operação"
+                  type="button"
+                  onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/containers/new`)}
+                  className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Novo Container
+                </button>
+                <button
+                  aria-label="Ver overview da operacao"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
                   className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
                   Overview
                 </button>
-            </div>
+              </div>
             </div>
             <div className="divide-y divide-[var(--border)]">
               {/* Item especial: Sacaria (como se fosse um container) */}
@@ -484,7 +744,7 @@ const OperationDetails: React.FC = () => {
                 </button>
               ))}
             </div>
-            {/* Paginação */}
+            {/* Paginacao */}
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
               <div className="text-sm text-[var(--muted)]">
                 {total === 0 ? (
@@ -508,11 +768,13 @@ const OperationDetails: React.FC = () => {
                   disabled={page >= totalPages}
                   className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Próximo
+                  Proximo
                 </button>
               </div>
             </div>
           </section>
+          </>
+          )}
         </main>
       </div>
     </div>
@@ -520,40 +782,3 @@ const OperationDetails: React.FC = () => {
 };
 
 export default OperationDetails;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

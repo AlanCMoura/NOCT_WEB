@@ -123,6 +123,7 @@ const Operations: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [operations, setOperations] = useState<OperationItem[]>([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'aberta' | 'fechada'>('todos');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalOperations, setTotalOperations] = useState(0);
@@ -155,14 +156,22 @@ const Operations: React.FC = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return operations;
-    return operations.filter((op) =>
-      op.ctv.toLowerCase().includes(q) ||
-      op.id.toLowerCase().includes(q) ||
-      op.reserva.toLowerCase().includes(q) ||
-      op.shipName.toLowerCase().includes(q)
-    );
-  }, [operations, search]);
+    return operations.filter((op) => {
+      const matchesSearch =
+        !q ||
+        op.ctv.toLowerCase().includes(q) ||
+        op.id.toLowerCase().includes(q) ||
+        op.reserva.toLowerCase().includes(q) ||
+        op.shipName.toLowerCase().includes(q);
+
+      const matchesStatus =
+        statusFilter === 'todos' ||
+        (statusFilter === 'aberta' && op.status === 'Aberta') ||
+        (statusFilter === 'fechada' && op.status === 'Fechada');
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [operations, search, statusFilter]);
 
   const handleNew = () => navigate('/operations/new');
   const handleView = (id: string) => navigate(`/operations/${encodeURIComponent(id)}`);
@@ -214,6 +223,18 @@ const Operations: React.FC = () => {
               />
             </div>
             <div className="flex gap-3 items-center">
+              <div className="w-40">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                  className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  aria-label="Filtrar por status"
+                >
+                  <option value="todos">Todos os Status</option>
+                  <option value="aberta">Aberta</option>
+                  <option value="fechada">Fechada</option>
+                </select>
+              </div>
               <button
                 type="button"
                 onClick={() => fetchOperations(page)}
@@ -221,9 +242,6 @@ const Operations: React.FC = () => {
                 disabled={loading}
               >
                 <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-              </button>
-              <button className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
-                <Filter className="w-4 h-4" />
               </button>
               <button className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
                 <Download className="w-4 h-4 mr-2" /> Importar

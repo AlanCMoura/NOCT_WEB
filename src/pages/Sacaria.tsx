@@ -27,7 +27,6 @@ const Sacaria: React.FC = () => {
   const [startIndex, setStartIndex] = useState<number>(0);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [marcacao, setMarcacao] = useState<string>('');
   const [modal, setModal] = useState<{ index: number } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -275,25 +274,6 @@ const Sacaria: React.FC = () => {
           {/* input oculto para upload */}
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
-          {/* Campo de texto: Marcacao da sacaria */}
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6">
-              <label className="block text-sm font-medium text-[var(--text)] mb-2">Marcacao da sacaria</label>
-              {isEditing ? (
-                <textarea
-                  value={marcacao}
-                  onChange={(e) => setMarcacao(e.target.value)}
-                  rows={3}
-                  placeholder="Digite a marcacao da sacaria..."
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              ) : (
-                <p className="text-sm text-[var(--text)] whitespace-pre-line bg-[var(--hover)] border border-[var(--border)] rounded-lg p-3 min-h-[3.5rem]">
-                  {marcacao || 'marca'}
-                </p>
-              )}
-            </div>
-          </section>
         </main>
       </div>
 

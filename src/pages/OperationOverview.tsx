@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar';
 import { Search, Edit } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
-import { containerCountFor } from '../mock/operationData';
 import { useSessionUser } from '../context/AuthContext';
 
 interface User { name: string; role: string; }
@@ -21,24 +20,6 @@ interface ContainerRow {
 
 
 
-// Gera linhas mock com tamanho variável por operação
-const generateRows = (count: number): ContainerRow[] => {
-  const rows: ContainerRow[] = [];
-  for (let i = 0; i < count; i++) {
-    const num = 100001 + i;
-    rows.push({
-      id: `CNTR ${num}-${(i % 9) + 1}`,
-      lacreAgencia: `AG-${1000 + i}`,
-      lacrePrincipal: `LP-${2000 + i}`,
-      lacreOutros: i % 3 === 0 ? `ALT-${i % 10}` : '',
-      qtdSacarias: 6 + (i % 7),
-      terminal: `Terminal ${1 + (i % 4)}`,
-      data: `2025-09-${String(15 + (i % 15)).padStart(2, '0')}`,
-    });
-  }
-  return rows;
-};
-
 const OperationOverview: React.FC = () => {
   const navigate = useNavigate();
   const { operationId } = useParams();
@@ -47,19 +28,17 @@ const OperationOverview: React.FC = () => {
   const user = useSessionUser({ role: 'Administrador' });
   const { changePage } = useSidebar();
 
-  const [rows, setRows] = useState<ContainerRow[]>(() => generateRows(containerCountFor(decodedOperationId)));
+  const [rows, setRows] = useState<ContainerRow[]>([]);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [draftRows, setDraftRows] = useState<ContainerRow[]>(rows);
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
 
-  // Atualiza quando navega para outra operação
+  // Atualiza quando navega para outra operacao
   useEffect(() => {
-    const c = containerCountFor(decodedOperationId);
-    const gen = generateRows(c);
-    setRows(gen);
-    setDraftRows(gen);
+    setRows([]);
+    setDraftRows([]);
     setPage(1);
   }, [decodedOperationId]);
 
@@ -309,6 +288,9 @@ const OperationOverview: React.FC = () => {
 };
 
 export default OperationOverview;
+
+
+
 
 
 

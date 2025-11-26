@@ -78,6 +78,20 @@ export interface CreateOperationPayload {
   [key: string]: unknown;
 }
 
+export interface UpdateOperationPayload {
+  ctv?: string;
+  ship?: string;
+  terminal?: string;
+  deadlineDraft?: string;
+  destination?: string;
+  arrivalDate?: string;
+  reservation?: string;
+  refClient?: string;
+  loadDeadline?: string;
+  exporter?: string;
+  [key: string]: unknown;
+}
+
 export const listOperations = async (
   params: ListOperationsParams = {}
 ): Promise<ApiPage<ApiOperation>> => {
@@ -101,8 +115,21 @@ export const getOperationById = async (id: string | number): Promise<ApiOperatio
   return data;
 };
 
+export const updateOperation = async (
+  id: string | number,
+  payload: UpdateOperationPayload
+): Promise<ApiOperation> => {
+  const { data } = await api.put<ApiOperation>(`/operations/${id}`, payload);
+  return data;
+};
+
 export const deleteOperation = async (id: string | number): Promise<void> => {
   await api.delete(`/operations/${id}`);
+};
+
+export const completeOperationStatus = async (operationId: string | number): Promise<ApiOperation> => {
+  const { data } = await api.patch<ApiOperation>(`/operations/${operationId}/status`);
+  return data;
 };
 
 export const getSackImages = async (
