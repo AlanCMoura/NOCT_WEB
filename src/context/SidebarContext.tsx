@@ -34,10 +34,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (path.startsWith('/users')) return 'usuarios';
     if (path.startsWith('/reports')) return 'relatorios';
     if (path.startsWith('/profile')) return 'perfil';
-    return 'dashboard';
+    return 'operations';
   }, [location.pathname]);
 
   const [currentPage, setCurrentPage] = useState<SidebarPage>(initialPage);
+
+  // Sincroniza a aba ativa com a rota atual (ex.: pós-login navega para /operations)
+  React.useEffect(() => {
+    setCurrentPage(initialPage);
+  }, [initialPage]);
 
   const changePage = (pageId: SidebarPage) => {
     setCurrentPage(pageId);
@@ -91,4 +96,3 @@ export const useSidebar = (): SidebarContextValue => {
   if (!ctx) throw new Error('useSidebar must be used within SidebarProvider');
   return ctx;
 };
-

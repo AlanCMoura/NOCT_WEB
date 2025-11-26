@@ -122,7 +122,7 @@ const Login: React.FC = () => {
     } catch (error) {
       console.warn('Não foi possível atualizar o usuário autenticado', error);
     }
-    navigate('/dashboard');
+    navigate('/operations');
   };
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -262,7 +262,7 @@ const Login: React.FC = () => {
   const isTwoFactorStep = twoFactorRequired && !!twoFactorToken;
   const primaryAction = isTwoFactorStep ? handleTwoFactorSubmit : handleLoginSubmit;
   const primaryLoading = isTwoFactorStep ? isVerifying : isLoading;
-  const primaryIdleLabel = isTwoFactorStep ? 'VALIDAR CÓDIGO' : 'ENTRAR';
+  const primaryIdleLabel = isTwoFactorStep ? 'VALIDAR CODIGO' : 'ENTRAR';
   const primaryLoadingLabel = isTwoFactorStep ? 'Validando...' : 'Entrando...';
 
   return (
@@ -357,7 +357,13 @@ const Login: React.FC = () => {
       <div className="w-1/2 flex items-center justify-center p-16">
         <div className="max-w-md w-full">
           {/* Card do formulário */}
-          <div className="bg-[var(--surface)] rounded-2xl shadow-xl border border-[var(--border)] p-8 relative overflow-hidden">
+          <form
+            className="bg-[var(--surface)] rounded-2xl shadow-xl border border-[var(--border)] p-8 relative overflow-hidden"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!primaryLoading) primaryAction();
+            }}
+          >
             {/* Elemento decorativo */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#49C5B6]/5 rounded-full transform translate-x-12 -translate-y-12"></div>
 
@@ -488,7 +494,7 @@ const Login: React.FC = () => {
 
               {/* Submit Button */}
               <button
-                onClick={primaryAction}
+                type="submit"
                 disabled={primaryLoading}
                 className="w-full bg-[#49C5B6] hover:bg-[#3ba394] text-white py-3 px-6 rounded-lg font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
@@ -502,7 +508,7 @@ const Login: React.FC = () => {
                 )}
               </button>
             </div>
-          </div>
+          </form>
 
           {/* Footer */}
           <div className="text-center mt-6">

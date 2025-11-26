@@ -451,41 +451,57 @@ const Users: React.FC = () => {
               </button>
             </div>
           )}
-          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                <span>Total: {totalUsers}</span>
-                <button
-                  type="button"
-                  onClick={() => fetchUsers(page)}
-                  className="inline-flex items-center gap-1 text-[var(--text)] border border-[var(--border)] rounded-md px-2 py-1 hover:bg-[var(--hover)]"
-                  disabled={isLoadingUsers}
-                >
-                  <RefreshCcw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </button>
-              </div>
-              <div className="flex flex-1 sm:flex-initial gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome, email ou CPF..."
-                    className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-                <button
-                  onClick={startCreate}
-                  className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar Usuario
-                </button>
-              </div>
-            </div>
 
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, email ou CPF..."
+                className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                disabled={isLoadingUsers}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fetchUsers(page)}
+                className="inline-flex items-center gap-1 text-[var(--text)] border border-[var(--border)] rounded-md px-3 py-2 hover:bg-[var(--hover)]"
+                disabled={isLoadingUsers}
+              >
+                <RefreshCcw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
+              <button
+                onClick={startCreate}
+                className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60"
+                disabled={isLoadingUsers}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar Usuario
+              </button>
+            </div>
+          </div>
+
+          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+
+            {isLoadingUsers ? (
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="rounded-xl border border-[var(--border)] p-4 space-y-3">
+                      <div className="h-3 bg-[var(--hover)] rounded w-2/3" />
+                      <div className="h-3 bg-[var(--hover)] rounded w-1/2" />
+                      <div className="h-3 bg-[var(--hover)] rounded w-3/4" />
+                      <div className="h-3 bg-[var(--hover)] rounded w-5/6" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[var(--border)]">
                 <thead className="bg-[var(--hover)]">
@@ -499,13 +515,7 @@ const Users: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-  {isLoadingUsers ? (
-    <tr>
-      <td colSpan={6} className="px-6 py-6 text-sm text-[var(--muted)]">
-        Carregando Usuarios...
-      </td>
-    </tr>
-  ) : listError ? (
+  {listError ? (
     <tr>
       <td colSpan={6} className="px-6 py-6 text-sm text-red-700">
         <div className="flex items-center justify-between">
@@ -571,7 +581,7 @@ const Users: React.FC = () => {
 
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between text-sm text-[var(--muted)]">
               <div>
-                Pagina {totalPages === 0 ? 0 : page + 1} de {totalPages}
+                Pagina {totalPages === 0 ? 0 : page + 1} de {totalPages} | Total: {totalUsers}
               </div>
               <div className="flex gap-2">
                 <button
@@ -590,6 +600,8 @@ const Users: React.FC = () => {
                 </button>
               </div>
             </div>
+              </>
+            )}
           </section>
         </main>
       </div>
