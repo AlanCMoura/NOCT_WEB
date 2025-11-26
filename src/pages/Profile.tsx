@@ -16,7 +16,6 @@ interface ProfileUser {
   email: string;
   cpf: string;
   role: Role;
-  phone?: string;
   twoFactor: boolean;
   createdAt?: string;
   lastLoginAt?: string;
@@ -43,7 +42,6 @@ const deriveProfileFromAuth = (authUser: AuthUser | null): ProfileUser => {
     email: 'carlos.oliveira@empresa.com',
     cpf: '123.456.789-00',
     role: 'Gerente',
-    phone: '(11) 99999-0000',
     twoFactor: true,
     createdAt: '2024-01-10',
     lastLoginAt: '2025-08-26 09:12',
@@ -71,7 +69,6 @@ const deriveProfileFromAuth = (authUser: AuthUser | null): ProfileUser => {
     email: authUser.email || fallback.email,
     cpf: authUser.cpf || fallback.cpf,
     role: normalizedRole,
-    phone: (authUser.phone as string) || fallback.phone,
     twoFactor: Boolean(
       authUser.twoFactorEnabled ?? (authUser as { twoFactor?: boolean }).twoFactor ?? fallback.twoFactor
     ),
@@ -158,10 +155,6 @@ const Profile: React.FC = () => {
               <div>
                 <span className="text-[var(--muted)] block">CPF</span>
                 <span className="text-[var(--text)] font-medium">{userProfile.cpf}</span>
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Telefone</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.phone || '-'}</span>
               </div>
               <div>
                 <span className="text-[var(--muted)] block">Perfil</span>

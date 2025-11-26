@@ -89,6 +89,8 @@ const Users: React.FC = () => {
   const [listError, setListError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
+  const [twoFactorFilter, setTwoFactorFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -318,14 +320,22 @@ const Users: React.FC = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) =>
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.cpf.includes(q) ||
-      u.role.toLowerCase().includes(q)
-    );
-  }, [users, search]);
+    return users.filter((u) => {
+      const matchesSearch =
+        !q ||
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.cpf.includes(q) ||
+        u.role.toLowerCase().includes(q);
+
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      const matchesTwoFactor =
+        twoFactorFilter === 'all' ||
+        (twoFactorFilter === 'enabled' ? u.twoFactor : !u.twoFactor);
+
+      return matchesSearch && matchesRole && matchesTwoFactor;
+    });
+  }, [users, search, roleFilter, twoFactorFilter]);
 
   const isValid = editingUser
     ? Boolean(firstName && lastName && cpfDigits.length === 11 && email && role)
@@ -452,8 +462,8 @@ const Users: React.FC = () => {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
-            <div className="flex-1 relative">
+          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
+            <div className="flex-1 relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
               <input
                 type="text"
@@ -464,7 +474,28 @@ const Users: React.FC = () => {
                 disabled={isLoadingUsers}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-stretch gap-2">
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value as 'all' | Role)}
+                className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                disabled={isLoadingUsers}
+              >
+                <option value="all">Todos os perfis</option>
+                <option value="Administrador">Administrador</option>
+                <option value="Gerente">Gerente</option>
+                <option value="Inspetor">Inspetor</option>
+              </select>
+              <select
+                value={twoFactorFilter}
+                onChange={(e) => setTwoFactorFilter(e.target.value as 'all' | 'enabled' | 'disabled')}
+                className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                disabled={isLoadingUsers}
+              >
+                <option value="all">2FA (Todos)</option>
+                <option value="enabled">2FA Ativo</option>
+                <option value="disabled">2FA Desativado</option>
+              </select>
               <button
                 type="button"
                 onClick={() => fetchUsers(page)}

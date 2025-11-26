@@ -26,6 +26,8 @@ const Sacaria: React.FC = () => {
   const [images, setImages] = useState<SackImageItem[]>([]);
   const [startIndex, setStartIndex] = useState<number>(0);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingDeletes, setPendingDeletes] = useState<(string | number)[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [modal, setModal] = useState<{ index: number } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -78,18 +80,10 @@ const Sacaria: React.FC = () => {
     if (!isEditing) return;
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
-    if (!files.length || !operationId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await uploadSackImages(operationId, files);
-      await loadImages();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Falha ao enviar imagens.';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
+    if (!files.length) return;
+    const previews: SackImageItem[] = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setImages((prev) => [...prev, ...previews]);
+    setPendingFiles((prev) => [...prev, ...files]);
   };
 
   const handleSelectImages = () => {
@@ -98,15 +92,50 @@ const Sacaria: React.FC = () => {
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isEditing || !e.target.files || !operationId) return;
+    if (!isEditing || !e.target.files) return;
     const files = Array.from(e.target.files).filter((f) => f.type.startsWith('image/'));
     e.target.value = '';
     if (!files.length) return;
+    const previews: SackImageItem[] = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setImages((prev) => [...prev, ...previews]);
+    setPendingFiles((prev) => [...prev, ...files]);
+  };
+
+  const handleRemoveImage = async (index: number) => {
+    if (!isEditing) return;
+    const target = images[index];
+    if (!target) return;
+    // se for apenas preview local, removemos das filas locais
+    if (target.id === undefined || target.id === null) {
+      setImages((prev) => prev.filter((_, i) => i !== index));
+      setPendingFiles((prev) => prev.filter((file) => file !== target.file));
+      return;
+    }
+    // marca para deleção e remove da visualização, envio ocorrerá ao salvar
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setPendingDeletes((prev) => [...prev, target.id as string | number]);
+  };
+
+  const saveEdit = async () => {
+    if (!operationId) return;
+    if (!pendingFiles.length && !pendingDeletes.length) {
+      setIsEditing(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await uploadSackImages(operationId, files);
+      // processa deleções pendentes primeiro
+      for (const id of pendingDeletes) {
+        await deleteSackImage(operationId, id);
+      }
+      if (pendingFiles.length) {
+        await uploadSackImages(operationId, pendingFiles);
+      }
       await loadImages();
+      setPendingFiles([]);
+      setPendingDeletes([]);
+      setIsEditing(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Falha ao enviar imagens.';
       setError(msg);
@@ -114,31 +143,13 @@ const Sacaria: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const handleRemoveImage = async (index: number) => {
-    if (!isEditing) return;
-    const target = images[index];
-    if (!target) return;
-    if (!operationId || target.id === undefined || target.id === null) {
-      setImages((prev) => prev.filter((_, i) => i !== index));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      await deleteSackImage(operationId, target.id);
-      await loadImages();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Falha ao remover imagem.';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveEdit = () => setIsEditing(false);
   const startEdit = () => setIsEditing(true);
-  const cancelEdit = () => setIsEditing(false);
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setPendingFiles([]);
+    setPendingDeletes([]);
+    loadImages();
+  };
 
   const deleteSacaria = async () => {
     if (!operationId) return;
@@ -210,6 +221,16 @@ const Sacaria: React.FC = () => {
             onOpenModal={(idx) => openModal(idx)}
             onPrev={prev}
             onNext={next}
+            actions={
+              <button
+                type="button"
+                onClick={() => openModal(0)}
+                disabled={!images.length}
+                className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Ver em tela cheia
+              </button>
+            }
             onReorderImage={(fromIdx, toIdx) => {
               setImages((prev) => {
                 if (
@@ -253,6 +274,7 @@ const Sacaria: React.FC = () => {
                   className={`px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors ${
                     isEditing ? '' : 'hidden'
                   }`}
+                  disabled={loading}
                 >
                   Salvar Sacaria
                 </button>

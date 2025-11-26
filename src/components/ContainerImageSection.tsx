@@ -111,9 +111,10 @@ const ContainerImageSection: React.FC<Props> = ({
                       <LazyImage
                         src={img.url}
                         alt={`${title} - Imagem ${idx + 1}`}
-                        className="w-full h-48 max-h-72 max-w-full object-contain rounded-lg border border-[var(--border)] bg-[var(--hover)]"
+                        className="w-full h-48 max-h-72 max-w-full object-contain rounded-lg border border-[var(--border)] bg-[var(--hover)] cursor-pointer"
                         width={400}
                         height={300}
+                        onClick={() => onOpenModal(idx)}
                       />
                       <button
                         type="button"
@@ -145,12 +146,13 @@ const ContainerImageSection: React.FC<Props> = ({
                   return (
                     <div
                       key={originalIndex}
-                      className="relative group transform transition-all duration-300 ease-out flex-shrink-0"
+                      className="relative group transform transition-all duration-300 ease-out flex-shrink-0 cursor-pointer"
                       style={{
                         width: 'calc(33.333% - 4px)',
                         animationDelay: `${idx * 50}ms`,
                         animation: `fadeInSlide 0.4s ease-out forwards`
                       }}
+                      onClick={() => onOpenModal(originalIndex)}
                     >
                       <LazyImage
                         src={img.url}
@@ -158,7 +160,6 @@ const ContainerImageSection: React.FC<Props> = ({
                         className="w-full h-64 max-h-80 max-w-full object-contain cursor-pointer transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg rounded opacity-0 bg-[var(--hover)]"
                         width={400}
                         height={300}
-                        onClick={() => onOpenModal(originalIndex)}
                         onLoad={(e) => {
                           (e.target as HTMLImageElement).style.opacity = '1';
                         }}

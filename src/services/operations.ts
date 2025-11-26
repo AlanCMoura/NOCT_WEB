@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { api } from './api';
 
 export type OperationStatusApi = string;
@@ -136,10 +137,23 @@ export const getSackImages = async (
   operationId: string | number,
   expirationMinutes = 60
 ): Promise<SackImage[]> => {
-  const { data } = await api.get<SackImage[]>(`/operations/${operationId}/sack-images`, {
-    params: { expirationMinutes },
-  });
-  return data;
+  try {
+    const { data } = await api.get<SackImage[]>(`/operations/${operationId}/sack-images`, {
+      params: { expirationMinutes },
+    });
+    return data;
+  } catch (error) {
+    // Alguns ambientes expõem apenas o endpoint legado com underscore.
+    if (axios.isAxiosError(error)) {
+      try {
+        const { data } = await api.get<string[]>(`/operations/${operationId}/sack_images`);
+        return (data || []).map((url) => ({ url }));
+      } catch (fallbackError) {
+        throw fallbackError;
+      }
+    }
+    throw error;
+  }
 };
 
 export const uploadSackImages = async (
@@ -148,9 +162,17 @@ export const uploadSackImages = async (
 ): Promise<void> => {
   const form = new FormData();
   files.forEach((file) => form.append('sackImages', file));
-  await api.post(`/operations/${operationId}/sack-images`, form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  // Não definimos Content-Type manualmente para permitir que o navegador adicione o boundary corretamente.
+  try {
+    await api.post(`/operations/${operationId}/sack-images`, form);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      // Fallback para rota legada com underscore, caso esteja habilitada.
+      await api.post(`/operations/${operationId}/sack_images`, form);
+      return;
+    }
+    throw error;
+  }
 };
 
 export const deleteSackImage = async (operationId: string | number, imageId: string | number): Promise<void> => {
