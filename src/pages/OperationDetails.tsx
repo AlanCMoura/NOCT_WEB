@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
+﻿import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Trash2, Plus } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
@@ -7,6 +7,8 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
+import { deleteContainer } from '../services/containers';
+import { getContainersByOperation, type ApiContainer } from '../services/containers';
 
 interface User {
   name: string;
@@ -47,8 +49,8 @@ const coalesceText = (...values: unknown[]): string => {
 };
 
 const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
-  const text = String(value ?? '').toLowerCase();
-  if (text.includes('fech') || text.includes('close') || text.includes('final')) return 'Fechada';
+  const text = String(value ?? '').toUpperCase();
+  if (text === 'COMPLETED' || text.includes('FINAL') || text.includes('FECH')) return 'Fechada';
   return 'Aberta';
 };
 
@@ -118,6 +120,18 @@ const mapContainers = (data: ApiOperation): Container[] => {
   });
 };
 
+const mapApiContainers = (items: ApiContainer[] = []): Container[] =>
+  items.map((c, index) => ({
+    id: coalesceText(c.containerId, c.id, `CONT-${index + 1}`),
+    pesoBruto: coalesceText(c.grossWeight),
+    lacreAgencia: coalesceText(c.agencySeal),
+    lacrePrincipal: coalesceText(c.agencySeal),
+    lacreOutros: (c.otherSeals || []).join(', '),
+    qtdSacarias: typeof c.sacksCount === 'number' ? c.sacksCount : undefined,
+    terminal: '',
+    data: '',
+  }));
+
 const emptyOperation: OperationInfo = {
   id: '',
   local: '',
@@ -171,18 +185,21 @@ const OperationDetails: React.FC = () => {
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Administrador' });
   const [containers, setContainers] = useState<Container[]>([]);
+  const [containersLoading, setContainersLoading] = useState<boolean>(true);
   const opBackupRef = useRef<OperationInfo>(emptyOperation);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [loadingOp, setLoadingOp] = useState<boolean>(false);
+  const [loadingOp, setLoadingOp] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingOp, setSavingOp] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const isInitialLoading = loadingOp && !loadError && !opInfo.id;
+  const [deleteContainerLoading, setDeleteContainerLoading] = useState<string | null>(null);
+  const sectionsLoading = (loadingOp || containersLoading) && !loadError;
+  const controlsDisabled = sectionsLoading;
 
   // Ordenacao e Paginacao
   const PAGE_SIZE = 10;
@@ -203,6 +220,22 @@ const OperationDetails: React.FC = () => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
+  const handleDeleteContainer = async (containerId: string) => {
+    const confirmed = window.confirm(`Excluir o container ${containerId}?`);
+    if (!confirmed) return;
+    setDeleteContainerLoading(containerId);
+    setLoadError(null);
+    try {
+      await deleteContainer(containerId);
+      setContainers((prev) => prev.filter((c) => c.id !== containerId));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel excluir o container.';
+      setLoadError(msg);
+    } finally {
+      setDeleteContainerLoading(null);
+    }
+  };
+
   // Carrega dados reais da operacao e containers (se retornados pela API)
   useEffect(() => {
     if (!decodedOperationId) return;
@@ -215,6 +248,7 @@ const OperationDetails: React.FC = () => {
       setSaveMessage(null);
       setContainers([]);
       setPage(1);
+      setContainersLoading(true);
 
       try {
         const data = await getOperationById(decodedOperationId);
@@ -222,6 +256,20 @@ const OperationDetails: React.FC = () => {
 
         dispatch({ type: 'hydrate', opInfo: mapOperation(data) });
         setOperationStatus(normalizeStatus(data.status));
+
+        try {
+          const containerPage = await getContainersByOperation(decodedOperationId, { page: 0, size: 200, sortBy: 'id', sortDirection: 'ASC' });
+          if (active) {
+            const mappedFromApi = mapApiContainers(containerPage.content || []);
+            if (mappedFromApi.length) {
+              setContainers(mappedFromApi);
+              setPage(1);
+              return;
+            }
+          }
+        } catch {
+          // fallback para containers vindo junto da operacao
+        }
 
         const mappedContainers = mapContainers(data);
         setContainers(mappedContainers);
@@ -231,7 +279,10 @@ const OperationDetails: React.FC = () => {
         const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar a operacao.';
         setLoadError(msg);
       } finally {
-        if (active) setLoadingOp(false);
+        if (active) {
+          setLoadingOp(false);
+          setContainersLoading(false);
+        }
       }
     };
 
@@ -367,10 +418,9 @@ const OperationDetails: React.FC = () => {
     const numericId = Number(decodedOperationId);
     const isNumericId = Number.isFinite(numericId);
 
-    // API só finaliza; se tentar reabrir, bloqueia e mantém estado
+    // Nao e possivel reabrir a operacao
     if (!checked) {
-      setStatusError('Reabertura nao suportada pela API.');
-      setOperationStatus('Fechada');
+      setStatusError('Não e possível reabrir esta operação.');
       return;
     }
 
@@ -430,32 +480,77 @@ const OperationDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-6">
-          {loadingOp && (
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--hover)] px-4 py-3 text-sm text-[var(--text)]">
-              {loadError ? 'Erro ao carregar dados da operacao.' : 'Carregando dados da operacao...'}
-            </div>
-          )}
           {loadError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {loadError}
             </div>
           )}
 
-          {isInitialLoading ? (
-            <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm p-6 animate-pulse space-y-6">
-              <div className="h-4 w-1/2 bg-[var(--hover)] rounded"></div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="rounded-xl border border-[var(--border)] p-4 space-y-3">
-                    <div className="h-3 w-2/3 bg-[var(--hover)] rounded"></div>
-                    <div className="h-3 w-1/2 bg-[var(--hover)] rounded"></div>
-                    <div className="h-3 w-3/4 bg-[var(--hover)] rounded"></div>
+            {sectionsLoading ? (
+              <>
+              <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm">
+                <div className="p-6 border-b border-[var(--border)] flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
                   </div>
-                ))}
+                  <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium opacity-50 cursor-not-allowed"
+                  >
+                    Editar Operacao
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed"
+                  >
+                    Excluir Operacao
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] opacity-50 cursor-not-allowed"
+                  >
+                    Voltar
+                  </button>
+                </div>
               </div>
-            </section>
-          ) : (
+                <div className="p-6 space-y-4 animate-pulse min-h-[180px]">
+                  <div className="h-3 w-24 bg-[var(--hover)] rounded"></div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <div className="h-3 w-24 bg-[var(--hover)] rounded"></div>
+                        <div className="h-4 w-full bg-[var(--hover)] rounded"></div>
+                        <div className="h-3 w-3/4 bg-[var(--hover)] rounded"></div>
+                      </div>
+                    ))}
+                </div>
+                </div>
+              </section>
+              <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mt-6">
+                <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
+                  <div className="flex flex-1 sm:flex-initial gap-3 items-center">
+                    <div className="flex-1 h-10 bg-[var(--hover)] rounded animate-pulse"></div>
+                    <div className="w-64 h-10 bg-[var(--hover)] rounded animate-pulse"></div>
+                    <div className="h-10 w-32 bg-[var(--hover)] rounded animate-pulse"></div>
+                    <div className="h-10 w-28 bg-[var(--hover)] rounded animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="p-6 space-y-4 animate-pulse min-h-[260px]">
+                  <div className="h-12 bg-[var(--hover)] rounded"></div>
+                  <div className="h-10 bg-[var(--hover)] rounded"></div>
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="h-14 bg-[var(--hover)] rounded"></div>
+                  ))}
+                  <div className="h-12 bg-[var(--hover)] rounded"></div>
+                </div>
+              </section>
+              </>
+            ) : (
             <>
           {saveMessage && (
             <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
@@ -666,25 +761,27 @@ const OperationDetails: React.FC = () => {
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
-              <div className="flex flex-1 sm:flex-initial gap-3 items-center">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Buscar container..."
-                    aria-label="Buscar container"
-                    className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)]"
-                  />
-                </div>
-                <div className="w-64">
-                  <select
-                    value={statusKey as any}
-                    onChange={(e) => setStatusKey(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    aria-label="Filtrar por Status"
-                    title="Filtrar containers pelo status"
-                  >
-                    <option value="todos">Todos os Status</option>
+                <div className="flex flex-1 sm:flex-initial gap-3 items-center">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Buscar container..."
+                      aria-label="Buscar container"
+                      disabled={controlsDisabled}
+                      className={`w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)] ${controlsDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                  <div className="w-64">
+                    <select
+                      value={statusKey as any}
+                      onChange={(e) => setStatusKey(e.target.value as any)}
+                      disabled={controlsDisabled}
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      aria-label="Filtrar por Status"
+                      title="Filtrar containers pelo status"
+                    >
+                      <option value="todos">Todos os Status</option>
                     <option value="ni">Nao inicializado</option>
                     <option value="parcial">Parcial</option>
                     <option value="completo">Completo</option>
@@ -693,6 +790,7 @@ const OperationDetails: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/containers/new`)}
+                  disabled={controlsDisabled}
                   className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -701,6 +799,7 @@ const OperationDetails: React.FC = () => {
                 <button
                   aria-label="Ver overview da operacao"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
+                  disabled={controlsDisabled}
                   className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
                   Overview
@@ -708,70 +807,101 @@ const OperationDetails: React.FC = () => {
               </div>
             </div>
             <div className="divide-y divide-[var(--border)]">
-              {/* Item especial: Sacaria (como se fosse um container) */}
-              <button
-                type="button"
-                aria-label="Abrir sacaria"
-                className="w-full text-left p-4 flex items-center justify-between cursor-pointer transition-colors bg-[var(--hover)] border-l-4 border-teal-500"
-                onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/sacaria`)}
-              >
-                <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">Sacaria</div>
-                  <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
+              {sectionsLoading ? (
+                <div className="p-6 space-y-4 animate-pulse min-h-[260px]">
+                  <div className="h-12 bg-[var(--hover)] rounded"></div>
+                  <div className="h-10 bg-[var(--hover)] rounded"></div>
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="h-14 bg-[var(--hover)] rounded"></div>
+                  ))}
+                  <div className="h-12 bg-[var(--hover)] rounded"></div>
                 </div>
-              </button>
-              {/* Contador total */}
-              <div className="px-4 py-2 text-sm text-[var(--muted)]">
-                Total de containers: <span className="font-medium text-[var(--text)]">{total}</span>
-              </div>
-              {paginated.map(container => (
-                <button
-                  type="button"
-                  aria-label={`Abrir container ${container.id}`}
-                  key={container.id}
-                  className="w-full text-left p-4 flex items-center justify-between hover:bg-[var(--hover)] cursor-pointer transition-colors"
-                  onClick={() => handleContainerClick(container.id)}
-                >
-                  <div>
-                    <div className="text-sm font-medium text-[var(--text)]">{container.id}</div>
-                    <div className="text-xs text-[var(--muted)]">{container.pesoBruto} Peso Bruto</div>
+              ) : (
+                <>
+                  {/* Item especial: Sacaria (como se fosse um container) */}
+                  <button
+                    type="button"
+                    aria-label="Abrir sacaria"
+                    className="w-full text-left p-4 flex items-center justify-between cursor-pointer transition-colors bg-[var(--hover)] border-l-4 border-teal-500"
+                    onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/sacaria`)}
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--text)]">Sacaria</div>
+                      <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
+                    </div>
+                  </button>
+                  {/* Contador total */}
+                  <div className="px-4 py-2 text-sm text-[var(--muted)]">
+                    Total de containers: <span className="font-medium text-[var(--text)]">{total}</span>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    (() => { const s = statusOf(container.id); return s === 'Completo' ? 'bg-green-100 text-green-800' : s === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'; })()
-                  }`}>
-                    {statusOf(container.id)}
-                  </span>
-                </button>
-              ))}
+                  {paginated.map(container => (
+                    <div
+                      key={container.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleContainerClick(container.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleContainerClick(container.id); }}
+                      className="w-full text-left p-4 flex items-center justify-between hover:bg-[var(--hover)] transition-colors cursor-pointer focus:outline-none"
+                      aria-label={`Abrir container ${container.id}`}
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-[var(--text)]">{container.id}</div>
+                        <div className="text-xs text-[var(--muted)]">{container.pesoBruto} Peso Bruto</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          (() => { const s = statusOf(container.id); return s === 'Completo' ? 'bg-green-100 text-green-800' : s === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700'; })()
+                        }`}>
+                          {statusOf(container.id)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            disabled={deleteContainerLoading === container.id}
+                            className="px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {deleteContainerLoading === container.id ? 'Excluindo...' : 'Excluir'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
             {/* Paginacao */}
-            <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
-              <div className="text-sm text-[var(--muted)]">
-                {total === 0 ? (
-                  <span>Mostrando 0 a 0 de 0</span>
-                ) : (
-                  <span>
-                    Mostrando <span className="font-medium">{startIdx + 1}</span> a <span className="font-medium">{endIdx}</span> de <span className="font-medium">{total}</span>
-                  </span>
-                )}
+            {!sectionsLoading && (
+              <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
+                <div className="text-sm text-[var(--muted)]">
+                  {total === 0 ? (
+                    <span>Mostrando 0 a 0 de 0</span>
+                  ) : (
+                    <span>
+                      Mostrando <span className="font-medium">{startIdx + 1}</span> a <span className="font-medium">{endIdx}</span> de <span className="font-medium">{total}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Proximo
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Proximo
-                </button>
-              </div>
-            </div>
+            )}
           </section>
           </>
           )}

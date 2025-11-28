@@ -1,24 +1,43 @@
-﻿import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Search, Edit } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
-import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
 import { useSessionUser } from '../context/AuthContext';
-
-interface User { name: string; role: string; }
+import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
 
 interface ContainerRow {
   id: string;
+  status?: ApiContainerStatus;
   lacreAgencia?: string;
   lacrePrincipal?: string;
   lacreOutros?: string;
   qtdSacarias?: number;
-  terminal?: string;
-  data?: string; // yyyy-mm-dd
+  pesoBruto?: number;
+  pesoLiquido?: number;
 }
 
+const mapApiContainer = (c: ApiContainer, index: number): ContainerRow => {
+  const status = (c.status as ApiContainerStatus | undefined) || undefined;
+  return {
+    id: String(c.containerId || c.id || `CONT-${index + 1}`),
+    status,
+    lacreAgencia: c.agencySeal || '',
+    lacrePrincipal: c.agencySeal || '',
+    lacreOutros: (c.otherSeals || []).join(', '),
+    qtdSacarias: typeof c.sacksCount === 'number' ? c.sacksCount : undefined,
+    pesoBruto: typeof c.grossWeight === 'number' ? c.grossWeight : undefined,
+    pesoLiquido: typeof c.liquidWeight === 'number' ? c.liquidWeight : undefined,
+  };
+};
 
+const statusDisplay = (status?: ApiContainerStatus) => {
+  const norm = String(status || '').toUpperCase();
+  if (norm === 'COMPLETED') return { label: 'Finalizado', className: 'bg-green-100 text-green-800' };
+  if (norm === 'PENDING') return { label: 'Pendente', className: 'bg-yellow-100 text-yellow-800' };
+  if (norm === 'OPEN') return { label: 'Aberto', className: 'bg-gray-200 text-gray-700' };
+  return { label: '-', className: 'bg-gray-200 text-gray-700' };
+};
 
 const OperationOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -31,9 +50,11 @@ const OperationOverview: React.FC = () => {
   const [rows, setRows] = useState<ContainerRow[]>([]);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [draftRows, setDraftRows] = useState<ContainerRow[]>(rows);
+  const [draftRows, setDraftRows] = useState<ContainerRow[]>([]);
   const PAGE_SIZE = 10;
   const [page, setPage] = useState<number>(1);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Atualiza quando navega para outra operacao
   useEffect(() => {
@@ -42,14 +63,42 @@ const OperationOverview: React.FC = () => {
     setPage(1);
   }, [decodedOperationId]);
 
+  useEffect(() => {
+    const load = async () => {
+      if (!decodedOperationId) return;
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getContainersByOperation(decodedOperationId, { page: 0, size: 500, sortBy: 'id', sortDirection: 'ASC' });
+        const mapped = (data?.content || []).map(mapApiContainer);
+        setRows(mapped);
+        setDraftRows(mapped);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar os containers.';
+        setLoadError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [decodedOperationId]);
+
   type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
   const [statusKey, setStatusKey] = useState<StatusKey>('todos');
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = q ? rows.filter((r) => r.id.toLowerCase().includes(q)) : rows;
     if (statusKey === 'todos') return base;
-    const target: ContainerStatus = statusKey === 'ni' ? 'Nao inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
-    return base.filter((r) => computeStatus(getProgress(r.id)) === target);
+
+    const matchesStatus = (status?: ApiContainerStatus) => {
+      const norm = String(status || '').toUpperCase();
+      if (statusKey === 'ni') return norm === 'OPEN';
+      if (statusKey === 'parcial') return norm === 'PENDING';
+      if (statusKey === 'completo') return norm === 'COMPLETED';
+      return true;
+    };
+
+    return base.filter((r) => matchesStatus(r.status));
   }, [rows, search, statusKey]);
 
   const sorted = useMemo(() => filtered, [filtered]);
@@ -85,7 +134,7 @@ const OperationOverview: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Overview de Containers</h1>
-              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">Operacao {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-3">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -116,13 +165,13 @@ const OperationOverview: React.FC = () => {
             <div className="w-full sm:w-64">
               <select
                 value={statusKey}
-                onChange={(e) => setStatusKey(e.target.value as any)}
+                onChange={(e) => setStatusKey(e.target.value as StatusKey)}
                 className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
                 aria-label="Filtrar por Status"
                 title="Filtrar containers pelo status"
               >
                 <option value="todos">Todos os Status</option>
-                <option value="Nao inicializado">Nao inicializado</option>
+                <option value="ni">Nao inicializado</option>
                 <option value="parcial">Parcial</option>
                 <option value="completo">Completo</option>
               </select>
@@ -132,12 +181,12 @@ const OperationOverview: React.FC = () => {
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
               </div>
             </div>
 
             <div className="px-6 pt-2 text-sm text-[var(--muted)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <div>Total de containers: <span className="font-medium text-[var(--text)]">{rows.length}</span></div>
+              {loadError && <div className="text-red-600">{loadError}</div>}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-center">
@@ -148,29 +197,25 @@ const OperationOverview: React.FC = () => {
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Agencia</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Principal</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Outros</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Qtd. Sacarias</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Terminal</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
-                  {paginated.map((row) => {
-                    const status = computeStatus(getProgress(row.id));
-                    const badge = status === 'Completo'
-                      ? 'bg-green-100 text-green-800'
-                      : status === 'Parcial'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-200 text-gray-700';
+                  <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Qtd. Sacarias</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Peso Bruto</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Peso Liquido</th>
+                </tr>
+              </thead>
+              <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
+                {paginated.map((row) => {
+                    const { label: statusLabel, className: badge } = statusDisplay(row.status);
+                    const draft = draftRows.find(r => r.id === row.id);
                     return (
                     <tr key={row.id} className="hover:bg-[var(--hover)] transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--text)]">{row.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${badge}`}>{status}</span></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${badge}`}>{statusLabel}</span></td>
                       {isEditing ? (
                         <>
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
                             <input
                               type="text"
-                              value={draftRows.find(r => r.id === row.id)?.lacreAgencia || ''}
+                              value={draft?.lacreAgencia || ''}
                               onChange={(e) => updateDraft(row.id, { lacreAgencia: e.target.value })}
                               className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="AG-xxxx"
@@ -179,7 +224,7 @@ const OperationOverview: React.FC = () => {
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
                             <input
                               type="text"
-                              value={draftRows.find(r => r.id === row.id)?.lacrePrincipal || ''}
+                              value={draft?.lacrePrincipal || ''}
                               onChange={(e) => updateDraft(row.id, { lacrePrincipal: e.target.value })}
                               className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="LP-xxxx"
@@ -188,7 +233,7 @@ const OperationOverview: React.FC = () => {
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
                             <input
                               type="text"
-                              value={draftRows.find(r => r.id === row.id)?.lacreOutros || ''}
+                              value={draft?.lacreOutros || ''}
                               onChange={(e) => updateDraft(row.id, { lacreOutros: e.target.value })}
                               className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                               placeholder="Outros"
@@ -198,26 +243,29 @@ const OperationOverview: React.FC = () => {
                             <input
                               type="number"
                               min={0}
-                              value={draftRows.find(r => r.id === row.id)?.qtdSacarias ?? 0}
+                              value={draft?.qtdSacarias ?? 0}
                               onChange={(e) => updateDraft(row.id, { qtdSacarias: Number(e.target.value) })}
                               className="w-24 px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-center"
                             />
                           </td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
                             <input
-                              type="text"
-                              value={draftRows.find(r => r.id === row.id)?.terminal || ''}
-                              onChange={(e) => updateDraft(row.id, { terminal: e.target.value })}
+                              type="number"
+                              min={0}
+                              value={draft?.pesoBruto ?? 0}
+                              onChange={(e) => updateDraft(row.id, { pesoBruto: Number(e.target.value) })}
                               className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                              placeholder="Terminal"
+                              placeholder="Peso bruto"
                             />
                           </td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm">
                             <input
-                              type="date"
-                              value={draftRows.find(r => r.id === row.id)?.data || ''}
-                              onChange={(e) => updateDraft(row.id, { data: e.target.value })}
-                              className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              type="number"
+                              min={0}
+                              value={draft?.pesoLiquido ?? 0}
+                              onChange={(e) => updateDraft(row.id, { pesoLiquido: Number(e.target.value) })}
+                              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              placeholder="Peso liquido"
                             />
                           </td>
                         </>
@@ -227,18 +275,24 @@ const OperationOverview: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.lacrePrincipal || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.lacreOutros || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text)]">{row.qtdSacarias ?? 0}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.terminal || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.data || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.pesoBruto ?? '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{row.pesoLiquido ?? '-'}</td>
                         </>
                       )}
                     </tr>
                     );
                   })}
+                  {loading && rows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-8 text-center text-sm text-[var(--muted)]">
+                        Carregando containers...
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* Paginação */}
             <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
               <div className="text-sm text-[var(--muted)]">
                 {totalFiltered === 0 ? (
@@ -262,7 +316,7 @@ const OperationOverview: React.FC = () => {
                   disabled={page >= totalPages}
                   className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Próximo
+                  Proximo
                 </button>
               </div>
             </div>
@@ -288,32 +342,3 @@ const OperationOverview: React.FC = () => {
 };
 
 export default OperationOverview;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

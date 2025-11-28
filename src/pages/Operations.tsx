@@ -6,6 +6,7 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { getOperationStatus, type OperationStatus } from '../services/operationStatus';
 import { listOperations, type ApiOperation } from '../services/operations';
+import { getContainersByOperation } from '../services/containers';
 
 interface User { name: string; role: string; }
 
@@ -16,7 +17,7 @@ interface OperationItem {
   shipName: string;
   date: string; // ISO or string
   status: OperationStatus;
-  containerCount: number;
+  containerCount?: number;
 }
 
 const formatDate = (iso: string) => {
@@ -32,8 +33,8 @@ const formatDate = (iso: string) => {
 };
 
 const normalizeStatus = (value: unknown): OperationStatus => {
-  const text = String(value ?? '').toLowerCase();
-  if (text.includes('fech') || text.includes('close') || text.includes('final')) return 'Fechada';
+  const text = String(value ?? '').toUpperCase();
+  if (text === 'COMPLETED' || text.includes('FINAL') || text.includes('FECH')) return 'Fechada';
   return 'Aberta';
 };
 
@@ -91,8 +92,7 @@ const mapApiOperation = (op: ApiOperation): OperationItem => {
   const containerCount =
     op.containerCount ??
     (Array.isArray(op.containers) ? op.containers.length : undefined) ??
-    (Array.isArray(op.containerList) ? op.containerList.length : undefined) ??
-    0;
+    (Array.isArray(op.containerList) ? op.containerList.length : undefined);
 
   return {
     id,
@@ -136,10 +136,31 @@ const Operations: React.FC = () => {
       try {
         const data = await listOperations({ page: targetPage, size: PAGE_SIZE, sortBy: 'id', sortDirection: 'ASC' });
         const mapped = (data?.content ?? []).map(mapApiOperation);
-        setOperations(mapped);
+
+        const operationsWithCount = await Promise.all(
+          mapped.map(async (op) => {
+            if (op.containerCount !== undefined && op.containerCount !== null) {
+              return op;
+            }
+            try {
+              const pageData = await getContainersByOperation(op.id, {
+                page: 0,
+                size: 1,
+                sortBy: 'id',
+                sortDirection: 'ASC',
+              });
+              const count = pageData?.totalElements ?? (Array.isArray(pageData?.content) ? pageData.content.length : 0);
+              return { ...op, containerCount: count };
+            } catch {
+              return { ...op, containerCount: 0 };
+            }
+          })
+        );
+
+        setOperations(operationsWithCount);
         setPage(data?.number ?? targetPage);
         setTotalPages(data?.totalPages ?? 0);
-        setTotalOperations(data?.totalElements ?? mapped.length);
+        setTotalOperations(data?.totalElements ?? operationsWithCount.length);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Nao foi possivel carregar as operacoes.';
         setListError(msg);
@@ -254,8 +275,8 @@ const Operations: React.FC = () => {
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             {loading ? (
-              <div className="p-6">
-                <div className="animate-pulse space-y-4">
+              <div className="p-6 min-h-[420px]">
+                <div className="animate-pulse space-y-4 h-full">
                   <div className="h-6 bg-[var(--hover)] rounded w-1/3"></div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -305,7 +326,9 @@ const Operations: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.reserva || '---'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{op.shipName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--muted)]">{formatDate(op.date)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text)]">{op.containerCount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text)]">
+                        {op.containerCount !== undefined ? op.containerCount : '...'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={op.status} /></td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm ">
                         <button onClick={() => handleView(op.id || op.ctv)} className="text-teal-600 hover:text-teal-800 transition-colors font-medium">Ver Detalhes</button>
