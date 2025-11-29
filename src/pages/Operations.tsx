@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Upload, FileText, RefreshCcw } from 'lucide-react';
+import { Search, Filter, Upload, FileText, RefreshCcw } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
@@ -264,9 +264,6 @@ const Operations: React.FC = () => {
               >
                 <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
               </button>
-              <button className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">
-                <Download className="w-4 h-4 mr-2" /> Importar
-              </button>
               <button onClick={handleNew} className="inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 transition-colors">
                 <Upload className="w-4 h-4 mr-2" /> Nova Operacao
               </button>
@@ -372,3 +369,4 @@ const Operations: React.FC = () => {
 };
 
 export default Operations;
+

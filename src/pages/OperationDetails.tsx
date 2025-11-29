@@ -7,7 +7,7 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
-import { deleteContainer, getContainersByOperation, type ApiContainer } from '../services/containers';
+import { deleteContainer, getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
 
 interface User {
   name: string;
@@ -39,6 +39,7 @@ interface Container {
   qtdSacarias?: number;
   terminal?: string;
   data?: string; // yyyy-mm-dd
+  apiStatus?: ApiContainerStatus;
 }
 
 // Local image item type (avoids heavy component import here)
@@ -53,6 +54,14 @@ const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
   const text = String(value ?? '').toUpperCase();
   if (text === 'COMPLETED' || text.includes('FINAL') || text.includes('FECH')) return 'Fechada';
   return 'Aberta';
+};
+
+const mapApiContainerStatusToDisplay = (status?: ApiContainerStatus): ContainerStatus => {
+  if (!status) return 'Nao inicializado';
+  const upper = String(status).toUpperCase();
+  if (upper === 'COMPLETED' || upper.includes('FINAL')) return 'Completo';
+  if (upper === 'PENDING') return 'Parcial';
+  return 'Nao inicializado';
 };
 
 const toDateOnly = (value: string): string => {
@@ -136,6 +145,7 @@ const mapApiContainers = (items: ApiContainer[] = []): Container[] =>
     qtdSacarias: typeof c.sacksCount === 'number' ? c.sacksCount : undefined,
     terminal: '',
     data: '',
+    apiStatus: c.status,
   }));
 
 const emptyOperation: OperationInfo = {
@@ -192,8 +202,10 @@ const OperationDetails: React.FC = () => {
   const user = useSessionUser({ role: 'Administrador' });
   const [containers, setContainers] = useState<Container[]>([]);
   const [containersLoading, setContainersLoading] = useState<boolean>(true);
+  const [containerSearch, setContainerSearch] = useState<string>('');
   const opBackupRef = useRef<OperationInfo>(emptyOperation);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
+  const isOperationClosed = operationStatus === 'Fechada';
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [loadingOp, setLoadingOp] = useState<boolean>(true);
@@ -212,13 +224,39 @@ const OperationDetails: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
   const [statusKey, setStatusKey] = useState<StatusKey>('todos');
-  const statusOf = useCallback((id: string) => computeStatus(getProgress(id)), []);
+  const statusOf = useCallback(
+    (id: string) => {
+      const target = containers.find((c) => c.id === id);
+      if (target?.apiStatus) {
+        return mapApiContainerStatusToDisplay(target.apiStatus);
+      }
+      return computeStatus(getProgress(id));
+    },
+    [containers]
+  );
 
   const filteredContainers = useMemo(() => {
-    if (statusKey === 'todos') return containers;
-    const target: ContainerStatus = statusKey === 'ni' ? 'Nao inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo';
-    return containers.filter(c => statusOf(c.id) === target);
-  }, [containers, statusKey, statusOf]);
+    const q = containerSearch.trim().toLowerCase();
+    const byStatus = (statusKey === 'todos')
+      ? containers
+      : containers.filter(c => statusOf(c.id) === (statusKey === 'ni' ? 'Nao inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo'));
+
+    if (!q) return byStatus;
+    return byStatus.filter((c) => {
+      const text = [
+        c.id,
+        c.description,
+        c.lacreAgencia,
+        c.lacrePrincipal,
+        c.lacreOutros,
+        c.pesoBruto,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return text.includes(q);
+    });
+  }, [containers, statusKey, statusOf, containerSearch]);
 
   const total = filteredContainers.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -615,16 +653,18 @@ const OperationDetails: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        onClick={startEdit}
-                        className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Editar Operacao
-                      </button>
+                      {!isOperationClosed && (
+                        <button
+                          type="button"
+                          onClick={startEdit}
+                          className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Editar Operacao
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={handleDeleteOperation}
@@ -634,13 +674,13 @@ const OperationDetails: React.FC = () => {
                         <Trash2 className="w-4 h-4" />
                         {deleteLoading ? 'Excluindo...' : 'Excluir Operacao'}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate('/operations')}
-                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                      >
-                        Voltar
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/operations')}
+                      className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                    >
+                      Voltar
+                    </button>
                     </>
                   )}
                 </div>
@@ -775,6 +815,8 @@ const OperationDetails: React.FC = () => {
                       placeholder="Buscar container..."
                       aria-label="Buscar container"
                       disabled={controlsDisabled}
+                      value={containerSearch}
+                      onChange={(e) => setContainerSearch(e.target.value)}
                       className={`w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)] ${controlsDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                     />
                   </div>
@@ -833,7 +875,6 @@ const OperationDetails: React.FC = () => {
                   >
                     <div>
                       <div className="text-sm font-semibold text-[var(--text)]">Sacaria</div>
-                      <div className="text-xs text-[var(--muted)]">Carrossel de imagens da sacaria</div>
                     </div>
                   </button>
                   {/* Contador total */}

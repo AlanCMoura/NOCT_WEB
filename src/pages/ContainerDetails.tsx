@@ -5,8 +5,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import ContainerImageSection, { ImageItem as SectionImageItem } from "../components/ContainerImageSection";
+import ToggleSwitch from "../components/ToggleSwitch";
 import { useSidebar } from "../context/SidebarContext";
 import { useSessionUser } from "../context/AuthContext";
+import { getOperationById, type ApiOperation } from "../services/operations";
 import {
   addImagesToContainer,
   completeContainerStatus,
@@ -203,6 +205,8 @@ const ContainerDetails: React.FC = () => {
   const [selectedImageModal, setSelectedImageModal] = useState<{ section: ImageSectionKey; index: number } | null>(
     null
   );
+  const [headerStatusLoading, setHeaderStatusLoading] = useState<boolean>(false);
+  const [operationCtv, setOperationCtv] = useState<string>("");
 
   /**
    * CORREÇÃO 7: Ref para prevenir submissões duplicadas
@@ -210,6 +214,7 @@ const ContainerDetails: React.FC = () => {
   const isSavingRef = useRef<boolean>(false);
 
   const isRequiredMissing = !form.containerId.trim() || !form.description.trim();
+  const hasContainer = !!container;
 
   /**
    * Helper: busca URLs por categoria e mescla preservando IDs (necessários para DELETE)
@@ -271,10 +276,32 @@ const ContainerDetails: React.FC = () => {
 
   useEffect(() => {
     if (!decodedContainerId) return;
-    
-    // CORREÇÃO 3: AbortController para cancelar requisições em caso de unmount
+
     const abortController = new AbortController();
-    
+
+    const loadOperation = async () => {
+      if (!decodedOperationId) return;
+      try {
+        const op: ApiOperation = await getOperationById(decodedOperationId);
+        if (abortController.signal.aborted) return;
+        const ctv = String(
+          op.ctv ??
+          op.amv ??
+          op.ship ??
+          op.code ??
+          op.booking ??
+          op.bookingCode ??
+          op.reserva ??
+          op.reservation ??
+          op.id ??
+          decodedOperationId
+        );
+        setOperationCtv(ctv);
+      } catch {
+        // falha silenciosa no header
+      }
+    };
+
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -283,7 +310,6 @@ const ContainerDetails: React.FC = () => {
       try {
         const data = await getContainerById(decodedContainerId);
         
-        // Verifica se o componente ainda está montado
         if (abortController.signal.aborted) return;
         
         setContainer(data);
@@ -296,7 +322,7 @@ const ContainerDetails: React.FC = () => {
         setImageSections(sections);
       } catch (err) {
         if (abortController.signal.aborted) return;
-        setError(getErrorMessage(err, "Não foi possível carregar o container."));
+        setError(getErrorMessage(err, "Nao foi possivel carregar o container."));
       } finally {
         if (!abortController.signal.aborted) {
           setLoading(false);
@@ -306,11 +332,12 @@ const ContainerDetails: React.FC = () => {
     };
 
     load();
+    loadOperation();
     
     return () => {
       abortController.abort();
     };
-  }, [decodedContainerId]);
+  }, [decodedContainerId, decodedOperationId]);
 
   const handleChange = useCallback((key: keyof EditForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -621,16 +648,44 @@ const ContainerDetails: React.FC = () => {
     });
   }, []);
 
+  const handleToggleStatus = useCallback(
+    async (checked: boolean) => {
+      if (!decodedContainerId || loading || statusUpdating || headerStatusLoading) return;
+      // Somente permite finalizar; reabrir n�o est� dispon�vel no front
+      if (!checked) return;
+      setError(null);
+      setSuccess(null);
+      setHeaderStatusLoading(true);
+      setStatusUpdating(true);
+      try {
+        const updated = await completeContainerStatus(decodedContainerId);
+        setContainer(updated);
+        setSuccess("Status do container atualizado para FINALIZADO.");
+      } catch (err) {
+        const msg =
+          axios.isAxiosError(err) && err.response?.data?.message
+            ? err.response.data.message
+            : "Nao foi possivel atualizar o status do container.";
+        setError(msg);
+      } finally {
+        setHeaderStatusLoading(false);
+        setStatusUpdating(false);
+      }
+    },
+    [decodedContainerId, loading, statusUpdating, headerStatusLoading]
+  );
+
   const statusBadge = (() => {
     const status = (container?.status || "").toString().toUpperCase();
     if (status.includes("COMPLETE") || status === "COMPLETED" || status === "FINALIZADO") {
       return { text: "Finalizado", className: "bg-green-100 text-green-800" };
     }
     if (status.includes("PEND") || status === "PENDING") {
-      return { text: "Pendente", className: "bg-yellow-100 text-yellow-800" };
+      return { text: "Parcial", className: "bg-yellow-100 text-yellow-800" };
     }
     return { text: "Aberto", className: "bg-gray-200 text-gray-700" };
   })();
+  const isContainerFinalized = statusBadge.text === "Finalizado";
 
   /**
    * CORREÇÃO 9: Renderização condicional do modal fora do return principal
@@ -734,14 +789,20 @@ const ContainerDetails: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-3">
                 Container {decodedContainerId}
-                <span 
-                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadge.className}`}
-                  role="status"
-                >
-                  {statusBadge.text}
-                </span>
+                {hasContainer ? (
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadge.className}`}
+                    role="status"
+                  >
+                    {statusBadge.text}
+                  </span>
+                ) : (
+                  <SkeletonBlock className="h-5 w-16" />
+                )}
               </h1>
-              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)] flex items-center gap-2">
+                Operacao {operationCtv || decodedOperationId}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -798,63 +859,68 @@ const ContainerDetails: React.FC = () => {
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <h2 className="text-lg font-semibold text-[var(--text)]">Dados do Container</h2>
+                {!isEditing && (
+                  <ToggleSwitch
+                    id="container-status-toggle"
+                    className="flex items-center gap-2 text-sm"
+                    checked={isContainerFinalized}
+                    checkedLabel="Finalizado"
+                    uncheckedLabel="Em andamento"
+                    onChange={handleToggleStatus}
+                    disabled={loading || statusUpdating || headerStatusLoading || isContainerFinalized}
+                  />
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {isEditing ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
-                      disabled={saving}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={saving || isRequiredMissing}
-                      className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                      aria-busy={saving}
-                    >
-                      {saving 
-                        ? "Salvando..." 
-                        : `Salvar alterações`
-                      }
-                    </button>
-                  </>
+                {hasContainer ? (
+                  isEditing ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                        disabled={saving}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={saving || isRequiredMissing}
+                        className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        aria-busy={saving}
+                      >
+                        {saving ? "Salvando..." : "Salvar altera��es"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {!isContainerFinalized && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(true)}
+                          className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
+                          disabled={loading}
+                        >
+                          Editar
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleting || loading}
+                        className="px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-60"
+                        aria-busy={deleting}
+                      >
+                        <Trash2 className="w-4 h-4" aria-hidden="true" />
+                        {deleting ? "Excluindo..." : "Excluir"}
+                      </button>
+                    </>
+                  )
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
-                      disabled={loading}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCompleteStatus}
-                      disabled={statusUpdating || loading}
-                      className="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors disabled:opacity-60"
-                      aria-busy={statusUpdating}
-                    >
-                      {statusUpdating ? "Atualizando..." : "Finalizar Status"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      disabled={deleting || loading}
-                      className="px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-60"
-                      aria-busy={deleting}
-                    >
-                      <Trash2 className="w-4 h-4" aria-hidden="true" />
-                      {deleting ? "Excluindo..." : "Excluir"}
-                    </button>
-                  </>
+                  <SkeletonBlock className="h-10 w-32" />
                 )}
                 <button
                   type="button"
@@ -864,6 +930,7 @@ const ContainerDetails: React.FC = () => {
                   Voltar
                 </button>
               </div>
+
             </div>
 
             <div className="p-6">
@@ -906,7 +973,7 @@ const ContainerDetails: React.FC = () => {
                       htmlFor="description"
                       className="block text-sm font-medium text-[var(--text)] mb-1"
                     >
-                      Descrição <span className="text-red-500">*</span>
+                      Descrição
                     </label>
                     {isEditing ? (
                       <input
@@ -916,8 +983,6 @@ const ContainerDetails: React.FC = () => {
                         onChange={(e) => handleChange("description", e.target.value)}
                         disabled={!isEditing || loading}
                         className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
-                        required
-                        aria-required="true"
                       />
                     ) : (
                       <div className="text-[var(--text)] font-medium">{form.description || "-"}</div>
@@ -967,9 +1032,6 @@ const ContainerDetails: React.FC = () => {
                           className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
                           aria-describedby="tareKg-help"
                         />
-                        <p id="tareKg-help" className="text-xs text-[var(--muted)] mt-1">
-                          Enviamos em toneladas para a API automaticamente.
-                        </p>
                       </>
                     ) : (
                       <div className="text-[var(--text)] font-medium">{form.tareKg || "-"}</div>
@@ -1113,7 +1175,7 @@ const ContainerDetails: React.FC = () => {
                       >
                         {saving 
                           ? "Salvando..." 
-                          : `Salvar alterações${pendingDeleteIds.length}`
+                          : "Salvar alterações"
                         }
                       </button>
                     </div>
@@ -1132,3 +1194,6 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
+
+
+

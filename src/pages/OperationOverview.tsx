@@ -34,7 +34,7 @@ const mapApiContainer = (c: ApiContainer, index: number): ContainerRow => {
 const statusDisplay = (status?: ApiContainerStatus) => {
   const norm = String(status || '').toUpperCase();
   if (norm === 'COMPLETED') return { label: 'Finalizado', className: 'bg-green-100 text-green-800' };
-  if (norm === 'PENDING') return { label: 'Pendente', className: 'bg-yellow-100 text-yellow-800' };
+  if (norm === 'PENDING') return { label: 'Parcial', className: 'bg-yellow-100 text-yellow-800' };
   if (norm === 'OPEN') return { label: 'Aberto', className: 'bg-gray-200 text-gray-700' };
   return { label: '-', className: 'bg-gray-200 text-gray-700' };
 };
