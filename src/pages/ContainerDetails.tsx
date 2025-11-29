@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,6 +12,7 @@ import {
   completeContainerStatus,
   CONTAINER_IMAGE_SECTIONS,
   deleteContainer as deleteContainerApi,
+  deleteContainerImage as deleteContainerImageApi,
   getAllContainerImages,
   getContainerById,
   mapApiCategoryToSectionKey,
@@ -22,6 +23,7 @@ import {
 } from "../services/containers";
 
 type ImageSectionKey = ContainerImageCategoryKey;
+type SectionImageWithId = SectionImageItem & { id?: number; localId?: string | number };
 
 interface EditForm {
   containerId: string;
@@ -34,32 +36,70 @@ interface EditForm {
   otherSeals: string;
 }
 
-const IMAGES_PER_VIEW = 5;
+const IMAGES_PER_VIEW = 3;
+const REQUIRED_IMAGE_SECTIONS = CONTAINER_IMAGE_SECTIONS.filter(({ key }) => key !== "lacresOutros");
+const makeLocalId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const emptyImages = (): Record<ImageSectionKey, SectionImageItem[]> =>
+const mergeSectionImages = (
+  current: SectionImageWithId[],
+  incoming: SectionImageWithId[]
+): SectionImageWithId[] => {
+  const result: SectionImageWithId[] = [];
+  const seen = new Set<string>();
+  const makeKey = (item: SectionImageWithId) => {
+    if (item.file) return `${item.file.name}-${item.file.size}-${item.file.lastModified}`;
+    if (item.id !== undefined && item.id !== null) return `id-${item.id}`;
+    if (item.localId) return String(item.localId);
+    return String(item.url);
+  };
+  const addItem = (item: SectionImageWithId) => {
+    const key = makeKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(item);
+  };
+  current.forEach(addItem);
+  incoming.forEach(addItem);
+  return result;
+};
+
+const emptyImages = (): Record<ImageSectionKey, SectionImageWithId[]> =>
   CONTAINER_IMAGE_SECTIONS.reduce((acc, { key }) => {
     acc[key] = [];
     return acc;
-  }, {} as Record<ImageSectionKey, SectionImageItem[]>);
+  }, {} as Record<ImageSectionKey, SectionImageWithId[]>);
 
 const SkeletonBlock: React.FC<{ className?: string }> = ({ className }) => (
-  <div className={`animate-pulse bg-[var(--hover)] rounded ${className || ''}`} />
+  <div 
+    className={`animate-pulse bg-[var(--hover)] rounded ${className || ''}`} 
+    role="status"
+    aria-label="Carregando..."
+  />
 );
 
-const cloneSections = (sections: Record<ImageSectionKey, SectionImageItem[]>) =>
+const cloneSections = (sections: Record<ImageSectionKey, SectionImageWithId[]>) =>
   (Object.keys(sections) as ImageSectionKey[]).reduce((acc, key) => {
     acc[key] = [...(sections[key] || [])];
     return acc;
-  }, {} as Record<ImageSectionKey, SectionImageItem[]>);
+  }, {} as Record<ImageSectionKey, SectionImageWithId[]>);
 
-const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageItem[]>) => {
-  (Object.values(sections) || []).forEach((items) =>
+/**
+ * CORREÇÃO 1: Função centralizada para revogar URLs temporárias
+ * Evita memory leaks ao limpar todas as URLs criadas com createObjectURL
+ */
+const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageWithId[]>) => {
+  Object.values(sections).forEach((items) => {
+    if (!items) return;
     items.forEach((item) => {
-      if (item.file) {
-        URL.revokeObjectURL(item.url);
+      if (item.file && item.url) {
+        try {
+          URL.revokeObjectURL(item.url);
+        } catch {
+          // Ignora erros se a URL já foi revogada
+        }
       }
-    })
-  );
+    });
+  });
 };
 
 const mapContainerToForm = (container: ApiContainer): EditForm => ({
@@ -76,13 +116,13 @@ const mapContainerToForm = (container: ApiContainer): EditForm => ({
   otherSeals: (container.otherSeals || []).filter(Boolean).join(", "),
 });
 
-const mapContainerImages = (container: ApiContainer): Record<ImageSectionKey, SectionImageItem[]> => {
+const mapContainerImages = (container: ApiContainer): Record<ImageSectionKey, SectionImageWithId[]> => {
   const sections = emptyImages();
   (container.containerImages || []).forEach((img) => {
     const key = mapApiCategoryToSectionKey(img.category);
     const url = img.signedUrl || img.imageUrl || img.url;
     if (key && url) {
-      sections[key].push({ url });
+      sections[key].push({ url, localId: img.id ?? url, id: img.id });
     }
   });
   return sections;
@@ -95,7 +135,7 @@ const parseNumber = (value: string): number | undefined => {
 };
 
 const buildImagesPayload = (
-  sections: Record<ImageSectionKey, SectionImageItem[]>,
+  sections: Record<ImageSectionKey, SectionImageWithId[]>,
   onlyNew = false
 ): ContainerImagesPayload => {
   const result: ContainerImagesPayload = {};
@@ -109,6 +149,22 @@ const buildImagesPayload = (
     }
   });
   return result;
+};
+
+/**
+ * CORREÇÃO 5: Helper para extrair mensagem de erro de forma type-safe
+ */
+const getErrorMessage = (err: unknown, defaultMessage: string): string => {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { message?: string; errorId?: string } | undefined;
+    if (data?.message) {
+      return data.errorId ? `${data.message} (ID: ${data.errorId})` : data.message;
+    }
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return defaultMessage;
 };
 
 const ContainerDetails: React.FC = () => {
@@ -129,8 +185,8 @@ const ContainerDetails: React.FC = () => {
     agencySeal: "",
     otherSeals: "",
   });
-  const [imageSections, setImageSections] = useState<Record<ImageSectionKey, SectionImageItem[]>>(emptyImages);
-  const initialImagesRef = useRef<Record<ImageSectionKey, SectionImageItem[]>>(emptyImages());
+  const [imageSections, setImageSections] = useState<Record<ImageSectionKey, SectionImageWithId[]>>(emptyImages);
+  const initialImagesRef = useRef<Record<ImageSectionKey, SectionImageWithId[]>>(emptyImages());
   const [carouselIndex, setCarouselIndex] = useState<Partial<Record<ImageSectionKey, number>>>({});
 
   const [container, setContainer] = useState<ApiContainer | null>(null);
@@ -139,6 +195,7 @@ const ContainerDetails: React.FC = () => {
   const [deleting, setDeleting] = useState<boolean>(false);
   const [statusUpdating, setStatusUpdating] = useState<boolean>(false);
   const [imagesLoading, setImagesLoading] = useState<boolean>(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -147,104 +204,209 @@ const ContainerDetails: React.FC = () => {
     null
   );
 
+  /**
+   * CORREÇÃO 7: Ref para prevenir submissões duplicadas
+   */
+  const isSavingRef = useRef<boolean>(false);
+
   const isRequiredMissing = !form.containerId.trim() || !form.description.trim();
+
+  /**
+   * Helper: busca URLs por categoria e mescla preservando IDs (necessários para DELETE)
+   */
+  const populateSectionsWithUrls = async (
+    containerKey: string,
+    baseSections: Record<ImageSectionKey, SectionImageWithId[]>,
+    signal?: AbortSignal
+  ): Promise<Record<ImageSectionKey, SectionImageWithId[]>> => {
+    let sections = cloneSections(baseSections);
+    try {
+      const apiImages = await getAllContainerImages(containerKey);
+      if (signal?.aborted) return sections;
+
+      (Object.keys(apiImages) as ImageSectionKey[]).forEach((key) => {
+        const existing = [...(sections[key] || [])];
+        const imgs = apiImages[key] || [];
+
+        // Preenche URLs ausentes nos itens existentes (mantendo IDs)
+        let idx = 0;
+        const filled = existing.map((item) => {
+          if (!item.url && idx < imgs.length) {
+            const dto = imgs[idx++];
+            return {
+              ...item,
+              url: dto.signedUrl || dto.url || dto.imageUrl || item.url,
+              id: item.id ?? dto.id,
+              localId: item.localId ?? dto.id ?? `${key}-${idx}-${dto.url || dto.imageUrl || ""}`,
+            };
+          }
+          return item;
+        });
+
+        // Cria itens apenas com URL para o restante
+        const remaining = imgs.slice(idx).map((dto, extraIdx) => ({
+          url: dto.signedUrl || dto.url || dto.imageUrl || "",
+          id: dto.id,
+          localId: dto.id ?? `${key}-${idx + extraIdx}-${dto.url || dto.imageUrl || ""}`,
+        })).filter((item) => !!item.url);
+
+        sections[key] = mergeSectionImages(filled, remaining);
+      });
+    } catch {
+      // silêncio: se falhar, devolve o que já temos
+    }
+    return sections;
+  };
+
+  /**
+   * CORREÇÃO 2: useEffect com cleanup para revogar URLs ao desmontar
+   */
+  useEffect(() => {
+    return () => {
+      // Cleanup: revoga todas as URLs temporárias quando o componente desmonta
+      revokeTempUrls(imageSections);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!decodedContainerId) return;
+    
+    // CORREÇÃO 3: AbortController para cancelar requisições em caso de unmount
+    const abortController = new AbortController();
+    
     const load = async () => {
       setLoading(true);
       setError(null);
       setImagesLoading(true);
+      
       try {
         const data = await getContainerById(decodedContainerId);
+        
+        // Verifica se o componente ainda está montado
+        if (abortController.signal.aborted) return;
+        
         setContainer(data);
         setForm(mapContainerToForm(data));
 
         let sections = mapContainerImages(data);
-        const hasLocalImages = Object.values(sections).some((arr) => arr.length);
-        if (!hasLocalImages) {
-          const apiImages = await getAllContainerImages(decodedContainerId);
-          sections = emptyImages();
-          (Object.keys(apiImages) as ImageSectionKey[]).forEach((key) => {
-            sections[key] = (apiImages[key] || []).map((url) => ({ url }));
-          });
-        }
+        sections = await populateSectionsWithUrls(decodedContainerId, sections, abortController.signal);
 
         initialImagesRef.current = cloneSections(sections);
         setImageSections(sections);
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? err.response?.data?.message || "Nao foi possivel carregar o container."
-          : "Nao foi possivel carregar o container.";
-        setError(message);
+        if (abortController.signal.aborted) return;
+        setError(getErrorMessage(err, "Não foi possível carregar o container."));
       } finally {
-        setLoading(false);
-        setImagesLoading(false);
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+          setImagesLoading(false);
+        }
       }
     };
 
     load();
+    
+    return () => {
+      abortController.abort();
+    };
   }, [decodedContainerId]);
 
-  const handleChange = (key: keyof EditForm, value: string) => {
+  const handleChange = useCallback((key: keyof EditForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, section: ImageSectionKey): void => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>, section: ImageSectionKey): void => {
     e.preventDefault();
     if (!isEditing) return;
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
     if (files.length) {
       setImageSections((prev) => ({
         ...prev,
-        [section]: [...(prev[section] || []), ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))],
+        [section]: mergeSectionImages(
+          prev[section] || [],
+          files.map((file) => ({ localId: makeLocalId(), file, url: URL.createObjectURL(file) }))
+        ),
       }));
     }
-  };
+  }, [isEditing]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>): void => {
     if (!isEditing || !e.target.files) return;
     const section = ((e.target as HTMLInputElement).dataset.section as ImageSectionKey) || CONTAINER_IMAGE_SECTIONS[0].key;
     const files = Array.from(e.target.files).filter((f) => f.type.startsWith("image/"));
     if (files.length) {
       setImageSections((prev) => ({
         ...prev,
-        [section]: [...(prev[section] || []), ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))],
+        [section]: mergeSectionImages(
+          prev[section] || [],
+          files.map((file) => ({ localId: makeLocalId(), file, url: URL.createObjectURL(file) }))
+        ),
       }));
     }
     e.target.value = "";
-  };
+  }, [isEditing]);
 
-  const handleSelectImages = (section: ImageSectionKey): void => {
+  const handleSelectImages = useCallback((section: ImageSectionKey): void => {
     if (!isEditing || !fileInputRef.current) return;
     fileInputRef.current.dataset.section = section;
     fileInputRef.current.click();
-  };
+  }, [isEditing]);
 
-  const handleRemoveImage = (section: ImageSectionKey, index: number): void => {
+  const handleRemoveImage = useCallback((section: ImageSectionKey, index: number): void => {
     if (!isEditing) return;
+    
     setImageSections((prev) => {
       const list = [...(prev[section] || [])];
       const target = list[index];
-      if (target && !target.file) {
-        setError("A remoção de imagens existentes ainda não é suportada pela API.");
-        return prev;
+      
+      if (!target) return prev;
+
+      // Marca para exclusão no servidor se tiver ID
+      if (target.id !== undefined && target.id !== null) {
+        setPendingDeleteIds((prevIds) => 
+          prevIds.includes(target.id!) ? prevIds : [...prevIds, target.id!]
+        );
       }
+
+      // Remove da lista e revoga URL se necessário
       const removed = list.splice(index, 1);
       removed.forEach((item) => {
-        if (item?.file) URL.revokeObjectURL(item.url);
+        if (item?.file && item.url) {
+          try {
+            URL.revokeObjectURL(item.url);
+          } catch {
+            // Ignora se já foi revogada
+          }
+        }
       });
+      
       return { ...prev, [section]: list };
     });
-  };
 
-  const handleOpenImage = (section: ImageSectionKey, index: number) => {
+    /**
+     * CORREÇÃO 6: Fecha o modal se a imagem removida estava sendo visualizada
+     */
+    setSelectedImageModal((current) => {
+      if (!current) return current;
+      if (current.section === section && current.index >= index) {
+        // Se a imagem atual ou posterior foi removida, ajusta ou fecha
+        const newList = imageSections[section]?.filter((_, i) => i !== index) || [];
+        if (newList.length === 0) return null;
+        const newIndex = current.index >= newList.length ? newList.length - 1 : current.index;
+        return { ...current, index: Math.max(0, newIndex) };
+      }
+      return current;
+    });
+  }, [isEditing, imageSections]);
+
+  const handleOpenImage = useCallback((section: ImageSectionKey, index: number) => {
     setSelectedImageModal({ section, index });
-  };
+  }, []);
 
-  const closeImageModal = () => setSelectedImageModal(null);
+  const closeImageModal = useCallback(() => setSelectedImageModal(null), []);
 
-  const nextImageInModal = () => {
+  const nextImageInModal = useCallback(() => {
     setSelectedImageModal((current) => {
       if (!current) return current;
       const images = imageSections[current.section] || [];
@@ -252,9 +414,9 @@ const ContainerDetails: React.FC = () => {
       const nextIndex = (current.index + 1) % images.length;
       return { ...current, index: nextIndex };
     });
-  };
+  }, [imageSections]);
 
-  const prevImageInModal = () => {
+  const prevImageInModal = useCallback(() => {
     setSelectedImageModal((current) => {
       if (!current) return current;
       const images = imageSections[current.section] || [];
@@ -262,30 +424,39 @@ const ContainerDetails: React.FC = () => {
       const prevIndex = current.index === 0 ? images.length - 1 : current.index - 1;
       return { ...current, index: prevIndex };
     });
-  };
+  }, [imageSections]);
 
-  const resetEdits = () => {
+  const resetEdits = useCallback(() => {
     revokeTempUrls(imageSections);
     setImageSections(cloneSections(initialImagesRef.current));
     if (container) {
       setForm(mapContainerToForm(container));
     }
-  };
+    setPendingDeleteIds([]);
+  }, [imageSections, container]);
 
-  const handleCancel = (): void => {
+  const handleCancel = useCallback((): void => {
     resetEdits();
+    setPendingDeleteIds([]);
     setIsEditing(false);
     setError(null);
     setSuccess(null);
-  };
+  }, [resetEdits]);
 
-  const handleSave = async () => {
-    if (!decodedContainerId || saving || loading) return;
+  /**
+   * CORREÇÃO 7: Função de salvamento com proteção contra submissões duplicadas
+   */
+  const handleSave = useCallback(async () => {
+    // Previne submissões duplicadas
+    if (!decodedContainerId || saving || loading || isSavingRef.current) return;
+    
+    isSavingRef.current = true;
     setError(null);
     setSuccess(null);
 
     if (!form.containerId.trim() || !form.description.trim()) {
       setError("Preencha os campos obrigatórios.");
+      isSavingRef.current = false;
       return;
     }
 
@@ -296,7 +467,7 @@ const ContainerDetails: React.FC = () => {
 
     const imagesPayload = buildImagesPayload(imageSections, true);
     const hasNewImages = Object.values(imagesPayload).some((arr) => (arr?.length ?? 0) > 0);
-    const hasAllCategories = CONTAINER_IMAGE_SECTIONS.every(({ key }) => (imageSections[key]?.length ?? 0) > 0);
+    const hasAllCategories = REQUIRED_IMAGE_SECTIONS.every(({ key }) => (imageSections[key]?.length ?? 0) > 0);
 
     const payload = {
       description: form.description.trim(),
@@ -308,51 +479,86 @@ const ContainerDetails: React.FC = () => {
       liquidWeight: parseNumber(form.liquidWeight) ?? 0,
       grossWeight: parseNumber(form.grossWeight) ?? 0,
       agencySeal: form.agencySeal.trim(),
-      otherSeals: otherSeals.length ? otherSeals : [""],
+      otherSeals: otherSeals.length ? otherSeals : [],
     };
 
     try {
       setSaving(true);
       setImagesLoading(true);
+
+      // Processa exclusões pendentes
+      if (pendingDeleteIds.length) {
+        const errors: string[] = [];
+        const deletions = await Promise.all(
+          pendingDeleteIds.map(async (imgId) => {
+            try {
+              await deleteContainerImageApi(decodedContainerId, imgId);
+              return { id: imgId, ok: true };
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : `Erro ao excluir imagem ID ${imgId}`;
+              errors.push(msg);
+              return { id: imgId, ok: false };
+            }
+          })
+        );
+        
+        const failed = deletions.filter((d) => !d.ok).map((d) => d.id);
+        if (failed.length) {
+          setError(`Falha ao excluir ${failed.length} imagem(ns): ${errors.join("; ")}`);
+          setPendingDeleteIds(failed);
+
+          // Recarrega o container para sincronizar
+          const refreshedContainer = await getContainerById(decodedContainerId);
+          setContainer(refreshedContainer);
+          const restoredBase = mapContainerImages(refreshedContainer);
+          const restored = await populateSectionsWithUrls(decodedContainerId, restoredBase);
+
+          setImageSections((prev) => {
+            const merged: Record<ImageSectionKey, SectionImageWithId[]> = { ...restored };
+            (Object.keys(restored) as ImageSectionKey[]).forEach((key) => {
+              const locals = (prev[key] || []).filter((img) => !!img.file);
+              merged[key] = mergeSectionImages(restored[key] || [], locals);
+            });
+            return merged;
+          });
+          
+          setSaving(false);
+          setImagesLoading(false);
+          isSavingRef.current = false;
+          return;
+        }
+        setPendingDeleteIds([]);
+      }
+
       await updateContainer(decodedContainerId, payload);
+      
       if (hasNewImages) {
         await addImagesToContainer(decodedContainerId, imagesPayload, hasAllCategories);
       }
+      
       const refreshed = await getContainerById(decodedContainerId);
       setContainer(refreshed);
       setForm(mapContainerToForm(refreshed));
 
       let refreshedImages = mapContainerImages(refreshed);
-      const hasImages = Object.values(refreshedImages).some((arr) => arr.length);
-      if (!hasImages) {
-        const apiImages = await getAllContainerImages(decodedContainerId);
-        refreshedImages = emptyImages();
-        (Object.keys(apiImages) as ImageSectionKey[]).forEach((key) => {
-          refreshedImages[key] = (apiImages[key] || []).map((url) => ({ url }));
-        });
-      }
+      refreshedImages = await populateSectionsWithUrls(decodedContainerId, refreshedImages);
 
       revokeTempUrls(imageSections);
       initialImagesRef.current = cloneSections(refreshedImages);
       setImageSections(refreshedImages);
+      setPendingDeleteIds([]);
       setIsEditing(false);
       setSuccess("Container atualizado com sucesso.");
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data) {
-        const data = err.response.data as { message?: string; errorId?: string };
-        const base = data.message || "Nao foi possivel atualizar o container.";
-        setError(data.errorId ? `${base} (ID: ${data.errorId})` : base);
-      } else {
-        const msg = err instanceof Error ? err.message : "Nao foi possivel atualizar o container.";
-        setError(msg);
-      }
+      setError(getErrorMessage(err, "Não foi possível atualizar o container."));
     } finally {
       setSaving(false);
       setImagesLoading(false);
+      isSavingRef.current = false;
     }
-  };
+  }, [decodedContainerId, saving, loading, form, imageSections, pendingDeleteIds]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!decodedContainerId || deleting || loading) return;
     const confirmed = window.confirm("Tem certeza que deseja excluir este container?");
     if (!confirmed) return;
@@ -364,25 +570,24 @@ const ContainerDetails: React.FC = () => {
       await deleteContainerApi(decodedContainerId);
       navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
     } catch (err) {
-      const msg =
-        axios.isAxiosError(err) && err.response?.data?.message
-          ? err.response.data.message
-          : "Nao foi possivel excluir o container.";
-      setError(msg);
+      setError(getErrorMessage(err, "Não foi possível excluir o container."));
     } finally {
       setDeleting(false);
     }
-  };
+  }, [decodedContainerId, decodedOperationId, deleting, loading, navigate]);
 
-  const handleCompleteStatus = async () => {
+  const handleCompleteStatus = useCallback(async () => {
     if (!decodedContainerId || statusUpdating || loading) return;
-    const missingSections = CONTAINER_IMAGE_SECTIONS.filter(({ key }) => (imageSections[key]?.length ?? 0) === 0).map(
-      ({ label }) => label
-    );
+    
+    const missingSections = REQUIRED_IMAGE_SECTIONS
+      .filter(({ key }) => (imageSections[key]?.length ?? 0) === 0)
+      .map(({ label }) => label);
+      
     if (missingSections.length) {
       setError(`Para finalizar, adicione pelo menos uma imagem em: ${missingSections.join(', ')}`);
       return;
     }
+    
     setError(null);
     setSuccess(null);
     try {
@@ -391,17 +596,13 @@ const ContainerDetails: React.FC = () => {
       setContainer(updated);
       setSuccess("Status do container atualizado para FINALIZADO.");
     } catch (err) {
-      const msg =
-        axios.isAxiosError(err) && err.response?.data?.message
-          ? err.response.data.message
-          : "Nao foi possivel atualizar o status do container.";
-      setError(msg);
+      setError(getErrorMessage(err, "Não foi possível atualizar o status do container."));
     } finally {
       setStatusUpdating(false);
     }
-  };
+  }, [decodedContainerId, statusUpdating, loading, imageSections]);
 
-  const nextImages = (section: ImageSectionKey): void => {
+  const nextImages = useCallback((section: ImageSectionKey): void => {
     const images = imageSections[section] || [];
     if (images.length <= IMAGES_PER_VIEW) return;
     setCarouselIndex((prev) => {
@@ -410,15 +611,15 @@ const ContainerDetails: React.FC = () => {
       const newIndex = Math.min(current + IMAGES_PER_VIEW, maxIndex);
       return { ...prev, [section]: newIndex };
     });
-  };
+  }, [imageSections]);
 
-  const prevImages = (section: ImageSectionKey): void => {
+  const prevImages = useCallback((section: ImageSectionKey): void => {
     setCarouselIndex((prev) => {
       const current = prev[section] ?? 0;
       const newIndex = Math.max(0, current - IMAGES_PER_VIEW);
       return { ...prev, [section]: newIndex };
     });
-  };
+  }, []);
 
   const statusBadge = (() => {
     const status = (container?.status || "").toString().toUpperCase();
@@ -431,6 +632,98 @@ const ContainerDetails: React.FC = () => {
     return { text: "Aberto", className: "bg-gray-200 text-gray-700" };
   })();
 
+  /**
+   * CORREÇÃO 9: Renderização condicional do modal fora do return principal
+   */
+  const renderImageModal = () => {
+    if (!selectedImageModal) return null;
+    
+    const modalImages = imageSections[selectedImageModal.section] || [];
+    if (!modalImages.length) return null;
+    
+    // CORREÇÃO 6: Garante índice seguro
+    const safeIndex = Math.min(
+      Math.max(0, selectedImageModal.index), 
+      modalImages.length - 1
+    );
+    const currentImage = modalImages[safeIndex];
+    if (!currentImage) return null;
+    
+    const sectionLabel = CONTAINER_IMAGE_SECTIONS.find(
+      (s) => s.key === selectedImageModal.section
+    )?.label || "";
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 md:p-8 overflow-auto"
+        onClick={closeImageModal}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Visualização de imagem: ${sectionLabel}`}
+      >
+        <div className="relative w-full h-full flex items-center justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              closeImageModal();
+            }}
+            className="absolute top-4 right-4 text-white hover:text-gray-200 bg-black/60 rounded-full p-2 z-10"
+            aria-label="Fechar visualização"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {modalImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                prevImageInModal();
+              }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-200 bg-black/60 rounded-full p-3 z-10"
+              aria-label="Imagem anterior"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+
+          <img
+            src={currentImage.url}
+            alt={`${sectionLabel} - imagem ${safeIndex + 1} de ${modalImages.length}`}
+            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl border border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {modalImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                nextImageInModal();
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-200 bg-black/60 rounded-full p-3 z-10"
+              aria-label="Próxima imagem"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white text-center bg-black/60 rounded-lg px-4 py-2">
+            <p className="text-sm font-medium">{sectionLabel}</p>
+            <p className="text-xs opacity-80">
+              {safeIndex + 1} de {modalImages.length}
+            </p>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   return (
     <div className="flex h-screen bg-app overflow-hidden">
       <Sidebar user={user} />
@@ -441,16 +734,20 @@ const ContainerDetails: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-3">
                 Container {decodedContainerId}
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadge.className}`}>
+                <span 
+                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadge.className}`}
+                  role="status"
+                >
                   {statusBadge.text}
                 </span>
               </h1>
-              <p className="text-sm text-[var(--muted)]">Operacao {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">Operação {decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
-              <div
+              <button
                 onClick={() => changePage("perfil")}
                 className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors"
+                aria-label={`Acessar perfil de ${user.name}`}
               >
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
@@ -463,15 +760,30 @@ const ContainerDetails: React.FC = () => {
                     .join("")
                     .toUpperCase()}
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-4">
-          {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          {/* CORREÇÃO 4: Mensagens de erro/sucesso com roles apropriados */}
+          {error && (
+            <div 
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              role="alert"
+              aria-live="polite"
+            >
+              {error}
+            </div>
+          )}
           {success && (
-            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{success}</div>
+            <div 
+              className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+              role="status"
+              aria-live="polite"
+            >
+              {success}
+            </div>
           )}
 
           <input
@@ -481,6 +793,7 @@ const ContainerDetails: React.FC = () => {
             multiple
             className="hidden"
             onChange={handleImageUpload}
+            aria-hidden="true"
           />
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
@@ -495,6 +808,7 @@ const ContainerDetails: React.FC = () => {
                       type="button"
                       onClick={handleCancel}
                       className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors"
+                      disabled={saving}
                     >
                       Cancelar
                     </button>
@@ -502,9 +816,13 @@ const ContainerDetails: React.FC = () => {
                       type="button"
                       onClick={handleSave}
                       disabled={saving || isRequiredMissing}
-                      className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60"
+                      className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      aria-busy={saving}
                     >
-                      {saving ? "Salvando..." : "Salvar alterações"}
+                      {saving 
+                        ? "Salvando..." 
+                        : `Salvar alterações`
+                      }
                     </button>
                   </>
                 ) : (
@@ -522,6 +840,7 @@ const ContainerDetails: React.FC = () => {
                       onClick={handleCompleteStatus}
                       disabled={statusUpdating || loading}
                       className="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors disabled:opacity-60"
+                      aria-busy={statusUpdating}
                     >
                       {statusUpdating ? "Atualizando..." : "Finalizar Status"}
                     </button>
@@ -530,8 +849,9 @@ const ContainerDetails: React.FC = () => {
                       onClick={handleDelete}
                       disabled={deleting || loading}
                       className="px-4 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-60"
+                      aria-busy={deleting}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
                       {deleting ? "Excluindo..." : "Excluir"}
                     </button>
                   </>
@@ -548,48 +868,73 @@ const ContainerDetails: React.FC = () => {
 
             <div className="p-6">
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-                  {Array.from({ length: 6 }).map((_, idx) => (
-                    <div key={`skeleton-${idx}`} className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-label="Carregando dados do container">
+                  {Array.from({ length: 8 }).map((_, idx) => (
+                    <div key={`skeleton-field-${idx}`} className="space-y-2">
                       <SkeletonBlock className="h-4 w-28" />
                       <SkeletonBlock className="h-10 w-full" />
-                      <SkeletonBlock className="h-3 w-2/3" />
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Campo: Identificação */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Identificacao</label>
+                    <label 
+                      htmlFor="containerId"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Identificação
+                    </label>
                     {isEditing ? (
                       <input
+                        id="containerId"
                         type="text"
                         value={form.containerId}
                         disabled
                         className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--hover)] text-[var(--muted)]"
+                        aria-describedby="containerId-help"
                       />
                     ) : (
                       <div className="text-[var(--text)] font-medium">{form.containerId || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Descrição */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Descricao</label>
+                    <label 
+                      htmlFor="description"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Descrição <span className="text-red-500">*</span>
+                    </label>
                     {isEditing ? (
                       <input
+                        id="description"
                         type="text"
                         value={form.description}
                         onChange={(e) => handleChange("description", e.target.value)}
                         disabled={!isEditing || loading}
                         className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
+                        required
+                        aria-required="true"
                       />
                     ) : (
                       <div className="text-[var(--text)] font-medium">{form.description || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Quantidade de Sacas */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Quantidade de Sacas</label>
+                    <label 
+                      htmlFor="sacksCount"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Quantidade de Sacas
+                    </label>
                     {isEditing ? (
                       <input
+                        id="sacksCount"
                         type="number"
                         min="0"
                         value={form.sacksCount}
@@ -601,28 +946,47 @@ const ContainerDetails: React.FC = () => {
                       <div className="text-[var(--text)] font-medium">{form.sacksCount || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Tara (kg) */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Tara (kg)</label>
+                    <label 
+                      htmlFor="tareKg"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Tara (kg)
+                    </label>
                     {isEditing ? (
                       <>
                         <input
+                          id="tareKg"
                           type="number"
                           min="0"
                           value={form.tareKg}
                           onChange={(e) => handleChange("tareKg", e.target.value)}
                           disabled={!isEditing || loading}
                           className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
+                          aria-describedby="tareKg-help"
                         />
-                        <p className="text-xs text-[var(--muted)] mt-1">Enviamos em toneladas para a API automaticamente.</p>
+                        <p id="tareKg-help" className="text-xs text-[var(--muted)] mt-1">
+                          Enviamos em toneladas para a API automaticamente.
+                        </p>
                       </>
                     ) : (
                       <div className="text-[var(--text)] font-medium">{form.tareKg || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Peso Líquido */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Liquido (kg)</label>
+                    <label 
+                      htmlFor="liquidWeight"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Peso Líquido (kg)
+                    </label>
                     {isEditing ? (
                       <input
+                        id="liquidWeight"
                         type="number"
                         min="0"
                         value={form.liquidWeight}
@@ -634,10 +998,18 @@ const ContainerDetails: React.FC = () => {
                       <div className="text-[var(--text)] font-medium">{form.liquidWeight || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Peso Bruto */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Peso Bruto (kg)</label>
+                    <label 
+                      htmlFor="grossWeight"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Peso Bruto (kg)
+                    </label>
                     {isEditing ? (
                       <input
+                        id="grossWeight"
                         type="number"
                         min="0"
                         value={form.grossWeight}
@@ -649,10 +1021,18 @@ const ContainerDetails: React.FC = () => {
                       <div className="text-[var(--text)] font-medium">{form.grossWeight || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Lacre Principal */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Lacre Principal (agencia)</label>
+                    <label 
+                      htmlFor="agencySeal"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Lacre Principal (agência)
+                    </label>
                     {isEditing ? (
                       <input
+                        id="agencySeal"
                         type="text"
                         value={form.agencySeal}
                         onChange={(e) => handleChange("agencySeal", e.target.value)}
@@ -663,18 +1043,33 @@ const ContainerDetails: React.FC = () => {
                       <div className="text-[var(--text)] font-medium">{form.agencySeal || "-"}</div>
                     )}
                   </div>
+
+                  {/* Campo: Outros Lacres */}
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-1">Outros Lacres (separados por virgula)</label>
+                    <label 
+                      htmlFor="otherSeals"
+                      className="block text-sm font-medium text-[var(--text)] mb-1"
+                    >
+                      Outros Lacres
+                    </label>
                     {isEditing ? (
                       <input
+                        id="otherSeals"
                         type="text"
                         value={form.otherSeals}
                         onChange={(e) => handleChange("otherSeals", e.target.value)}
                         disabled={!isEditing || loading}
+                        placeholder="Separados por vírgula"
                         className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
+                        aria-describedby="otherSeals-help"
                       />
                     ) : (
                       <div className="text-[var(--text)] font-medium">{form.otherSeals || "-"}</div>
+                    )}
+                    {isEditing && (
+                      <p id="otherSeals-help" className="sr-only">
+                        Insira os lacres separados por vírgula
+                      </p>
                     )}
                   </div>
                 </div>
@@ -682,6 +1077,7 @@ const ContainerDetails: React.FC = () => {
             </div>
           </div>
 
+          {/* Seções de Imagens */}
           <div className="space-y-6">
             {CONTAINER_IMAGE_SECTIONS.map(({ key, label }) => (
               <ContainerImageSection
@@ -698,28 +1094,28 @@ const ContainerDetails: React.FC = () => {
                 onPrev={() => prevImages(key)}
                 onNext={() => nextImages(key)}
                 footerActions={
-                  key === "lacresOutros" ? (
+                  key === "lacresOutros" && isEditing ? (
                     <div className="flex gap-2">
-                      {isEditing ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleCancel}
-                            disabled={loading}
-                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors disabled:opacity-60"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving || isRequiredMissing || loading}
-                            className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60"
-                          >
-                            {saving ? "Salvando..." : "Salvar Container"}
-                          </button>
-                        </>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        disabled={loading || saving}
+                        className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors disabled:opacity-60"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={saving || isRequiredMissing || loading}
+                        className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60"
+                        aria-busy={saving}
+                      >
+                        {saving 
+                          ? "Salvando..." 
+                          : `Salvar alterações${pendingDeleteIds.length}`
+                        }
+                      </button>
                     </div>
                   ) : undefined
                 }
@@ -727,86 +1123,8 @@ const ContainerDetails: React.FC = () => {
             ))}
           </div>
 
-          {selectedImageModal &&
-            typeof document !== "undefined" &&
-            createPortal(
-              (() => {
-                const modalImages = imageSections[selectedImageModal.section] || [];
-                if (!modalImages.length) return null;
-                const safeIndex = Math.min(selectedImageModal.index, modalImages.length - 1);
-                const currentImage = modalImages[safeIndex];
-                if (!currentImage) return null;
-                const sectionLabel =
-                  CONTAINER_IMAGE_SECTIONS.find((s) => s.key === selectedImageModal.section)?.label || "";
-
-                return (
-                  <div
-                    className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] bg-black/90 flex items-center justify-center p-4 md:p-8 overflow-auto"
-                    onClick={closeImageModal}
-                  >
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeImageModal();
-                        }}
-                        className="absolute top-4 right-4 text-white hover:text-gray-200 bg-black/60 rounded-full p-2"
-                        aria-label="Fechar imagem"
-                      >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-
-                      {modalImages.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            prevImageInModal();
-                          }}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-200 bg-black/60 rounded-full p-3"
-                          aria-label="Imagem anterior"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                      )}
-
-                      <img
-                        src={currentImage.url}
-                        alt={`${sectionLabel} - imagem ${safeIndex + 1}`}
-                        className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl border border-white/10"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-
-                      {modalImages.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            nextImageInModal();
-                          }}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-200 bg-black/60 rounded-full p-3"
-                          aria-label="Próxima imagem"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      )}
-
-                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white text-center bg-black/60 rounded-lg px-4 py-2">
-                        <p className="text-sm font-medium">{sectionLabel}</p>
-                        <p className="text-xs opacity-80">
-                          {safeIndex + 1} de {modalImages.length}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })(),
-              document.body
-            )}
+          {/* Modal de Imagem - CORREÇÃO 9: Renderização separada */}
+          {renderImageModal()}
         </main>
       </div>
     </div>

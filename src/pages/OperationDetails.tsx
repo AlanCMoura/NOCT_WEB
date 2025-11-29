@@ -7,8 +7,7 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
-import { deleteContainer } from '../services/containers';
-import { getContainersByOperation, type ApiContainer } from '../services/containers';
+import { deleteContainer, getContainersByOperation, type ApiContainer } from '../services/containers';
 
 interface User {
   name: string;
@@ -31,6 +30,8 @@ interface OperationInfo {
 
 interface Container {
   id: string;
+  apiId?: string;
+  description?: string;
   pesoBruto: string;
   lacreAgencia?: string;
   lacrePrincipal?: string;
@@ -98,6 +99,7 @@ const mapContainers = (data: ApiOperation): Container[] => {
 
   return list.map((item, index) => {
     const c = item as Record<string, unknown>;
+    const apiId = c?.id !== undefined && c?.id !== null ? String(c.id) : undefined;
     const id = coalesceText(
       c?.id,
       c?.container,
@@ -109,6 +111,8 @@ const mapContainers = (data: ApiOperation): Container[] => {
 
     return {
       id,
+      apiId,
+      description: coalesceText(c?.description),
       pesoBruto: coalesceText(c?.pesoBruto, c?.peso, c?.grossWeight),
       lacreAgencia: coalesceText(c?.lacreAgencia, c?.sealAgency),
       lacrePrincipal: coalesceText(c?.lacrePrincipal, c?.seal),
@@ -123,6 +127,8 @@ const mapContainers = (data: ApiOperation): Container[] => {
 const mapApiContainers = (items: ApiContainer[] = []): Container[] =>
   items.map((c, index) => ({
     id: coalesceText(c.containerId, c.id, `CONT-${index + 1}`),
+    apiId: c.id !== undefined && c.id !== null ? String(c.id) : undefined,
+    description: coalesceText(c.description),
     pesoBruto: coalesceText(c.grossWeight),
     lacreAgencia: coalesceText(c.agencySeal),
     lacrePrincipal: coalesceText(c.agencySeal),
@@ -906,6 +912,7 @@ const OperationDetails: React.FC = () => {
           </>
           )}
         </main>
+
       </div>
     </div>
   );

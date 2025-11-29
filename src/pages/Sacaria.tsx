@@ -38,7 +38,7 @@ const Sacaria: React.FC = () => {
       .map((img) => {
         const url = img?.url ?? img?.imageUrl ?? img?.signedUrl ?? '';
         if (!url) return null;
-        return { id: img?.id, url } as SackImageItem;
+        return { id: img?.id, url, localId: img?.id ?? url } as SackImageItem;
       })
       .filter((x): x is SackImageItem => Boolean(x));
 
@@ -81,7 +81,11 @@ const Sacaria: React.FC = () => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
     if (!files.length) return;
-    const previews: SackImageItem[] = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    const previews: SackImageItem[] = files.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+      localId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    }));
     setImages((prev) => [...prev, ...previews]);
     setPendingFiles((prev) => [...prev, ...files]);
   };
@@ -96,7 +100,11 @@ const Sacaria: React.FC = () => {
     const files = Array.from(e.target.files).filter((f) => f.type.startsWith('image/'));
     e.target.value = '';
     if (!files.length) return;
-    const previews: SackImageItem[] = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    const previews: SackImageItem[] = files.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+      localId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    }));
     setImages((prev) => [...prev, ...previews]);
     setPendingFiles((prev) => [...prev, ...files]);
   };
@@ -219,11 +227,12 @@ const Sacaria: React.FC = () => {
             onSelectImages={handleSelectImages}
             onRemoveImage={handleRemoveImage}
             onOpenModal={(idx) => openModal(idx)}
-            onPrev={prev}
-            onNext={next}
-            actions={
-              <button
-                type="button"
+          onPrev={prev}
+          onNext={next}
+          isRemovingMap={{}}
+          actions={
+            <button
+              type="button"
                 onClick={() => openModal(0)}
                 disabled={!images.length}
                 className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

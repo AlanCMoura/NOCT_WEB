@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
@@ -14,6 +14,32 @@ import {
 
 type ImageSectionKey = ContainerImageCategoryKey;
 const IMAGE_SECTIONS = CONTAINER_IMAGE_SECTIONS;
+const IMAGES_PER_VIEW = 3;
+const makeLocalId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const mergeSectionImages = (
+  current: SectionImageItem[],
+  incoming: SectionImageItem[]
+): SectionImageItem[] => {
+  const result: SectionImageItem[] = [];
+  const seen = new Set<string>();
+  const makeKey = (item: SectionImageItem) => {
+    if (item.file) {
+      return `${item.file.name}-${item.file.size}-${item.file.lastModified}`;
+    }
+    if (item.localId) return String(item.localId);
+    return String(item.url);
+  };
+  const addItem = (item: SectionImageItem) => {
+    const key = makeKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(item);
+  };
+  current.forEach(addItem);
+  incoming.forEach(addItem);
+  return result;
+};
 
 interface NewContainerForm {
   container: string;
@@ -62,6 +88,12 @@ const NewContainer: React.FC = () => {
   const [imageSections, setImageSections] = useState<Record<ImageSectionKey, SectionImageItem[]>>(emptyImages);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isRequiredMissing = !form.container.trim() || !form.descricao.trim();
+  const [carouselIndex, setCarouselIndex] = useState<Record<ImageSectionKey, number>>(() =>
+    IMAGE_SECTIONS.reduce((acc, { key }) => {
+      acc[key] = 0;
+      return acc;
+    }, {} as Record<ImageSectionKey, number>)
+  );
 
   const setField = (key: keyof NewContainerForm, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -72,7 +104,10 @@ const NewContainer: React.FC = () => {
     if (files.length) {
       setImageSections((prev) => ({
         ...prev,
-        [section]: [...(prev[section] || []), ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))],
+        [section]: mergeSectionImages(
+          prev[section] || [],
+          files.map((file) => ({ localId: makeLocalId(), file, url: URL.createObjectURL(file) }))
+        ),
       }));
     }
   };
@@ -84,7 +119,10 @@ const NewContainer: React.FC = () => {
     if (files.length) {
       setImageSections((prev) => ({
         ...prev,
-        [section]: [...(prev[section] || []), ...files.map((file) => ({ file, url: URL.createObjectURL(file) }))],
+        [section]: mergeSectionImages(
+          prev[section] || [],
+          files.map((file) => ({ localId: makeLocalId(), file, url: URL.createObjectURL(file) }))
+        ),
       }));
     }
     e.target.value = "";
@@ -106,6 +144,44 @@ const NewContainer: React.FC = () => {
     });
   };
 
+  const nextImages = (section: ImageSectionKey): void => {
+    setCarouselIndex((prev) => {
+      const list = imageSections[section] || [];
+      const maxIndex = Math.max(0, list.length - IMAGES_PER_VIEW);
+      const current = prev[section] ?? 0;
+      const next = Math.min(current + IMAGES_PER_VIEW, maxIndex);
+      if (next === current) return prev;
+      return { ...prev, [section]: next };
+    });
+  };
+
+  const prevImages = (section: ImageSectionKey): void => {
+    setCarouselIndex((prev) => {
+      const current = prev[section] ?? 0;
+      const next = Math.max(0, current - IMAGES_PER_VIEW);
+      if (next === current) return prev;
+      return { ...prev, [section]: next };
+    });
+  };
+
+  useEffect(() => {
+    setCarouselIndex((prev) => {
+      let changed = false;
+      const nextMap: Record<ImageSectionKey, number> = { ...prev };
+      IMAGE_SECTIONS.forEach(({ key }) => {
+        const list = imageSections[key] || [];
+        const maxIndex = Math.max(0, list.length - IMAGES_PER_VIEW);
+        const current = prev[key] ?? 0;
+        const clamped = Math.min(current, maxIndex);
+        if (clamped !== current) {
+          nextMap[key] = clamped;
+          changed = true;
+        }
+      });
+      return changed ? nextMap : prev;
+    });
+  }, [imageSections]);
+
   const parseNumber = (value: string): number | undefined => {
     if (value === undefined || value === null || value === "") return undefined;
     const num = Number(value);
@@ -115,17 +191,14 @@ const NewContainer: React.FC = () => {
   const buildImagesPayload = (sections: Record<ImageSectionKey, SectionImageItem[]>): ContainerImagesPayload => {
     const result: ContainerImagesPayload = {};
     IMAGE_SECTIONS.forEach(({ key }) => {
-      const files = (sections[key] || []).map((img) => img.file).filter(Boolean) as File[];
+      const files = (sections[key] || [])
+        .map((img) => img.file)
+        .filter(Boolean) as File[];
       if (files.length) {
         result[key] = files;
       }
     });
     return result;
-  };
-
-  const findMissingImageCategories = (payload: ContainerImagesPayload): string[] => {
-    const labelMap = Object.fromEntries(IMAGE_SECTIONS.map(({ key, label }) => [key, label]));
-    return IMAGE_SECTIONS.filter(({ key }) => !payload[key]?.length).map(({ key }) => labelMap[key]);
   };
 
   const handleCancel = () => {
@@ -165,13 +238,6 @@ const NewContainer: React.FC = () => {
       .filter(Boolean);
 
     const imagesPayload = buildImagesPayload(imageSections);
-    const hasAnyImage = Object.values(imagesPayload).some((arr) => (arr?.length ?? 0) > 0);
-    const missingCategories = hasAnyImage ? findMissingImageCategories(imagesPayload) : [];
-
-    if (hasAnyImage && missingCategories.length) {
-      setError(`Adicione ao menos uma imagem em cada categoria: ${missingCategories.join(", ")}`);
-      return;
-    }
 
     const payload = {
       containerId: form.container.trim(),
@@ -185,14 +251,14 @@ const NewContainer: React.FC = () => {
       liquidWeight: parseNumber(form.pesoLiquido) ?? 0,
       grossWeight: parseNumber(form.pesoBruto) ?? 0,
       agencySeal: form.lacreAgencia || '',
-      otherSeals: otherSeals.length ? otherSeals : [''],
+      otherSeals: otherSeals.length ? otherSeals : [],
       images: imagesPayload,
     };
 
     try {
       setSaving(true);
       const created = await createContainer(payload);
-      const nextContainerId = created.containerId || payload.containerId;
+      const nextContainerId = created.containerId || payload.containerId || String(created.id ?? '');
       setSuccess("Container criado com sucesso.");
       navigate(
         `/operations/${encodeURIComponent(decodedOperationId)}/containers/${encodeURIComponent(nextContainerId)}`
@@ -384,20 +450,20 @@ const NewContainer: React.FC = () => {
             {IMAGE_SECTIONS.map(({ key, label }) => (
               <ContainerImageSection
                 key={key}
-                title={label}
-                images={imageSections[key] || []}
-                isEditing={true}
-                startIndex={0}
-                imagesPerView={5}
-                onDrop={(e) => handleDrop(e, key)}
-                onSelectImages={() => handleSelectImages(key)}
-                onRemoveImage={(idx) => handleRemoveImage(key, idx)}
-                onOpenModal={() => {}}
-                onPrev={() => {}}
-                onNext={() => {}}
-                footerActions={
-                  key === "lacresOutros" ? (
-                    <div className="flex gap-2">
+            title={label}
+            images={imageSections[key] || []}
+            isEditing={true}
+            startIndex={carouselIndex[key] ?? 0}
+            imagesPerView={IMAGES_PER_VIEW}
+            onDrop={(e) => handleDrop(e, key)}
+            onSelectImages={() => handleSelectImages(key)}
+            onRemoveImage={(idx) => handleRemoveImage(key, idx)}
+            onOpenModal={() => {}}
+            onPrev={() => prevImages(key)}
+            onNext={() => nextImages(key)}
+            footerActions={
+              key === "lacresOutros" ? (
+                <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={handleCancel}

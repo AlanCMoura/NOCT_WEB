@@ -5,6 +5,8 @@ import LazyImage from './LazyImage';
 export interface ImageItem {
   file?: File;
   url: string;
+  localId?: string | number;
+  id?: number;
 }
 
 interface Props {
@@ -22,6 +24,7 @@ interface Props {
   actions?: React.ReactNode;
   footerActions?: React.ReactNode;
   onReorderImage?: (fromIdx: number, toIdx: number) => void;
+  isRemovingMap?: Record<number, boolean>;
 }
 
 const Spinner: React.FC = () => (
@@ -45,20 +48,34 @@ const ContainerImageSection: React.FC<Props> = ({
   onNext,
   actions,
   footerActions,
-  onReorderImage
+  onReorderImage,
+  isRemovingMap,
 }) => {
   const visibleImages = images.slice(startIndex, startIndex + imagesPerView);
   const canGoPrev = startIndex > 0;
   const canGoNext = startIndex + imagesPerView < images.length;
-  const [loadedMap, setLoadedMap] = useState<Record<number, boolean>>({});
+  const [loadedMap, setLoadedMap] = useState<Record<string, boolean>>({});
+
+  const imageKey = (img: ImageItem, idx: number): string => {
+    const base = img.localId ?? `${img.url || 'img'}-${idx}`;
+    const fileKey = img.file ? `${img.file.name}-${img.file.lastModified}` : '';
+    return `${base}::${fileKey}`;
+  };
 
   useEffect(() => {
-    // Inicializa sem nenhum item marcado como carregado para começar "vazio"
-    setLoadedMap({});
+    // Mantem status carregado das imagens que ainda existem para evitar flicker/spinner infinito
+    setLoadedMap((prev) => {
+      const next: Record<string, boolean> = {};
+      images.forEach((img, idx) => {
+        const key = imageKey(img, idx);
+        if (prev[key]) next[key] = true;
+      });
+      return next;
+    });
   }, [images]);
 
-  const markLoaded = (idx: number) => {
-    setLoadedMap((prev) => ({ ...prev, [idx]: true }));
+  const markLoaded = (key: string) => {
+    setLoadedMap((prev) => ({ ...prev, [key]: true }));
   };
 
   return (
@@ -78,7 +95,7 @@ const ContainerImageSection: React.FC<Props> = ({
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={onDrop}
-            className="border-2 border-dashed border-[var(--border)] rounded-lg p-6 text-center min-h-48"
+            className="border-2 border-dashed border-[var(--border)] rounded-lg p-4 text-center min-h-48 relative"
           >
             {images.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-[var(--muted)] h-32">
@@ -88,9 +105,14 @@ const ContainerImageSection: React.FC<Props> = ({
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2v12a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2v12a2 2 0 002 2z"
+                  />
                 </svg>
-                <p className="text-sm font-medium mb-2">Faça upload das imagens</p>
+                <p className="text-sm font-medium mb-2">Faca upload das imagens</p>
                 <p className="text-xs text-[var(--muted)] mb-4">
                   Arraste e solte imagens aqui ou clique para selecionar
                 </p>
@@ -105,53 +127,65 @@ const ContainerImageSection: React.FC<Props> = ({
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {images.map((img, idx) => (
-                    <div
-                      key={idx}
-                      className="relative group"
-                      draggable={isEditing}
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('fromIdx', idx.toString());
-                      }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const fromIdx = Number(e.dataTransfer.getData('fromIdx'));
-                        if (fromIdx === idx) return;
-                        if (typeof onReorderImage === 'function') {
-                          onReorderImage(fromIdx, idx);
-                        }
-                      }}
-                    >
-                      <div className="relative">
-                        <LazyImage
-                          src={img.url}
-                          alt={`${title} - Imagem ${idx + 1}`}
-                          className="w-full h-48 max-h-72 max-w-full object-contain rounded-lg border border-[var(--border)] bg-[var(--hover)] cursor-pointer transition-opacity duration-300"
-                          width={400}
-                          height={300}
-                          onClick={() => onOpenModal(idx)}
-                          onLoad={() => markLoaded(idx)}
-                          style={{ opacity: loadedMap[idx] ? 1 : 0.2 }}
-                        />
-                        {!loadedMap[idx] && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface)]/40 rounded-lg">
-                            <Spinner />
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onRemoveImage(idx)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                  {images.map((img, idx) => {
+                    const key = imageKey(img, idx);
+                    const isLoaded = !!loadedMap[key];
+                    return (
+                      <div
+                        key={key}
+                        className="relative group"
+                        draggable={isEditing}
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('fromIdx', idx.toString());
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          const hasFiles = e.dataTransfer?.files && e.dataTransfer.files.length > 0;
+                          if (hasFiles) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const fromIdx = Number(e.dataTransfer.getData('fromIdx'));
+                          if (fromIdx === idx) return;
+                          if (typeof onReorderImage === 'function') {
+                            onReorderImage(fromIdx, idx);
+                          }
+                        }}
                       >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                        <div className="relative">
+                          <LazyImage
+                            src={img.url}
+                            alt={`${title} - Imagem ${idx + 1}`}
+                            className="w-full h-48 max-h-72 max-w-full object-contain rounded-lg border border-[var(--border)] bg-[var(--hover)] cursor-pointer transition-opacity duration-300"
+                            width={400}
+                            height={300}
+                            onClick={() => onOpenModal(idx)}
+                            onLoad={() => markLoaded(key)}
+                            style={{ opacity: isLoaded ? 1 : 0.2 }}
+                          />
+                          {!isLoaded && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface)]/40 rounded-lg">
+                              <Spinner />
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveImage(idx)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-60"
+                          disabled={typeof img.id === 'number' && isRemovingMap?.[img.id]}
+                        >
+                          {typeof img.id === 'number' && isRemovingMap?.[img.id] ? (
+                            <Spinner />
+                          ) : (
+                            'x'
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
+
                 <button
                   type="button"
                   onClick={onSelectImages}
@@ -171,18 +205,21 @@ const ContainerImageSection: React.FC<Props> = ({
             ) : (
               <div className="rounded-lg border-[var(--border)]">
                 <div className="overflow-hidden">
-                  <div className="flex gap-3 w-full  transition-all duration-500">
+                  <div
+                    className="grid gap-3 transition-all duration-500"
+                    style={{ gridTemplateColumns: `repeat(${Math.max(1, imagesPerView)}, minmax(0, 1fr))` }}
+                  >
                     {visibleImages.map((img, idx) => {
                       const originalIndex = startIndex + idx;
-                      const isLoaded = !!loadedMap[originalIndex];
+                      const key = imageKey(img, originalIndex);
+                      const isLoaded = !!loadedMap[key];
                       return (
                         <div
-                          key={originalIndex}
-                          className="relative group transform transition-all duration-300 ease-out flex-shrink-0 cursor-pointer"
+                          key={key}
+                          className="relative group transform transition-all duration-300 ease-out cursor-pointer"
                           style={{
-                            width: 'calc(33.333% - 4px)',
                             animationDelay: `${idx * 50}ms`,
-                            animation: `fadeInSlide 0.4s ease-out forwards`
+                            animation: `fadeInSlide 0.4s ease-out forwards`,
                           }}
                           onClick={() => onOpenModal(originalIndex)}
                         >
@@ -193,7 +230,7 @@ const ContainerImageSection: React.FC<Props> = ({
                               className="w-full h-64 max-h-80 max-w-full object-contain cursor-pointer transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg rounded bg-[var(--hover)]"
                               width={400}
                               height={300}
-                              onLoad={() => markLoaded(originalIndex)}
+                              onLoad={() => markLoaded(key)}
                               style={{ opacity: isLoaded ? 1 : 0.1 }}
                             />
                             {!isLoaded && (

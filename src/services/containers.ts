@@ -12,6 +12,14 @@ export interface ApiContainerImage {
   createdAt?: string;
 }
 
+// Pode ser retornado pelos endpoints de imagens individuais
+export type ContainerImageResponseDTO = {
+  id?: number;
+  url?: string;
+  imageUrl?: string;
+  signedUrl?: string;
+};
+
 export interface ApiContainer {
   id?: number;
   containerId: string;
@@ -40,18 +48,24 @@ export const CONTAINER_IMAGE_SECTIONS: {
   key: ContainerImageCategoryKey;
   label: string;
   apiCategory: string;
+  formKey: string;
 }[] = [
-  { key: 'vazioForrado', label: 'Vazio/Forrado', apiCategory: 'VAZIO_FORRADO' },
-  { key: 'fiada', label: 'Fiadas', apiCategory: 'FIADA' },
-  { key: 'cheioAberto', label: 'Cheio Aberto', apiCategory: 'CHEIO_ABERTO' },
-  { key: 'meiaPorta', label: 'Meia Porta', apiCategory: 'MEIA_PORTA' },
-  { key: 'lacradoFechado', label: 'Lacrado/Fechado', apiCategory: 'LACRADO_FECHADO' },
-  { key: 'lacresPrincipal', label: 'Lacre Principal', apiCategory: 'LACRES_PRINCIPAIS' },
-  { key: 'lacresOutros', label: 'Lacres Outros', apiCategory: 'LACRES_OUTROS' },
+  { key: 'vazioForrado', label: 'Vazio/Forrado', apiCategory: 'VAZIO_FORRADO', formKey: 'vazioForrado' },
+  { key: 'fiada', label: 'Fiadas', apiCategory: 'FIADA', formKey: 'fiada' },
+  { key: 'cheioAberto', label: 'Cheio Aberto', apiCategory: 'CHEIO_ABERTO', formKey: 'cheioAberto' },
+  { key: 'meiaPorta', label: 'Meia Porta', apiCategory: 'MEIA_PORTA', formKey: 'meiaPorta' },
+  { key: 'lacradoFechado', label: 'Lacrado/Fechado', apiCategory: 'LACRADO_FECHADO', formKey: 'lacradoFechado' },
+  { key: 'lacresPrincipal', label: 'Lacre Principal', apiCategory: 'LACRES_PRINCIPAIS', formKey: 'lacresPrincipal' },
+  { key: 'lacresOutros', label: 'Lacres Outros', apiCategory: 'LACRES_OUTROS', formKey: 'lacresOutros' },
 ];
 
 const API_CATEGORY_BY_KEY = CONTAINER_IMAGE_SECTIONS.reduce(
   (acc, item) => ({ ...acc, [item.key]: item.apiCategory }),
+  {} as Record<ContainerImageCategoryKey, string>
+);
+
+const FORM_KEY_BY_CATEGORY_KEY = CONTAINER_IMAGE_SECTIONS.reduce(
+  (acc, item) => ({ ...acc, [item.key]: item.formKey }),
   {} as Record<ContainerImageCategoryKey, string>
 );
 
@@ -68,7 +82,6 @@ const REQUIRED_IMAGE_CATEGORIES: ContainerImageCategoryKey[] = [
   'meiaPorta',
   'lacradoFechado',
   'lacresPrincipal',
-  'lacresOutros',
 ];
 
 export interface CreateContainerPayload {
@@ -119,7 +132,8 @@ const appendImages = (form: FormData, images?: ContainerImagesPayload): boolean 
     const files = images[key];
     if (!files || !files.length) return;
     hasImages = true;
-    files.forEach((file) => form.append(key, file));
+    const formKey = FORM_KEY_BY_CATEGORY_KEY[key] ?? key;
+    files.forEach((file) => form.append(formKey, file));
   });
   return hasImages;
 };
@@ -146,17 +160,34 @@ const buildContainerJsonPayload = (payload: CreateContainerPayload) => {
     liquidWeight: liquidWeight ?? 0,
     grossWeight: grossWeight ?? 0,
     agencySeal: agencySeal ?? '',
-    otherSeals: otherSeals && otherSeals.length ? otherSeals : [''],
+    otherSeals: otherSeals && otherSeals.length ? otherSeals : [],
   };
 };
 
 export const createContainer = async (payload: CreateContainerPayload): Promise<ApiContainer> => {
   const images = payload.images ?? {};
   const hasAnyImage = Object.values(images).some((list) => (list?.length ?? 0) > 0);
+  const hasAllRequired = REQUIRED_IMAGE_CATEGORIES.every((key) => (images[key]?.length ?? 0) > 0);
 
   if (!hasAnyImage) {
     const body = buildContainerJsonPayload(payload);
     const { data } = await api.post<ApiContainer>('/containers', body);
+    return data;
+  }
+
+  if (!hasAllRequired) {
+    // Cria o container via JSON e envia imagens de forma incremental sem validar obrigatórios
+    const body = buildContainerJsonPayload(payload);
+    const { data } = await api.post<ApiContainer>('/containers', body);
+    const targetId = data.containerId || payload.containerId;
+    if (targetId) {
+      try {
+        const updated = await addImagesToContainer(targetId, images, false);
+        return updated;
+      } catch {
+        // Caso o upload falhe, retornamos ao menos o container criado
+      }
+    }
     return data;
   }
 
@@ -169,13 +200,12 @@ export const createContainer = async (payload: CreateContainerPayload): Promise<
   form.append('liquidWeight', String(payload.liquidWeight ?? 0));
   form.append('grossWeight', String(payload.grossWeight ?? 0));
   form.append('agencySeal', payload.agencySeal ?? '');
+  form.append('validateMandatory', 'false');
 
   const seals = payload.otherSeals && payload.otherSeals.length ? payload.otherSeals : [''];
   seals.forEach((seal) => form.append('otherSeals', seal));
 
-  (Object.keys(images) as ContainerImageCategoryKey[]).forEach((key) => {
-    images[key]?.forEach((file) => form.append(key, file));
-  });
+  appendImages(form, images);
 
   const { data } = await api.post<ApiContainer>('/containers/images', form);
   return data;
@@ -215,7 +245,7 @@ export const updateContainer = async (
     liquidWeight: liquidWeight ?? 0,
     grossWeight: grossWeight ?? 0,
     agencySeal: agencySeal ?? '',
-    otherSeals: otherSeals && otherSeals.length ? otherSeals : [''],
+    otherSeals: otherSeals && otherSeals.length ? otherSeals : [],
   };
 
   if (status !== undefined) {
@@ -255,16 +285,34 @@ export const getContainersByOperation = async (
 export const getContainerImagesByCategory = async (
   containerId: string,
   category: ContainerImageCategoryKey
-): Promise<string[]> => {
+): Promise<ContainerImageResponseDTO[]> => {
   const apiCategory = API_CATEGORY_BY_KEY[category];
-  const { data } = await api.get<string[]>(`/containers/${containerId}/images/${apiCategory}`);
-  return Array.isArray(data) ? data : [];
+  const { data } = await api.get<unknown>(`/containers/${containerId}/images/${apiCategory}`);
+
+  if (Array.isArray(data)) {
+    return data
+      .map((item) => {
+        if (typeof item === 'string') {
+          return { url: item } as ContainerImageResponseDTO;
+        }
+        if (item && typeof item === 'object') {
+          const typed = item as ContainerImageResponseDTO;
+          const url = typed.signedUrl || typed.url || typed.imageUrl;
+          if (!url) return undefined;
+          return { ...typed, url };
+        }
+        return undefined;
+      })
+      .filter((img): img is ContainerImageResponseDTO => !!img && !!img.url);
+  }
+
+  return [];
 };
 
 export const getAllContainerImages = async (
   containerId: string
-): Promise<Record<ContainerImageCategoryKey, string[]>> => {
-  const result: Record<ContainerImageCategoryKey, string[]> = {
+): Promise<Record<ContainerImageCategoryKey, ContainerImageResponseDTO[]>> => {
+  const result: Record<ContainerImageCategoryKey, ContainerImageResponseDTO[]> = {
     vazioForrado: [],
     fiada: [],
     cheioAberto: [],
@@ -291,4 +339,8 @@ export const mapApiCategoryToSectionKey = (category?: string): ContainerImageCat
   if (!category) return undefined;
   const normalized = category.toUpperCase();
   return KEY_BY_API_CATEGORY[normalized];
+};
+
+export const deleteContainerImage = async (containerId: string, imageId: number): Promise<void> => {
+  await api.delete(`/containers/${containerId}/images/${imageId}`);
 };
