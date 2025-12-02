@@ -416,7 +416,7 @@ const OperationDetails: React.FC = () => {
 
   const handleDeleteOperation = async () => {
     if (!decodedOperationId) return;
-    const confirmed = window.confirm('Tem certeza que deseja excluir a Operacao ' + operationLabel + '?');
+    const confirmed = window.confirm('Tem certeza que deseja excluir a Operação ' + operationLabel + '?');
     if (!confirmed) return;
     setDeleteError(null);
     setDeleteLoading(true);
@@ -424,7 +424,7 @@ const OperationDetails: React.FC = () => {
       await deleteOperation(decodedOperationId);
       navigate('/operations');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Nao foi possivel excluir a operacao.';
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel excluir a operação.';
       setDeleteError(msg);
     } finally {
       setDeleteLoading(false);
@@ -447,10 +447,10 @@ const OperationDetails: React.FC = () => {
       const updated = await updateOperation(decodedOperationId, payload);
       dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
       setOperationStatus(normalizeStatus(updated.status));
-      setSaveMessage('Operacao atualizada com sucesso.');
+      setSaveMessage('Operação atualizada com sucesso.');
       dispatch({ type: 'setEditing', value: false });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Nao foi possivel atualizar a operacao.';
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel atualizar a operação.';
       setSaveError(msg);
     } finally {
       setSavingOp(false);
@@ -472,7 +472,7 @@ const OperationDetails: React.FC = () => {
 
     if (operationStatus === 'Fechada') return;
     if (!isNumericId) {
-      setStatusError('ID da operacao invalido para alterar status.');
+      setStatusError('ID da operação invalido para alterar status.');
       return;
     }
 
@@ -509,14 +509,14 @@ const OperationDetails: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">
-                Operacao{' '}
+                Operação{' '}
                 {operationLabelLoading ? (
                   <span className="inline-block w-32 h-6 bg-[var(--hover)] rounded animate-pulse align-middle"></span>
                 ) : (
                   operationLabel
                 )}
               </h1>
-              <p className="text-sm text-[var(--muted)]">Detalhes da Operacao</p>
+              <p className="text-sm text-[var(--muted)]">Detalhes da Operação</p>
             </div>
             <div className="flex items-center gap-4">
               <button type="button" onClick={() => changePage('perfil')} aria-label="Acessar perfil" className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -544,7 +544,7 @@ const OperationDetails: React.FC = () => {
               <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm">
                 <div className="p-6 border-b border-[var(--border)] flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
+                    <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operação</h2>
                   </div>
                   <div className="flex items-center gap-3">
                   <button
@@ -552,14 +552,14 @@ const OperationDetails: React.FC = () => {
                     disabled
                     className="px-6 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium opacity-50 cursor-not-allowed"
                   >
-                    Editar Operacao
+                    Editar Operação
                   </button>
                   <button
                     type="button"
                     disabled
                     className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed"
                   >
-                    Excluir Operacao
+                    Excluir Operação
                   </button>
                   <button
                     type="button"
@@ -585,7 +585,7 @@ const OperationDetails: React.FC = () => {
               </section>
               <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mt-6">
                 <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                  <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
                   <div className="flex flex-1 sm:flex-initial gap-3 items-center">
                     <div className="flex-1 h-10 bg-[var(--hover)] rounded animate-pulse"></div>
                     <div className="w-64 h-10 bg-[var(--hover)] rounded animate-pulse"></div>
@@ -619,7 +619,7 @@ const OperationDetails: React.FC = () => {
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operação</h2>
                   {!isEditing && (
                     <ToggleSwitch
                       id="operation-status-toggle"
@@ -657,7 +657,7 @@ const OperationDetails: React.FC = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        {savingOp ? 'Salvando...' : 'Salvar Operacao'}
+                        {savingOp ? 'Salvando...' : 'Salvar Operação'}
                       </button>
                     </>
                   ) : (
@@ -671,7 +671,7 @@ const OperationDetails: React.FC = () => {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
-                          Editar Operacao
+                          Editar Operação
                         </button>
                       )}
                       <button
@@ -681,7 +681,7 @@ const OperationDetails: React.FC = () => {
                         className="px-6 py-2 bg-[var(--surface)] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="w-4 h-4" />
-                        {deleteLoading ? 'Excluindo...' : 'Excluir Operacao'}
+                        {deleteLoading ? 'Excluindo...' : 'Excluir Operação'}
                       </button>
                     <button
                       type="button"
@@ -815,7 +815,7 @@ const OperationDetails: React.FC = () => {
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
                 <div className="flex flex-1 sm:flex-initial gap-3 items-center">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -854,7 +854,7 @@ const OperationDetails: React.FC = () => {
                   Novo Container
                 </button>
                 <button
-                  aria-label="Ver overview da operacao"
+                  aria-label="Ver overview da operação"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
                   disabled={controlsDisabled}
                   className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"

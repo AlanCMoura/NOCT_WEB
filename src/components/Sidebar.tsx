@@ -25,13 +25,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const activePage = currentPage ?? ctxPage;
 
   const sidebarItems: SidebarItem[] = [
-    { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operacoes' },
+    { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' },
     { id: 'dashboard', icon: <BarChart3 className="w-5 h-5" />, label: 'Dashboard' },
   ];
 
   const managementItems: SidebarItem[] = [
-    { id: 'usuarios', icon: <Users className="w-5 h-5" />, label: 'Usuarios' },
-    { id: 'relatorios', icon: <FileBarChart className="w-5 h-5" />, label: 'Relatorios' },
+    { id: 'usuarios', icon: <Users className="w-5 h-5" />, label: 'Usuários' },
+    { id: 'relatorios', icon: <FileBarChart className="w-5 h-5" />, label: 'Relatórios' },
   ];
 
   const systemItems: SidebarItem[] = [

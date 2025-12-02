@@ -225,7 +225,7 @@ const Sacaria: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">
-                Sacaria - Operacao{' '}
+                Sacaria - Operação{' '}
                 {operationLabelLoading ? (
                   <span className="inline-block w-28 h-6 bg-[var(--hover)] rounded animate-pulse align-middle"></span>
                 ) : (
