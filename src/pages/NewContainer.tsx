@@ -5,6 +5,7 @@ import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../context/SidebarContext";
 import { useSessionUser } from "../context/AuthContext";
 import ContainerImageSection, { ImageItem as SectionImageItem } from "../components/ContainerImageSection";
+import { getOperationById } from "../services/operations";
 import {
   CONTAINER_IMAGE_SECTIONS,
   type ContainerImageCategoryKey,
@@ -66,6 +67,7 @@ const NewContainer: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: "Administrador" });
+  const [operationCtv, setOperationCtv] = useState<string>("");
 
   const [form, setForm] = useState<NewContainerForm>({
     container: "",
@@ -182,6 +184,37 @@ const NewContainer: React.FC = () => {
     });
   }, [imageSections]);
 
+  useEffect(() => {
+    let active = true;
+    const loadOperation = async () => {
+      if (!decodedOperationId) {
+        setOperationCtv("");
+        return;
+      }
+      try {
+        const op = await getOperationById(decodedOperationId);
+        if (!active) return;
+        const ctv = String(
+          op.ctv ??
+            op.amv ??
+            op.code ??
+            op.booking ??
+            op.bookingCode ??
+            op.reserva ??
+            op.reservation ??
+            decodedOperationId
+        );
+        setOperationCtv(ctv);
+      } catch {
+        if (active) setOperationCtv(decodedOperationId);
+      }
+    };
+    loadOperation();
+    return () => {
+      active = false;
+    };
+  }, [decodedOperationId]);
+
   const parseNumber = (value: string): number | undefined => {
     if (value === undefined || value === null || value === "") return undefined;
     const num = Number(value);
@@ -286,7 +319,7 @@ const NewContainer: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Novo Container</h1>
-              <p className="text-sm text-[var(--muted)]">Operacao {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">Operacao {operationCtv || decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
               <div

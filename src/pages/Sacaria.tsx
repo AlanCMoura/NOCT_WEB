@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
-import { deleteSackImage, getSackImages, uploadSackImages } from '../services/operations';
+import { deleteSackImage, getSackImages, uploadSackImages, getOperationById } from '../services/operations';
 
 interface User {
   name: string;
@@ -32,6 +32,9 @@ const Sacaria: React.FC = () => {
   const [modal, setModal] = useState<{ index: number } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [operationCtv, setOperationCtv] = useState<string>('');
+  const [operationLabelLoading, setOperationLabelLoading] = useState<boolean>(true);
+  const operationLabel = operationCtv || decodedOperationId;
 
   const mapImages = (list: any[]): SackImageItem[] =>
     list
@@ -60,6 +63,41 @@ const Sacaria: React.FC = () => {
 
   useEffect(() => {
     loadImages();
+  }, [operationId]);
+
+  useEffect(() => {
+    let active = true;
+    const loadOperation = async () => {
+      if (!operationId) {
+        setOperationCtv('');
+        setOperationLabelLoading(false);
+        return;
+      }
+      setOperationLabelLoading(true);
+      try {
+        const op = await getOperationById(operationId);
+        if (!active) return;
+        const ctv = String(
+          op.ctv ??
+            op.amv ??
+            op.code ??
+            op.booking ??
+            op.bookingCode ??
+            op.reserva ??
+            op.reservation ??
+            operationId
+        );
+        setOperationCtv(ctv);
+      } catch {
+        if (active) setOperationCtv(operationId);
+      } finally {
+        if (active) setOperationLabelLoading(false);
+      }
+    };
+    loadOperation();
+    return () => {
+      active = false;
+    };
   }, [operationId]);
 
   const next = () => {
@@ -186,7 +224,14 @@ const Sacaria: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Sacaria - Operacao {decodedOperationId}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)]">
+                Sacaria - Operacao{' '}
+                {operationLabelLoading ? (
+                  <span className="inline-block w-28 h-6 bg-[var(--hover)] rounded animate-pulse align-middle"></span>
+                ) : (
+                  operationLabel
+                )}
+              </h1>
               <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
             </div>
             <div className="flex items-center gap-4">

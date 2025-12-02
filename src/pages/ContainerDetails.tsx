@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
@@ -86,7 +86,7 @@ const cloneSections = (sections: Record<ImageSectionKey, SectionImageWithId[]>) 
   }, {} as Record<ImageSectionKey, SectionImageWithId[]>);
 
 /**
- * CORREÇÃO 1: Função centralizada para revogar URLs temporárias
+ * CORREÃ‡ÃƒO 1: FunÃ§Ã£o centralizada para revogar URLs temporÃ¡rias
  * Evita memory leaks ao limpar todas as URLs criadas com createObjectURL
  */
 const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageWithId[]>) => {
@@ -97,7 +97,7 @@ const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageWithId[]>)
         try {
           URL.revokeObjectURL(item.url);
         } catch {
-          // Ignora erros se a URL já foi revogada
+          // Ignora erros se a URL jÃ¡ foi revogada
         }
       }
     });
@@ -154,7 +154,7 @@ const buildImagesPayload = (
 };
 
 /**
- * CORREÇÃO 5: Helper para extrair mensagem de erro de forma type-safe
+ * CORREÃ‡ÃƒO 5: Helper para extrair mensagem de erro de forma type-safe
  */
 const getErrorMessage = (err: unknown, defaultMessage: string): string => {
   if (axios.isAxiosError(err)) {
@@ -207,9 +207,10 @@ const ContainerDetails: React.FC = () => {
   );
   const [headerStatusLoading, setHeaderStatusLoading] = useState<boolean>(false);
   const [operationCtv, setOperationCtv] = useState<string>("");
+  const [operationLabelLoading, setOperationLabelLoading] = useState<boolean>(true);
 
   /**
-   * CORREÇÃO 7: Ref para prevenir submissões duplicadas
+   * CORREÃ‡ÃƒO 7: Ref para prevenir submissÃµes duplicadas
    */
   const isSavingRef = useRef<boolean>(false);
 
@@ -217,7 +218,7 @@ const ContainerDetails: React.FC = () => {
   const hasContainer = !!container;
 
   /**
-   * Helper: busca URLs por categoria e mescla preservando IDs (necessários para DELETE)
+   * Helper: busca URLs por categoria e mescla preservando IDs (necessÃ¡rios para DELETE)
    */
   const populateSectionsWithUrls = async (
     containerKey: string,
@@ -258,17 +259,17 @@ const ContainerDetails: React.FC = () => {
         sections[key] = mergeSectionImages(filled, remaining);
       });
     } catch {
-      // silêncio: se falhar, devolve o que já temos
+      // silÃªncio: se falhar, devolve o que jÃ¡ temos
     }
     return sections;
   };
 
   /**
-   * CORREÇÃO 2: useEffect com cleanup para revogar URLs ao desmontar
+   * CORREÃ‡ÃƒO 2: useEffect com cleanup para revogar URLs ao desmontar
    */
   useEffect(() => {
     return () => {
-      // Cleanup: revoga todas as URLs temporárias quando o componente desmonta
+      // Cleanup: revoga todas as URLs temporÃ¡rias quando o componente desmonta
       revokeTempUrls(imageSections);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -280,7 +281,12 @@ const ContainerDetails: React.FC = () => {
     const abortController = new AbortController();
 
     const loadOperation = async () => {
-      if (!decodedOperationId) return;
+      if (!decodedOperationId) {
+        setOperationCtv("");
+        setOperationLabelLoading(false);
+        return;
+      }
+      setOperationLabelLoading(true);
       try {
         const op: ApiOperation = await getOperationById(decodedOperationId);
         if (abortController.signal.aborted) return;
@@ -299,6 +305,10 @@ const ContainerDetails: React.FC = () => {
         setOperationCtv(ctv);
       } catch {
         // falha silenciosa no header
+      } finally {
+        if (!abortController.signal.aborted) {
+          setOperationLabelLoading(false);
+        }
       }
     };
 
@@ -389,21 +399,21 @@ const ContainerDetails: React.FC = () => {
       
       if (!target) return prev;
 
-      // Marca para exclusão no servidor se tiver ID
+      // Marca para exclusÃ£o no servidor se tiver ID
       if (target.id !== undefined && target.id !== null) {
         setPendingDeleteIds((prevIds) => 
           prevIds.includes(target.id!) ? prevIds : [...prevIds, target.id!]
         );
       }
 
-      // Remove da lista e revoga URL se necessário
+      // Remove da lista e revoga URL se necessÃ¡rio
       const removed = list.splice(index, 1);
       removed.forEach((item) => {
         if (item?.file && item.url) {
           try {
             URL.revokeObjectURL(item.url);
           } catch {
-            // Ignora se já foi revogada
+            // Ignora se jÃ¡ foi revogada
           }
         }
       });
@@ -412,7 +422,7 @@ const ContainerDetails: React.FC = () => {
     });
 
     /**
-     * CORREÇÃO 6: Fecha o modal se a imagem removida estava sendo visualizada
+     * CORREÃ‡ÃƒO 6: Fecha o modal se a imagem removida estava sendo visualizada
      */
     setSelectedImageModal((current) => {
       if (!current) return current;
@@ -471,10 +481,10 @@ const ContainerDetails: React.FC = () => {
   }, [resetEdits]);
 
   /**
-   * CORREÇÃO 7: Função de salvamento com proteção contra submissões duplicadas
+   * CORREÃ‡ÃƒO 7: FunÃ§Ã£o de salvamento com proteÃ§Ã£o contra submissÃµes duplicadas
    */
   const handleSave = useCallback(async () => {
-    // Previne submissões duplicadas
+    // Previne submissÃµes duplicadas
     if (!decodedContainerId || saving || loading || isSavingRef.current) return;
     
     isSavingRef.current = true;
@@ -482,7 +492,7 @@ const ContainerDetails: React.FC = () => {
     setSuccess(null);
 
     if (!form.containerId.trim() || !form.description.trim()) {
-      setError("Preencha os campos obrigatórios.");
+      setError("Preencha os campos obrigatÃ³rios.");
       isSavingRef.current = false;
       return;
     }
@@ -513,7 +523,7 @@ const ContainerDetails: React.FC = () => {
       setSaving(true);
       setImagesLoading(true);
 
-      // Processa exclusões pendentes
+      // Processa exclusÃµes pendentes
       if (pendingDeleteIds.length) {
         const errors: string[] = [];
         const deletions = await Promise.all(
@@ -577,7 +587,7 @@ const ContainerDetails: React.FC = () => {
       setIsEditing(false);
       setSuccess("Container atualizado com sucesso.");
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível atualizar o container."));
+      setError(getErrorMessage(err, "NÃ£o foi possÃ­vel atualizar o container."));
     } finally {
       setSaving(false);
       setImagesLoading(false);
@@ -597,7 +607,7 @@ const ContainerDetails: React.FC = () => {
       await deleteContainerApi(decodedContainerId);
       navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível excluir o container."));
+      setError(getErrorMessage(err, "NÃ£o foi possÃ­vel excluir o container."));
     } finally {
       setDeleting(false);
     }
@@ -623,7 +633,7 @@ const ContainerDetails: React.FC = () => {
       setContainer(updated);
       setSuccess("Status do container atualizado para FINALIZADO.");
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível atualizar o status do container."));
+      setError(getErrorMessage(err, "NÃ£o foi possÃ­vel atualizar o status do container."));
     } finally {
       setStatusUpdating(false);
     }
@@ -651,7 +661,7 @@ const ContainerDetails: React.FC = () => {
   const handleToggleStatus = useCallback(
     async (checked: boolean) => {
       if (!decodedContainerId || loading || statusUpdating || headerStatusLoading) return;
-      // Somente permite finalizar; reabrir n�o est� dispon�vel no front
+      // Somente permite finalizar; reabrir nï¿½o estï¿½ disponï¿½vel no front
       if (!checked) return;
       setError(null);
       setSuccess(null);
@@ -688,7 +698,7 @@ const ContainerDetails: React.FC = () => {
   const isContainerFinalized = statusBadge.text === "Finalizado";
 
   /**
-   * CORREÇÃO 9: Renderização condicional do modal fora do return principal
+   * CORREÃ‡ÃƒO 9: RenderizaÃ§Ã£o condicional do modal fora do return principal
    */
   const renderImageModal = () => {
     if (!selectedImageModal) return null;
@@ -696,7 +706,7 @@ const ContainerDetails: React.FC = () => {
     const modalImages = imageSections[selectedImageModal.section] || [];
     if (!modalImages.length) return null;
     
-    // CORREÇÃO 6: Garante índice seguro
+    // CORREÃ‡ÃƒO 6: Garante Ã­ndice seguro
     const safeIndex = Math.min(
       Math.max(0, selectedImageModal.index), 
       modalImages.length - 1
@@ -714,7 +724,7 @@ const ContainerDetails: React.FC = () => {
         onClick={closeImageModal}
         role="dialog"
         aria-modal="true"
-        aria-label={`Visualização de imagem: ${sectionLabel}`}
+        aria-label={`VisualizaÃ§Ã£o de imagem: ${sectionLabel}`}
       >
         <div className="relative w-full h-full flex items-center justify-center">
           <button
@@ -723,7 +733,7 @@ const ContainerDetails: React.FC = () => {
               closeImageModal();
             }}
             className="absolute top-4 right-4 text-white hover:text-gray-200 bg-black/60 rounded-full p-2 z-10"
-            aria-label="Fechar visualização"
+            aria-label="Fechar visualizaÃ§Ã£o"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -759,7 +769,7 @@ const ContainerDetails: React.FC = () => {
                 nextImageInModal();
               }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-200 bg-black/60 rounded-full p-3 z-10"
-              aria-label="Próxima imagem"
+              aria-label="PrÃ³xima imagem"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -801,7 +811,13 @@ const ContainerDetails: React.FC = () => {
                 )}
               </h1>
               <p className="text-sm text-[var(--muted)] flex items-center gap-2">
-                Operacao {operationCtv || decodedOperationId}
+                Operação {
+                    operationLabelLoading ? (
+                      <span className="inline-block w-28 h-4 bg-[var(--hover)] rounded animate-pulse align-middle"></span>
+                    ) : (
+                      operationCtv || decodedOperationId
+                    )
+                  }
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -827,7 +843,7 @@ const ContainerDetails: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden space-y-4">
-          {/* CORREÇÃO 4: Mensagens de erro/sucesso com roles apropriados */}
+          {/* CORREÃ‡ÃƒO 4: Mensagens de erro/sucesso com roles apropriados */}
           {error && (
             <div 
               className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -892,7 +908,7 @@ const ContainerDetails: React.FC = () => {
                         className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                         aria-busy={saving}
                       >
-                        {saving ? "Salvando..." : "Salvar altera��es"}
+                        {saving ? "Salvando..." : "Salvar alterações"}
                       </button>
                     </>
                   ) : (
@@ -945,7 +961,7 @@ const ContainerDetails: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Campo: Identificação */}
+                  {/* Campo: IdentificaÃ§Ã£o */}
                   <div>
                     <label 
                       htmlFor="containerId"
@@ -967,7 +983,7 @@ const ContainerDetails: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Campo: Descrição */}
+                  {/* Campo: DescriÃ§Ã£o */}
                   <div>
                     <label 
                       htmlFor="description"
@@ -1038,7 +1054,7 @@ const ContainerDetails: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Campo: Peso Líquido */}
+                  {/* Campo: Peso LÃ­quido */}
                   <div>
                     <label 
                       htmlFor="liquidWeight"
@@ -1090,7 +1106,7 @@ const ContainerDetails: React.FC = () => {
                       htmlFor="agencySeal"
                       className="block text-sm font-medium text-[var(--text)] mb-1"
                     >
-                      Lacre Principal (agência)
+                      Lacre Principal (Agência)
                     </label>
                     {isEditing ? (
                       <input
@@ -1121,7 +1137,7 @@ const ContainerDetails: React.FC = () => {
                         value={form.otherSeals}
                         onChange={(e) => handleChange("otherSeals", e.target.value)}
                         disabled={!isEditing || loading}
-                        placeholder="Separados por vírgula"
+                        placeholder="Separados por vÃ­rgula"
                         className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
                         aria-describedby="otherSeals-help"
                       />
@@ -1130,7 +1146,7 @@ const ContainerDetails: React.FC = () => {
                     )}
                     {isEditing && (
                       <p id="otherSeals-help" className="sr-only">
-                        Insira os lacres separados por vírgula
+                        Insira os lacres separados por vÃ­rgula
                       </p>
                     )}
                   </div>
@@ -1139,7 +1155,7 @@ const ContainerDetails: React.FC = () => {
             </div>
           </div>
 
-          {/* Seções de Imagens */}
+          {/* SeÃ§Ãµes de Imagens */}
           <div className="space-y-6">
             {CONTAINER_IMAGE_SECTIONS.map(({ key, label }) => (
               <ContainerImageSection
@@ -1185,7 +1201,7 @@ const ContainerDetails: React.FC = () => {
             ))}
           </div>
 
-          {/* Modal de Imagem - CORREÇÃO 9: Renderização separada */}
+          {/* Modal de Imagem - CORREÃ‡ÃƒO 9: RenderizaÃ§Ã£o separada */}
           {renderImageModal()}
         </main>
       </div>
@@ -1194,6 +1210,8 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
+
+
 
 
 

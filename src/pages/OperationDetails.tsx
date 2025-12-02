@@ -218,6 +218,8 @@ const OperationDetails: React.FC = () => {
   const [deleteContainerLoading, setDeleteContainerLoading] = useState<string | null>(null);
   const sectionsLoading = (loadingOp || containersLoading) && !loadError;
   const controlsDisabled = sectionsLoading;
+  const operationLabel = opInfo.ctv || decodedOperationId;
+  const operationLabelLoading = loadingOp && !opInfo.ctv;
 
   // Ordenacao e Paginacao
   const PAGE_SIZE = 10;
@@ -414,7 +416,7 @@ const OperationDetails: React.FC = () => {
 
   const handleDeleteOperation = async () => {
     if (!decodedOperationId) return;
-    const confirmed = window.confirm('Tem certeza que deseja excluir a Operacao ' + decodedOperationId + '?');
+    const confirmed = window.confirm('Tem certeza que deseja excluir a Operacao ' + operationLabel + '?');
     if (!confirmed) return;
     setDeleteError(null);
     setDeleteLoading(true);
@@ -506,7 +508,14 @@ const OperationDetails: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Operacao {decodedOperationId}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)]">
+                Operacao{' '}
+                {operationLabelLoading ? (
+                  <span className="inline-block w-32 h-6 bg-[var(--hover)] rounded animate-pulse align-middle"></span>
+                ) : (
+                  operationLabel
+                )}
+              </h1>
               <p className="text-sm text-[var(--muted)]">Detalhes da Operacao</p>
             </div>
             <div className="flex items-center gap-4">

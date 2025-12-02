@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { Search, Edit } from 'lucide-react';
+import { Search, Edit, Download } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
+import { getOperationById } from '../services/operations';
 
 interface ContainerRow {
   id: string;
@@ -48,6 +49,8 @@ const OperationOverview: React.FC = () => {
   const { changePage } = useSidebar();
 
   const [rows, setRows] = useState<ContainerRow[]>([]);
+  const [operationCtv, setOperationCtv] = useState<string>('');
+  const [operationLabelLoading, setOperationLabelLoading] = useState<boolean>(true);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [draftRows, setDraftRows] = useState<ContainerRow[]>([]);
@@ -61,6 +64,8 @@ const OperationOverview: React.FC = () => {
     setRows([]);
     setDraftRows([]);
     setPage(1);
+    setOperationCtv('');
+    setOperationLabelLoading(true);
   }, [decodedOperationId]);
 
   useEffect(() => {
@@ -69,6 +74,23 @@ const OperationOverview: React.FC = () => {
       setLoading(true);
       setLoadError(null);
       try {
+        try {
+          const op = await getOperationById(decodedOperationId);
+          const ctv = String(
+            op.ctv ??
+              op.amv ??
+              op.code ??
+              op.booking ??
+              op.bookingCode ??
+              op.reserva ??
+              op.reservation ??
+              decodedOperationId
+          );
+          setOperationCtv(ctv);
+        } catch {
+          setOperationCtv(decodedOperationId);
+        }
+        setOperationLabelLoading(false);
         const data = await getContainersByOperation(decodedOperationId, { page: 0, size: 500, sortBy: 'id', sortDirection: 'ASC' });
         const mapped = (data?.content || []).map(mapApiContainer);
         setRows(mapped);
@@ -124,6 +146,114 @@ const OperationOverview: React.FC = () => {
   const handleBack = () => {
     navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
   };
+  const operationLabel = operationCtv || decodedOperationId;
+  const exportCsv = (list: ContainerRow[]) => {
+    if (!list.length) {
+      window.alert('Nenhum container para exportar.');
+      return;
+    }
+    const header = ['Container', 'Status', 'Lacre Agencia', 'Lacre Principal', 'Lacre Outros', 'Qtd. Sacarias', 'Peso Bruto', 'Peso Liquido'];
+    const rowsCsv = list.map((row) => {
+      const { label } = statusDisplay(row.status);
+      const values = [
+        row.id,
+        label,
+        row.lacreAgencia ?? '-',
+        row.lacrePrincipal ?? '-',
+        row.lacreOutros ?? '-',
+        row.qtdSacarias ?? 0,
+        row.pesoBruto ?? '-',
+        row.pesoLiquido ?? '-',
+      ];
+      return values.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';');
+    });
+    const csv = [header.join(';'), ...rowsCsv].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `containers-${operationLabel || 'operacao'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = (list: ContainerRow[]) => {
+    if (!list.length) {
+      window.alert('Nenhum container para exportar.');
+      return;
+    }
+
+    const safe = (val: string | number) =>
+      String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    const rowsHtml = list
+      .map((row) => {
+        const { label } = statusDisplay(row.status);
+        return `
+          <tr>
+            <td>${safe(row.id)}</td>
+            <td>${safe(label)}</td>
+            <td>${safe(row.lacreAgencia ?? '-')}</td>
+            <td>${safe(row.lacrePrincipal ?? '-')}</td>
+            <td>${safe(row.lacreOutros ?? '-')}</td>
+            <td style="text-align:center">${safe(row.qtdSacarias ?? '-')}</td>
+            <td style="text-align:center">${safe(row.pesoBruto ?? '-')}</td>
+            <td style="text-align:center">${safe(row.pesoLiquido ?? '-')}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Overview de Containers</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+            h2 { margin: 0 0 8px; }
+            p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+            th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
+            td:nth-last-child(-n+3) { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h2>Overview de Containers</h2>
+          <p>Operacao: ${safe(operationLabel)}</p>
+          <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Container</th>
+                <th>Status</th>
+                <th>Lacre Agencia</th>
+                <th>Lacre Principal</th>
+                <th>Lacre Outros</th>
+                <th>Qtd. Sacarias</th>
+                <th>Peso Bruto</th>
+                <th>Peso Liquido</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      window.alert('Nao foi possivel abrir o PDF. Verifique o bloqueador de pop-ups.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
 
   return (
     <div className="flex h-screen bg-app">
@@ -134,7 +264,14 @@ const OperationOverview: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Overview de Containers</h1>
-              <p className="text-sm text-[var(--muted)]">Operacao {decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">
+                Operação{' '}
+                {operationLabelLoading ? (
+                  <span className="inline-block w-28 h-4 bg-[var(--hover)] rounded animate-pulse align-middle"></span>
+                ) : (
+                  operationLabel
+                )}
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -176,12 +313,28 @@ const OperationOverview: React.FC = () => {
                 <option value="completo">Completo</option>
               </select>
             </div>
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => exportCsv(sorted)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors"
+              >
+                <Download className="w-4 h-4" /> Exportar CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => exportPdf(sorted)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors ml-3"
+              >
+                <Download className="w-4 h-4" /> Exportar PDF
+              </button>
+            </div>
           </div>
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operacao</h2>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
               </div>
             </div>
 
@@ -199,7 +352,7 @@ const OperationOverview: React.FC = () => {
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Lacre Outros</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Qtd. Sacarias</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Peso Bruto</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Peso Liquido</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Peso Líquido</th>
                 </tr>
               </thead>
               <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">

@@ -162,7 +162,7 @@ const Operations: React.FC = () => {
         setTotalPages(data?.totalPages ?? 0);
         setTotalOperations(data?.totalElements ?? operationsWithCount.length);
       } catch (error) {
-        const msg = error instanceof Error ? error.message : 'Nao foi possivel carregar as operacoes.';
+        const msg = error instanceof Error ? error.message : 'Nao foi possivel carregar as operações.';
         setListError(msg);
       } finally {
         setLoading(false);
@@ -214,8 +214,8 @@ const Operations: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Operacoes</h1>
-              <p className="text-sm text-[var(--muted)]">Gerencie as operacoes portuarias e inspecoes</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Operações</h1>
+              <p className="text-sm text-[var(--muted)]">Gerencie as operações portuarias e inspeções</p>
             </div>
             <div className="flex items-center gap-4">
               <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
@@ -265,7 +265,7 @@ const Operations: React.FC = () => {
                 <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
               </button>
               <button onClick={handleNew} className="inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 transition-colors">
-                <Upload className="w-4 h-4 mr-2" /> Nova Operacao
+                <Upload className="w-4 h-4 mr-2" /> Nova operação
               </button>
             </div>
           </div>
@@ -300,7 +300,7 @@ const Operations: React.FC = () => {
             ) : filtered.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="mx-auto h-12 w-12 text-[var(--muted)] mb-4" />
-                <p className="text-[var(--muted)]">Nenhuma operacao encontrada</p>
+                <p className="text-[var(--muted)]">Nenhuma operação encontrada</p>
                 <p className="text-sm text-[var(--muted)] mt-1">Tente ajustar os filtros ou buscar por outros termos</p>
               </div>
             ) : (
@@ -313,7 +313,7 @@ const Operations: React.FC = () => {
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Data</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Containers</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Acoes</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
