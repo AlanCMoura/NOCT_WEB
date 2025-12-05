@@ -2,7 +2,6 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export type SidebarPage =
-  | 'dashboard'
   | 'operations'
   | 'usuarios'
   | 'relatorios'
@@ -29,7 +28,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const initialPage = useMemo<SidebarPage>(() => {
     const path = location.pathname;
-    if (path.startsWith('/dashboard')) return 'dashboard';
     if (path.startsWith('/operations')) return 'operations';
     if (path.startsWith('/users')) return 'usuarios';
     if (path.startsWith('/reports')) return 'relatorios';
@@ -47,9 +45,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const changePage = (pageId: SidebarPage) => {
     setCurrentPage(pageId);
     switch (pageId) {
-      case 'dashboard':
-        navigate('/dashboard');
-        break;
       case 'operations':
         navigate('/operations');
         break;

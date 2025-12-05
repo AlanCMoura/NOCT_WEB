@@ -7,9 +7,10 @@ import React, {
   useState,
 } from 'react';
 import { api, setAuthToken } from '../services/api';
+import { getUserById } from '../services/users';
 
 export interface AuthUser {
-  id?: string;
+  id?: string | number;
   cpf?: string;
   name?: string;
   firstName?: string;
@@ -40,6 +41,44 @@ interface AuthProviderProps {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const decodeJwtPayload = (token?: string | null): Record<string, unknown> | null => {
+  if (!token) return null;
+
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const decoded = atob(padded);
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const extractUserIdFromToken = (token?: string | null): string | number | null => {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+
+  const candidates = [
+    (payload as { id?: unknown }).id,
+    (payload as { userId?: unknown }).userId,
+    (payload as { user_id?: unknown }).user_id,
+    (payload as { sub?: unknown }).sub,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const numeric = Number(candidate);
+      return Number.isNaN(numeric) ? candidate.trim() : numeric;
+    }
+  }
+
+  return null;
+};
 
 const normalizeUserData = (data?: Partial<AuthUser> | null): AuthUser => {
   if (!data) {
@@ -85,13 +124,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const fetchCurrentUser = useCallback(async () => {
+    const storedToken = localStorage.getItem('authToken');
+
     try {
       const { data } = await api.get<Partial<AuthUser>>('/auth/me');
       if (data) {
         persistUser(data);
+        return;
       }
     } catch (error) {
-      console.warn('Não foi possível recuperar o usuário autenticado', error);
+      console.warn('Nao foi possivel recuperar o usuario autenticado', error);
+    }
+
+    const userId = extractUserIdFromToken(storedToken);
+    if (!userId) return;
+
+    try {
+      const currentUser = await getUserById(userId);
+      if (currentUser) {
+        persistUser(currentUser);
+      }
+    } catch (error) {
+      console.warn('Nao foi possivel recuperar o usuario pelo endpoint /users', error);
     }
   }, [persistUser]);
 
@@ -234,3 +288,4 @@ export const useSessionUser = (options?: SessionUserOptions) => {
     role: user.role || fallbackRole,
   };
 };
+

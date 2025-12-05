@@ -344,7 +344,7 @@ const Users: React.FC = () => {
   const submitDisabled = !isValid || isSubmitting;
   const submitLabel = editingUser
     ? (isSubmitting ? 'Salvando...' : 'Salvar alteracoes')
-    : (isSubmitting ? 'Cadastrando...' : 'Cadastrar usuario');
+    : (isSubmitting ? 'Cadastrando...' : 'Cadastrar usuário');
 
   const startCreate = () => {
     setEditingUser(null);
@@ -368,7 +368,7 @@ const Users: React.FC = () => {
   };
 
   const deleteUser = async (id: number | string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este usuario?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir este usuário?')) return;
 
     try {
       await deleteUserById(id);
@@ -411,8 +411,8 @@ const Users: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Usuarios</h1>
-              <p className="text-sm text-[var(--muted)]">Gerenciamento de usuarios do sistema</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Usuários</h1>
+              <p className="text-sm text-[var(--muted)]">Gerenciamento de usuários do sistema</p>
             </div>
 
             {formError && (
@@ -511,7 +511,7 @@ const Users: React.FC = () => {
                 disabled={isLoadingUsers}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Cadastrar Usuario
+                Cadastrar Usuário
               </button>
             </div>
           </div>
@@ -542,7 +542,7 @@ const Users: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CPF</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Perfil</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">2FA</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Acoes</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">

@@ -686,14 +686,14 @@ const ContainerDetails: React.FC = () => {
   );
 
   const statusBadge = (() => {
-    const status = (container?.status || "").toString().toUpperCase();
-    if (status.includes("COMPLETE") || status === "COMPLETED" || status === "FINALIZADO") {
+    const statusRaw = (container?.status ?? "").toString().toUpperCase();
+    if (statusRaw.includes("COMPLETE") || statusRaw === "COMPLETED" || statusRaw.includes("FINAL")) {
       return { text: "Finalizado", className: "bg-green-100 text-green-800" };
     }
-    if (status.includes("PEND") || status === "PENDING") {
+    if (statusRaw.includes("PEND") || statusRaw === "PENDING") {
       return { text: "Parcial", className: "bg-yellow-100 text-yellow-800" };
     }
-    return { text: "Aberto", className: "bg-gray-200 text-gray-700" };
+    return { text: "Nao inicializado", className: "bg-gray-200 text-gray-700" };
   })();
   const isContainerFinalized = statusBadge.text === "Finalizado";
 
@@ -1210,8 +1210,6 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
-
-
 
 
 

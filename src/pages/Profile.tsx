@@ -1,5 +1,4 @@
-import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿import React, { useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth, useSessionUser, AuthUser } from '../context/AuthContext';
 
@@ -35,52 +34,61 @@ const roleBadgeClass = (r: Role): string => {
   }
 };
 
+const mapRoleFromApi = (role?: string): Role => {
+  const normalized = (role ?? '').toString().toUpperCase();
+  if (normalized === 'ADMIN' || normalized === 'ADMINISTRADOR') return 'Administrador';
+  if (normalized === 'GERENTE') return 'Gerente';
+  return 'Inspetor';
+};
+
+const formatCpf = (value?: string): string => {
+  if (!value) return '-';
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 11) return value;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
 const deriveProfileFromAuth = (authUser: AuthUser | null): ProfileUser => {
   const fallback: ProfileUser = {
-    firstName: 'Carlos',
-    lastName: 'Oliveira',
-    email: 'carlos.oliveira@empresa.com',
-    cpf: '123.456.789-00',
-    role: 'Gerente',
-    twoFactor: true,
-    createdAt: '2024-01-10',
-    lastLoginAt: '2025-08-26 09:12',
+    firstName: '-',
+    lastName: '',
+    email: '-',
+    cpf: '-',
+    role: 'Inspetor',
+    twoFactor: false,
+    createdAt: undefined,
+    lastLoginAt: undefined,
   };
 
   if (!authUser) {
     return fallback;
   }
 
-  const nameParts = authUser.name?.trim().split(' ') ?? [];
-  const derivedFirst = nameParts[0] ?? '';
-  const derivedLast = nameParts.slice(1).join(' ');
-
-  const firstName = authUser.firstName || derivedFirst || fallback.firstName;
-  const lastName = authUser.lastName || derivedLast || fallback.lastName;
-
-  const allowedRoles: Role[] = ['Administrador', 'Gerente', 'Inspetor'];
-  const normalizedRole = allowedRoles.includes(authUser.role as Role)
-    ? (authUser.role as Role)
-    : fallback.role;
+  const nameParts = authUser.name?.trim().split(' ').filter(Boolean) ?? [];
+  const firstName = authUser.firstName || nameParts[0] || fallback.firstName;
+  const lastName = authUser.lastName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : fallback.lastName);
 
   return {
     firstName,
     lastName,
     email: authUser.email || fallback.email,
-    cpf: authUser.cpf || fallback.cpf,
-    role: normalizedRole,
-    twoFactor: Boolean(
-      authUser.twoFactorEnabled ?? (authUser as { twoFactor?: boolean }).twoFactor ?? fallback.twoFactor
-    ),
+    cpf: formatCpf(authUser.cpf),
+    role: mapRoleFromApi(authUser.role),
+    twoFactor: Boolean(authUser.twoFactorEnabled ?? (authUser as { twoFactor?: boolean }).twoFactor ?? fallback.twoFactor),
     createdAt: authUser.createdAt || fallback.createdAt,
     lastLoginAt: authUser.lastLoginAt || fallback.lastLoginAt,
   };
 };
 
 const Profile: React.FC = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const sessionUser = useSessionUser();
+
+  useEffect(() => {
+    if (!user) {
+      refreshUser();
+    }
+  }, [user, refreshUser]);
 
   const userProfile = useMemo(() => deriveProfileFromAuth(user), [user]);
 
@@ -137,7 +145,7 @@ const Profile: React.FC = () => {
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <h3 className="text-lg font-semibold text-[var(--text)]">Informações Pessoais</h3>
-              <p className="text-sm text-[var(--muted)]">Dados bÃ¡sicos do seu cadastro</p>
+              <p className="text-sm text-[var(--muted)]">Dados básicos do seu cadastro</p>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
               <div>
@@ -166,25 +174,17 @@ const Profile: React.FC = () => {
           {/* SeguranÃ§a */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
-              <h3 className="text-lg font-semibold text-[var(--text)]">SeguranÃ§a</h3>
+              <h3 className="text-lg font-semibold text-[var(--text)]">Segurança</h3>
               <p className="text-sm text-[var(--muted)]">Informações relacionadas ao acesso</p>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
               <div>
-                <span className="text-[var(--muted)] block">AutenticaÃ§Ã£o de Dois Fatores (2FA)</span>
+                <span className="text-[var(--muted)] block">Autenticação de Dois Fatores (2FA)</span>
                 {userProfile.twoFactor ? (
                   <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
                 ) : (
                   <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-app text-gray-800">Desativado</span>
                 )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Criado em</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.createdAt || '-'}</span>
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Ãšltimo acesso</span>
-                <span className="text-[var(--text)] font-medium">{userProfile.lastLoginAt || '-'}</span>
               </div>
             </div>
           </section>

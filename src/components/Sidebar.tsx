@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, FileText, Users, FileBarChart, LogOut, User as UserIcon } from 'lucide-react';
+import { FileText, Users, FileBarChart, LogOut, User as UserIcon } from 'lucide-react';
 import ThemeContrastButton from './ThemeContrastButton';
 import { useSidebar } from '../context/SidebarContext';
 
@@ -26,7 +26,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
   const sidebarItems: SidebarItem[] = [
     { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' },
-    { id: 'dashboard', icon: <BarChart3 className="w-5 h-5" />, label: 'Dashboard' },
   ];
 
   const managementItems: SidebarItem[] = [
@@ -99,3 +98,5 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 };
 
 export default Sidebar;
+
+
