@@ -50,6 +50,66 @@ const coalesceText = (...values: unknown[]): string => {
   return found === undefined || found === null ? '' : String(found);
 };
 
+const numericToDate = (value: number): string => {
+  // heurísticas: timestamp em ms, segundos ou serial Excel
+  if (value > 1e12) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+  if (value > 1e9) {
+    const d = new Date(value * 1000);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+  // serial Excel (base 1899-12-30)
+  const excel = new Date(Math.round((value - 25569) * 86400 * 1000));
+  return Number.isNaN(excel.getTime()) ? '' : excel.toISOString().slice(0, 10);
+};
+
+const toDateOnly = (value: unknown): string => {
+  if (value === undefined || value === null) return '';
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === 'number') {
+    return numericToDate(value);
+  }
+
+  const text = String(value).trim();
+  if (!text) return '';
+
+  const normalized = text.replace(/\//g, '-');
+
+  // yyyy-mm-dd
+  if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) return normalized.slice(0, 10);
+
+  // dd-mm-yyyy ou d-m-yy
+  const dayFirst = normalized.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if (dayFirst) {
+    const [, d, m, y] = dayFirst;
+    const year = y.length === 2 ? `20${y}` : y.padStart(4, '0');
+    const date = new Date(Date.UTC(Number(year), Number(m) - 1, Number(d)));
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+  }
+
+  // número em string: tenta converter como serial/timestamp
+  if (/^\d+$/.test(normalized)) {
+    return numericToDate(Number(normalized));
+  }
+
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+};
+
+const coalesceDate = (...values: unknown[]): string => {
+  for (const v of values) {
+    const parsed = toDateOnly(v);
+    if (parsed) return parsed;
+  }
+  return '';
+};
+
 const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
   const text = String(value ?? '').toUpperCase();
   if (text === 'COMPLETED' || text.includes('FINAL') || text.includes('FECH')) return 'Fechada';
@@ -62,13 +122,6 @@ const mapApiContainerStatusToDisplay = (status?: ApiContainerStatus): ContainerS
   if (upper === 'COMPLETED' || upper.includes('FINAL')) return 'Completo';
   if (upper === 'PENDING') return 'Parcial';
   return 'Nao inicializado';
-};
-
-const toDateOnly = (value: string): string => {
-  if (!value) return '';
-  // Remove fração de tempo, mantendo apenas yyyy-MM-dd
-  const tIndex = value.indexOf('T');
-  return tIndex > 0 ? value.slice(0, tIndex) : value;
 };
 
 const mapOperation = (op: ApiOperation): OperationInfo => {
@@ -93,9 +146,9 @@ const mapOperation = (op: ApiOperation): OperationInfo => {
     exporter: coalesceText(op.exporter),
     destination: coalesceText(op.destination),
     ship: coalesceText(op.shipName, op.ship, op.vesselName, op.vessel, op.navio),
-    data: toDateOnly(coalesceText(op.data, op.arrivalDate)),
-    entrega: toDateOnly(coalesceText(op.entrega, op.loadDeadline)),
-    deadline: toDateOnly(coalesceText(op.deadlineDraft, op.loadDeadline, op.deadline)),
+    data: coalesceDate(op.data, op.arrivalDate),
+    entrega: coalesceDate(op.entrega, op.loadDeadline),
+    deadline: coalesceDate(op.deadlineDraft, op.loadDeadline, op.deadline),
   };
 };
 
@@ -338,18 +391,18 @@ const OperationDetails: React.FC = () => {
     };
   }, [decodedOperationId]);
 
-  const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
-    ctv: data.ctv,
-    ship: data.ship,
-    terminal: data.local,
-    deadlineDraft: toDateOnly(data.deadline),
-    destination: data.destination,
-    arrivalDate: toDateOnly(data.data),
-    reservation: data.reserva,
-    refClient: data.cliente,
-    loadDeadline: toDateOnly(data.entrega),
-    exporter: data.exporter,
-  });
+const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
+  ctv: data.ctv,
+  ship: data.ship,
+  terminal: data.local,
+  deadlineDraft: toDateOnly(data.deadline),
+  destination: data.destination,
+  arrivalDate: toDateOnly(data.data),
+  reservation: data.reserva,
+  refClient: data.cliente,
+  loadDeadline: toDateOnly(data.entrega),
+  exporter: data.exporter,
+});
 
   const startIdx = (page - 1) * PAGE_SIZE;
   const endIdx = Math.min(startIdx + PAGE_SIZE, total);

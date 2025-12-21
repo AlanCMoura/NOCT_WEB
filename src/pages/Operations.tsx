@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Upload, FileText, RefreshCcw } from 'lucide-react';
+import { Search, Upload, FileText, RefreshCcw, FileUp, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { getOperationStatus, type OperationStatus } from '../services/operationStatus';
-import { listOperations, type ApiOperation } from '../services/operations';
+import { createOperation, listOperations, type ApiOperation } from '../services/operations';
 import { getContainersByOperation } from '../services/containers';
 
 interface User { name: string; role: string; }
@@ -15,9 +16,25 @@ interface OperationItem {
   ctv: string;
   reserva: string;
   shipName: string;
-  date: string; // ISO or string
+  date: string;
   status: OperationStatus;
   containerCount?: number;
+}
+
+/**
+ * Payload para criação de operação via importação.
+ */
+interface ImportOperationPayload {
+  ctv: string;
+  reservation: string;
+  terminal: string;
+  exporter: string;
+  destination: string;
+  ship: string;
+  arrivalDate: string | null;
+  deadlineDraft: string | null;
+  refClient: string;
+  loadDeadline: string;
 }
 
 const formatDate = (iso: string) => {
@@ -44,6 +61,176 @@ const parseDateValue = (value: unknown): string => {
   if (typeof value === 'string') return value;
   return '';
 };
+
+const getDatePriority = (value: string): number => {
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+};
+
+const normalizeKey = (key: string) => key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const normalizeRowKeys = (row: Record<string, any>): Record<string, any> =>
+  Object.entries(row).reduce<Record<string, any>>((acc, [key, value]) => {
+    acc[normalizeKey(key)] = value;
+    return acc;
+  }, {});
+
+/**
+ * Busca um valor em uma linha usando múltiplas chaves possíveis.
+ */
+const pickCellValue = (row: Record<string, any>, keys: string[]): unknown => {
+  for (const key of keys) {
+    const normalized = normalizeKey(key);
+    const value = row[normalized];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+  return null;
+};
+
+/**
+ * Busca um valor de texto e retorna como string sanitizada.
+ */
+const pickCellText = (row: Record<string, any>, keys: string[]): string => {
+  const value = pickCellValue(row, keys);
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/\//g, '-').trim();
+};
+
+/**
+ * Converte qualquer valor de data para formato ISO-8601.
+ * Suporta:
+ * - Date objects (do XLSX com cellDates: true)
+ * - Strings ISO ("2025-01-15T00:00:00.000Z")
+ * - Strings formatadas ("15/01/2025", "2025-01-15", "1/15/25")
+ * - Números seriais do Excel
+ */
+const convertToISODate = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+
+  // Se for objeto Date (cellDates: true retorna Date)
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString();
+  }
+
+  // Se for string
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (!text) return null;
+
+    // Já está no formato ISO completo
+    if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
+      return text;
+    }
+
+    // Formato YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      return `${text}T12:00:00.000Z`;
+    }
+
+    // Formato DD/MM/YYYY ou DD-MM-YYYY
+    const brFormat = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (brFormat) {
+      const [, day, month, year] = brFormat;
+      const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12, 0, 0));
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+
+    // Formato M/D/YY ou M/D/YYYY (formato americano do Excel)
+    const usFormat = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (usFormat) {
+      const [, month, day, yearStr] = usFormat;
+      const year = yearStr.length === 2 ? 2000 + Number(yearStr) : Number(yearStr);
+      const d = new Date(Date.UTC(year, Number(month) - 1, Number(day), 12, 0, 0));
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+
+    // Tenta parse genérico
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2100) {
+      return parsed.toISOString();
+    }
+
+    return null;
+  }
+
+  // Se for número (serial do Excel)
+  if (typeof value === 'number') {
+    // Serial do Excel: dias desde 1900-01-01
+    // 25569 = dias entre 1900-01-01 e 1970-01-01 (epoch Unix)
+    const msPerDay = 86400 * 1000;
+    const date = new Date((value - 25569) * msPerDay);
+    
+    if (!Number.isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100) {
+      // Ajusta para meio-dia UTC
+      date.setUTCHours(12, 0, 0, 0);
+      return date.toISOString();
+    }
+    return null;
+  }
+
+  return null;
+};
+
+/**
+ * Converte data para formato YYYY-MM-DD (para campos que são String no backend).
+ */
+const convertToDateString = (value: unknown): string => {
+  const isoDate = convertToISODate(value);
+  if (!isoDate) return '';
+  return isoDate.slice(0, 10); // "2025-01-15T12:00:00.000Z" -> "2025-01-15"
+};
+
+const buildPayloadFromRow = (row: Record<string, any>): ImportOperationPayload => {
+  const normalizedRow = normalizeRowKeys(row);
+
+  // Busca os valores brutos das datas
+  const arrivalDateRaw = pickCellValue(normalizedRow, ['arrivaldate', 'datadechegada', 'eta']);
+  const deadlineDraftRaw = pickCellValue(normalizedRow, ['deadlinedraft', 'draft', 'cutoffdraft']);
+  const loadDeadlineRaw = pickCellValue(normalizedRow, ['loaddeadline', 'deadline', 'deadlinedeembarque', 'deadlinecarregamento', 'cutoff']);
+
+  const payload = {
+    ctv: pickCellText(normalizedRow, ['ctv']),
+    reservation: pickCellText(normalizedRow, ['reservation', 'reserva', 'booking', 'bookingcode']),
+    terminal: pickCellText(normalizedRow, ['terminal']),
+    exporter: pickCellText(normalizedRow, ['exporter', 'exportador']),
+    destination: pickCellText(normalizedRow, ['destination', 'destino']),
+    ship: pickCellText(normalizedRow, ['ship', 'navio', 'vessel', 'vesselname']),
+    // Datas para java.util.Date - formato ISO completo
+    arrivalDate: convertToISODate(arrivalDateRaw),
+    deadlineDraft: convertToISODate(deadlineDraftRaw),
+    refClient: pickCellText(normalizedRow, ['refclient', 'ref', 'cliente', 'referencia']),
+    // loadDeadline é String no backend - formato YYYY-MM-DD
+    loadDeadline: convertToDateString(loadDeadlineRaw),
+  };
+
+  // Debug log
+  console.log('Payload gerado:', {
+    ...payload,
+    _raw: {
+      arrivalDateRaw,
+      deadlineDraftRaw,
+      loadDeadlineRaw,
+    }
+  });
+
+  return payload;
+};
+
+const REQUIRED_IMPORT_FIELDS: Array<keyof ImportOperationPayload> = [
+  'ctv',
+  'reservation',
+  'terminal',
+  'exporter',
+  'destination',
+  'ship',
+  'arrivalDate',
+  'deadlineDraft',
+  'refClient',
+  'loadDeadline',
+];
 
 const mapApiOperation = (op: ApiOperation): OperationItem => {
   const idValue =
@@ -128,13 +315,25 @@ const Operations: React.FC = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalOperations, setTotalOperations] = useState(0);
   const [listError, setListError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const hasImportFeedback = Boolean(importMessage) || importErrors.length > 0;
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const fetchOperations = useCallback(
     async (targetPage = 0) => {
       setLoading(true);
       setListError(null);
       try {
-        const data = await listOperations({ page: targetPage, size: PAGE_SIZE, sortBy: 'id', sortDirection: 'ASC' });
+        const data = await listOperations({
+          page: targetPage,
+          size: PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDirection: 'DESC',
+        });
         const mapped = (data?.content ?? []).map(mapApiOperation);
 
         const operationsWithCount = await Promise.all(
@@ -157,10 +356,14 @@ const Operations: React.FC = () => {
           })
         );
 
-        setOperations(operationsWithCount);
+        const sortedOperations = [...operationsWithCount].sort(
+          (a, b) => getDatePriority(b.date) - getDatePriority(a.date)
+        );
+
+        setOperations(sortedOperations);
         setPage(data?.number ?? targetPage);
         setTotalPages(data?.totalPages ?? 0);
-        setTotalOperations(data?.totalElements ?? operationsWithCount.length);
+        setTotalOperations(data?.totalElements ?? sortedOperations.length);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Nao foi possivel carregar as operações.';
         setListError(msg);
@@ -170,6 +373,129 @@ const Operations: React.FC = () => {
     },
     [PAGE_SIZE]
   );
+
+  const handleImportFile = useCallback(
+    async (file: File) => {
+      setImporting(true);
+      setImportMessage(null);
+      setImportErrors([]);
+
+      try {
+        const buffer = await file.arrayBuffer();
+        
+        // IMPORTANTE: cellDates: true converte automaticamente datas do Excel para objetos Date
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
+
+        if (!sheet) {
+          throw new Error('Planilha vazia ou sem abas.');
+        }
+
+        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
+        
+        console.log('=== DADOS BRUTOS DO EXCEL ===');
+        console.log(JSON.stringify(rows, null, 2));
+        
+        if (!rows.length) {
+          throw new Error('Nenhuma linha encontrada na planilha.');
+        }
+
+        const results = { created: 0, errors: [] as string[] };
+
+        for (let i = 0; i < rows.length; i += 1) {
+          const payload = buildPayloadFromRow(rows[i]);
+          
+          console.log(`=== Linha ${i + 2} ===`);
+          console.log('Payload final:', JSON.stringify(payload, null, 2));
+          
+          const missing = REQUIRED_IMPORT_FIELDS.filter((field) => {
+            const value = payload[field];
+            return value === undefined || value === null || String(value).trim() === '';
+          });
+
+          if (missing.length) {
+            results.errors.push(`Linha ${i + 2}: faltam ${missing.join(', ')}`);
+            continue;
+          }
+
+          try {
+            await createOperation(payload as any);
+            results.created += 1;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Erro ao criar operacao';
+            results.errors.push(`Linha ${i + 2}: ${message}`);
+          }
+        }
+
+        if (results.created > 0) {
+          setImportMessage(`Importacao concluida: ${results.created} operacoes criadas.`);
+        } else if (results.errors.length) {
+          setImportMessage('Importacao finalizada com pendencias. Confira os erros abaixo.');
+        } else {
+          setImportMessage('Nenhuma operacao criada. Verifique o arquivo importado.');
+        }
+
+        setImportErrors(results.errors);
+        await fetchOperations(page);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Nao foi possivel importar o arquivo.';
+        setImportErrors([message]);
+      } finally {
+        setImporting(false);
+        if (importInputRef.current) {
+          importInputRef.current.value = '';
+        }
+      }
+    },
+    [fetchOperations, page]
+  );
+
+  const handleImportChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleImportFile(file);
+      setShowImportModal(false);
+      setIsDragOver(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    setImportMessage(null);
+    setImportErrors([]);
+    setShowImportModal(true);
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      handleImportFile(file);
+      setShowImportModal(false);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => setIsDragOver(false);
+
+  const triggerFileDialog = () => {
+    importInputRef.current?.click();
+  };
+
+  const clearImportFeedback = () => {
+    setImportMessage(null);
+    setImportErrors([]);
+  };
 
   useEffect(() => {
     fetchOperations(page);
@@ -258,6 +584,16 @@ const Operations: React.FC = () => {
               </div>
               <button
                 type="button"
+                onClick={handleImportClick}
+                className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors disabled:opacity-60"
+                disabled={importing}
+                title="Use colunas: ctv, reservation, terminal, exporter, destination, ship, arrivalDate, deadlineDraft, refClient, loadDeadline"
+              >
+                <FileUp className="w-4 h-4 mr-2" />
+                {importing ? 'Importando...' : 'Importar'}
+              </button>
+              <button
+                type="button"
                 onClick={() => fetchOperations(page)}
                 className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors"
                 disabled={loading}
@@ -269,6 +605,31 @@ const Operations: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {hasImportFeedback && (
+            <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm flex items-start justify-between gap-3">
+              <div>
+                {importMessage ? <p className="font-semibold text-[var(--text)]">{importMessage}</p> : null}
+                {importErrors.length ? (
+                  <div className="mt-2 space-y-1 text-[var(--muted)]">
+                    {importErrors.slice(0, 3).map((err, idx) => (
+                      <p key={idx}>• {err}</p>
+                    ))}
+                    {importErrors.length > 3 ? (
+                      <p>+ {importErrors.length - 3} erros adicionais.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={clearImportFeedback}
+                className="text-[var(--muted)] hover:text-[var(--text)] transition-colors text-xs font-medium"
+              >
+                Fechar
+              </button>
+            </div>
+          )}
 
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             {loading ? (
@@ -363,10 +724,78 @@ const Operations: React.FC = () => {
             </div>
           )}
         </main>
+
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeImportModal} />
+            <div className="relative w-full max-w-2xl mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-[var(--text)]">Importar operações</p>
+                  <p className="text-sm text-[var(--muted)]">
+                    Baixe o modelo, preencha os campos de texto e arraste o arquivo XLSX aqui para importar em lote.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeImportModal}
+                  className="p-2 rounded-full hover:bg-[var(--hover)] text-[var(--muted)]"
+                  aria-label="Fechar modal de importação"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--hover)] text-sm">
+                <div>
+                  <p className="text-[var(--text)] font-medium">Modelo para download</p>
+                  <p className="text-[var(--muted)]">Campos: ctv, reservation, terminal, exporter, destination, ship, arrivalDate, deadlineDraft, refClient, loadDeadline.</p>
+                </div>
+                <a
+                  href="/modelo-operacoes.xlsx"
+                  download
+                  className="inline-flex items-center px-3 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-semibold hover:opacity-90 transition-colors"
+                >
+                  Baixar modelo
+                </a>
+              </div>
+
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                  isDragOver ? 'border-[var(--primary)] bg-[var(--hover)]' : 'border-[var(--border)] bg-[var(--surface)]'
+                }`}
+              >
+                <FileUp className="w-10 h-10 mx-auto mb-3 text-[var(--primary)]" />
+                <p className="text-[var(--text)] font-semibold">Arraste o arquivo XLSX aqui</p>
+                <p className="text-sm text-[var(--muted)] mt-1">Ou selecione manualmente</p>
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={triggerFileDialog}
+                    className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors disabled:opacity-60"
+                    disabled={importing}
+                  >
+                    {importing ? 'Processando...' : 'Selecionar arquivo'}
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--muted)] mt-3">Apenas .xlsx ou .xls</p>
+              </div>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportChange}
+                className="hidden"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default Operations;
-
