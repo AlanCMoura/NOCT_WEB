@@ -39,7 +39,7 @@ const THEMES: Record<ThemeName, ThemeTokens> = {
     muted: '#6b7280', // gray-500
     border: '#e5e7eb', // gray-200
     surface: '#ffffff',
-    primary: '#14b8a6', // teal-500
+    primary: '#17bfa0', // containerview green
     onPrimary: '#ffffff',
     hover: '#f3f4f6', // gray-100
     sidebarBg: '#1e293b', // slate-800
@@ -53,7 +53,7 @@ const THEMES: Record<ThemeName, ThemeTokens> = {
     muted: '#94a3b8', // slate-400
     border: '#1f2937', // gray-800
     surface: '#0f172a', // slate-900ish surface
-    primary: '#14b8a6', // teal-500
+    primary: '#17bfa0', // containerview green
     onPrimary: '#0b1220',
     hover: '#223047', // slightly brighter hover for contrast
     sidebarBg: '#060a14', // darker sidebar for melhor contraste

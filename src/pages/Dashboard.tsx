@@ -131,7 +131,7 @@ const StatCard: React.FC<{
       </div>
       <div
         className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-          accent ?? 'bg-teal-50 text-teal-700'
+          accent ?? 'bg-[rgba(23,191,160,0.12)] text-[var(--primary)] border border-[rgba(23,191,160,0.3)]'
         }`}
       >
         {icon}
@@ -244,8 +244,8 @@ const MultiLineChart: React.FC<{ data: TrendPoint[]; showNovDecPair?: boolean }>
   const operationsPath = buildPath((p) => p.operations);
   const containersPath = buildPath((p) => p.containers);
 
-  const operationsColor = '#0ea5e9';
-  const containersColor = '#14b8a6';
+  const operationsColor = 'var(--accent-blue)';
+  const containersColor = 'var(--primary)';
 
   const clampIndex = (idx: number) => Math.min(Math.max(idx, 0), data.length - 1);
 
@@ -451,7 +451,7 @@ const TerminalBars: React.FC<{ data: { label: string; value: number }[] }> = ({ 
           </div>
           <div className="h-2 w-full rounded-full bg-[var(--hover)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-teal-500"
+              className="h-full rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--primary)]"
               style={{ width: `${(item.value / max) * 100}%` }}
             />
           </div>
@@ -560,8 +560,8 @@ const Dashboard: React.FC = () => {
     const open = operations.filter((op) => op.status === 'Aberta').length;
     const closed = operations.filter((op) => op.status === 'Fechada').length;
     return [
-      { label: 'Abertas', value: open, color: '#0ea5e9' },
-      { label: 'Fechadas', value: closed, color: '#22c55e' },
+      { label: 'Abertas', value: open, color: 'var(--accent-blue)' },
+      { label: 'Fechadas', value: closed, color: 'var(--accent-green)' },
     ];
   }, [operations]);
 
@@ -746,29 +746,29 @@ const Dashboard: React.FC = () => {
                   title="Operações registradas"
                   value={totalOperations}
                   helper="Total retornado pelo backend"
-                  icon={<Activity className="w-5 h-5" />}
-                  accent="bg-blue-50 text-blue-700"
+                  icon={<Activity className="w-5 h-5 text-[var(--accent-green)]" />}
+                  accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
                 />
                 <StatCard
                   title="Operações abertas"
                   value={statusSegments.find((s) => s.label === 'Abertas')?.value ?? 0}
                   helper="Em andamento"
-                  icon={<Clock3 className="w-5 h-5" />}
-                  accent="bg-amber-50 text-amber-700"
+                  icon={<Clock3 className="w-5 h-5 text-[var(--accent-green)]" />}
+                  accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
                 />
                 <StatCard
                   title="Operações fechadas"
                   value={statusSegments.find((s) => s.label === 'Fechadas')?.value ?? 0}
                   helper={`Taxa de conclusão: ${completionRate}%`}
-                  icon={<CheckCircle2 className="w-5 h-5" />}
-                  accent="bg-emerald-50 text-emerald-700"
+                  icon={<CheckCircle2 className="w-5 h-5 text-[var(--accent-green)]" />}
+                  accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
                 />
                 <StatCard
                   title="Containers totais"
                   value={totalContainers}
                   helper={`Média por operação: ${avgContainers}`}
-                  icon={<Package className="w-5 h-5" />}
-                  accent="bg-teal-50 text-teal-700"
+                  icon={<Package className="w-5 h-5 text-[var(--accent-green)]" />}
+                  accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
                 />
               </div>
 
@@ -795,7 +795,7 @@ const Dashboard: React.FC = () => {
                           </button>
                         ))}
                       </div>
-                      <TrendingUp className="w-5 h-5 text-[var(--muted)]" />
+                      <TrendingUp className="w-5 h-5 text-[var(--accent-green)]" />
                     </div>
                   </div>
                   <MultiLineChart data={monthlyTrend} />
@@ -807,7 +807,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-sm text-[var(--muted)]">Distribuição por status</p>
                       <p className="text-lg font-semibold text-[var(--text)]">Acompanhamento das operaçõess</p>
                     </div>
-                    <Ship className="w-5 h-5 text-[var(--muted)]" />
+                    <Ship className="w-5 h-5 text-[var(--accent-green)]" />
                   </div>
                   <div className="flex p-10">
                     <DonutChart segments={statusSegments} size={240} />
@@ -866,7 +866,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-sm text-[var(--muted)]">Terminais frequentes</p>
                       <p className="text-lg font-semibold text-[var(--text)]">Distribuição</p>
                     </div>
-                    <MapPin className="w-5 h-5 text-[var(--muted)]" />
+                    <MapPin className="w-5 h-5 text-[var(--accent-green)]" />
                   </div>
                   {topTerminals.length === 0 ? (
                     <p className="text-sm text-[var(--muted)]">Sem terminais informados.</p>

@@ -20,8 +20,10 @@
   --muted: #64748b;
   --border: #e5e7eb;
   --surface: #ffffff;
-  --primary: #14b8a6;
+  --primary: #17bfa0;
   --on-primary: #ffffff;
+  --accent-blue: #0ea5e9;
+  --accent-green: #17bfa0;
   --hover: #f1f5f9;
   --sidebar-bg: #0f172a;
   --sidebar-text: #e2e8f0;
@@ -34,8 +36,10 @@
   --muted: #94a3b8;
   --border: #1f2937;
   --surface: #0f172a;
-  --primary: #14b8a6;
+  --primary: #17bfa0;
   --on-primary: #0b1220;
+  --accent-blue: #38bdf8;
+  --accent-green: #17bfa0;
   --hover: #1e293b;
   --sidebar-bg: #0b1220;
   --sidebar-text: #e2e8f0;
