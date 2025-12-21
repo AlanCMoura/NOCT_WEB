@@ -122,7 +122,7 @@ const Login: React.FC = () => {
     } catch (error) {
       console.warn('Não foi possível atualizar o usuário autenticado', error);
     }
-    navigate('/operations');
+    navigate('/dashboard');
   };
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {

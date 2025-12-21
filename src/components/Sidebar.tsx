@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Users, FileBarChart, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, FileBarChart, LogOut, User as UserIcon } from 'lucide-react';
 import ThemeContrastButton from './ThemeContrastButton';
 import { useSidebar } from '../context/SidebarContext';
 
@@ -25,6 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const activePage = currentPage ?? ctxPage;
 
   const sidebarItems: SidebarItem[] = [
+    { id: 'dashboard', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
     { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' },
   ];
 
@@ -79,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         </div>
 
         <div className="mb-6">
-          <div className="text-xs text-[var(--sidebar-muted)] uppercase tracking-wider mb-3">Gestao</div>
+          <div className="text-xs text-[var(--sidebar-muted)] uppercase tracking-wider mb-3">Gestão</div>
           {renderNavItems(managementItems)}
         </div>
 
@@ -98,5 +99,3 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 };
 
 export default Sidebar;
-
-

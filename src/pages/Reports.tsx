@@ -423,44 +423,6 @@ const Reports: React.FC = () => {
             </div>
           )}
 
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-[var(--muted)]">Total de operções</span>
-                <FileText className="w-4 h-4 text-[var(--muted)]" />
-              </div>
-              <div className="text-3xl font-bold text-[var(--text)]">{summary.total}</div>
-              <p className="text-xs text-[var(--muted)]">Dados mais recentes{lastSync ? ` - ${formatDate(lastSync)}` : ''}</p>
-            </div>
-
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-[var(--muted)]">Operações abertas</span>
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="text-3xl font-bold text-[var(--text)]">{summary.abertas}</div>
-              <p className="text-xs text-[var(--muted)]">Inclui pendencias para acompanhamento</p>
-            </div>
-
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-[var(--muted)]">Operações fechadas</span>
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="text-3xl font-bold text-[var(--text)]">{summary.fechadas}</div>
-              <p className="text-xs text-[var(--muted)]">Operações finalizadas</p>
-            </div>
-
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-[var(--muted)]">Containers associados</span>
-                <ClipboardList className="w-4 h-4 text-sky-500" />
-              </div>
-              <div className="text-3xl font-bold text-[var(--text)]">{summary.containers}</div>
-              <p className="text-xs text-[var(--muted)]">Soma de todos os containers</p>
-            </div>
-          </section>
-
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)] flex items-center justify-between flex-wrap gap-3">
               <div>

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
 export type SidebarPage =
+  | 'dashboard'
   | 'operations'
   | 'usuarios'
   | 'relatorios'
@@ -30,11 +31,12 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const initialPage = useMemo<SidebarPage>(() => {
     const path = location.pathname;
+    if (path.startsWith('/dashboard')) return 'dashboard';
     if (path.startsWith('/operations')) return 'operations';
     if (path.startsWith('/users')) return 'usuarios';
     if (path.startsWith('/reports')) return 'relatorios';
     if (path.startsWith('/profile')) return 'perfil';
-    return 'operations';
+    return 'dashboard';
   }, [location.pathname]);
 
   const [currentPage, setCurrentPage] = useState<SidebarPage>(initialPage);
@@ -48,6 +50,9 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     (pageId: SidebarPage) => {
       setCurrentPage(pageId);
       switch (pageId) {
+        case 'dashboard':
+          navigate('/dashboard');
+          break;
         case 'operations':
           navigate('/operations');
           break;
