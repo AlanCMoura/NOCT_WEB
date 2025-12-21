@@ -223,6 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = useCallback(() => {
     setAuthToken(null);
     setToken(null);
+    localStorage.removeItem('token');
     persistUser(null);
   }, [persistUser]);
 

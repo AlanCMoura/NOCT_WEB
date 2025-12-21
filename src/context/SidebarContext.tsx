@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
 export type SidebarPage =
   | 'operations'
@@ -24,6 +25,7 @@ const SidebarContext = createContext<SidebarContextValue | undefined>(undefined)
 export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const initialPage = useMemo<SidebarPage>(() => {
@@ -42,33 +44,36 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentPage(initialPage);
   }, [initialPage]);
 
-  const changePage = (pageId: SidebarPage) => {
-    setCurrentPage(pageId);
-    switch (pageId) {
-      case 'operations':
-        navigate('/operations');
-        break;
-      case 'perfil':
-        navigate('/profile');
-        break;
-      case 'usuarios':
-        navigate('/users');
-        break;
-      case 'relatorios':
-        navigate('/reports');
-        break;
-      case 'cadastrar':
-        navigate('/register-inspector');
-        break;
-      case 'logout':
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        break;
-      default:
-        break;
-    }
-  };
+  const changePage = React.useCallback(
+    (pageId: SidebarPage) => {
+      setCurrentPage(pageId);
+      switch (pageId) {
+        case 'operations':
+          navigate('/operations');
+          break;
+        case 'perfil':
+          navigate('/profile');
+          break;
+        case 'usuarios':
+          navigate('/users');
+          break;
+        case 'relatorios':
+          navigate('/reports');
+          break;
+        case 'cadastrar':
+          navigate('/register-inspector');
+          break;
+        case 'logout':
+          logout();
+          localStorage.removeItem('token');
+          navigate('/login');
+          break;
+        default:
+          break;
+      }
+    },
+    [logout, navigate]
+  );
 
   const value = useMemo<SidebarContextValue>(() => ({
     currentPage,
@@ -77,7 +82,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCollapsed: setIsCollapsed,
     toggleCollapsed: () => setIsCollapsed((v) => !v),
     changePage,
-  }), [currentPage, isCollapsed]);
+  }), [currentPage, isCollapsed, changePage]);
 
   return (
     <SidebarContext.Provider value={value}>
