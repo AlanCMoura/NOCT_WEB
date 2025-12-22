@@ -805,7 +805,7 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-sm text-[var(--muted)]">Distribuição por status</p>
-                      <p className="text-lg font-semibold text-[var(--text)]">Acompanhamento das operaçõess</p>
+                      <p className="text-lg font-semibold text-[var(--text)]">Acompanhamento das operações</p>
                     </div>
                     <Ship className="w-5 h-5 text-[var(--accent-green)]" />
                   </div>
