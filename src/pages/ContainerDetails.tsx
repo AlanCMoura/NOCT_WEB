@@ -208,7 +208,6 @@ const ContainerDetails: React.FC = () => {
   const [headerStatusLoading, setHeaderStatusLoading] = useState<boolean>(false);
   const [operationCtv, setOperationCtv] = useState<string>("");
   const [operationLabelLoading, setOperationLabelLoading] = useState<boolean>(true);
-
   /**
    * CORREÃ‡ÃƒO 7: Ref para prevenir submissÃµes duplicadas
    */
@@ -862,7 +861,6 @@ const ContainerDetails: React.FC = () => {
               {success}
             </div>
           )}
-
           <input
             ref={fileInputRef}
             type="file"
@@ -1201,7 +1199,6 @@ const ContainerDetails: React.FC = () => {
             ))}
           </div>
 
-          {/* Modal de Imagem - CORREÃ‡ÃƒO 9: RenderizaÃ§Ã£o separada */}
           {renderImageModal()}
         </main>
       </div>
@@ -1210,6 +1207,3 @@ const ContainerDetails: React.FC = () => {
 };
 
 export default ContainerDetails;
-
-
-

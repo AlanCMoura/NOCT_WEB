@@ -322,6 +322,7 @@ const Operations: React.FC = () => {
   const hasImportFeedback = Boolean(importMessage) || importErrors.length > 0;
   const [showImportModal, setShowImportModal] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
 
   const fetchOperations = useCallback(
     async (targetPage = 0) => {
@@ -443,6 +444,7 @@ const Operations: React.FC = () => {
         setImportErrors([message]);
       } finally {
         setImporting(false);
+        setSelectedImportFile(null);
         if (importInputRef.current) {
           importInputRef.current.value = '';
         }
@@ -454,8 +456,7 @@ const Operations: React.FC = () => {
   const handleImportChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      handleImportFile(file);
-      setShowImportModal(false);
+      setSelectedImportFile(file);
       setIsDragOver(false);
     }
   };
@@ -463,12 +464,14 @@ const Operations: React.FC = () => {
   const handleImportClick = () => {
     setImportMessage(null);
     setImportErrors([]);
+    setSelectedImportFile(null);
     setShowImportModal(true);
   };
 
   const closeImportModal = () => {
     setShowImportModal(false);
     setIsDragOver(false);
+    setSelectedImportFile(null);
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -476,8 +479,7 @@ const Operations: React.FC = () => {
     setIsDragOver(false);
     const file = event.dataTransfer.files?.[0];
     if (file) {
-      handleImportFile(file);
-      setShowImportModal(false);
+      setSelectedImportFile(file);
     }
   };
 
@@ -490,6 +492,12 @@ const Operations: React.FC = () => {
 
   const triggerFileDialog = () => {
     importInputRef.current?.click();
+  };
+
+  const startImport = async () => {
+    if (!selectedImportFile || importing) return;
+    await handleImportFile(selectedImportFile);
+    setShowImportModal(false);
   };
 
   const clearImportFeedback = () => {
@@ -749,7 +757,6 @@ const Operations: React.FC = () => {
               <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--hover)] text-sm">
                 <div>
                   <p className="text-[var(--text)] font-medium">Modelo para download</p>
-                  <p className="text-[var(--muted)]">Campos: ctv, reservation, terminal, exporter, destination, ship, arrivalDate, deadlineDraft, refClient, loadDeadline.</p>
                 </div>
                 <a
                   href="/modelo-operacoes.xlsx"
@@ -771,7 +778,7 @@ const Operations: React.FC = () => {
                 <FileUp className="w-10 h-10 mx-auto mb-3 text-[var(--primary)]" />
                 <p className="text-[var(--text)] font-semibold">Arraste o arquivo XLSX aqui</p>
                 <p className="text-sm text-[var(--muted)] mt-1">Ou selecione manualmente</p>
-                <div className="mt-4 flex justify-center">
+                <div className="mt-4 flex flex-col items-center gap-2">
                   <button
                     type="button"
                     onClick={triggerFileDialog}
@@ -781,7 +788,9 @@ const Operations: React.FC = () => {
                     {importing ? 'Processando...' : 'Selecionar arquivo'}
                   </button>
                 </div>
-                <p className="text-xs text-[var(--muted)] mt-3">Apenas .xlsx ou .xls</p>
+                <p className="text-xs text-[var(--muted)] mt-3">
+                  {selectedImportFile ? `Selecionado: ${selectedImportFile.name}` : 'Apenas .xlsx ou .xls'}
+                </p>
               </div>
               <input
                 ref={importInputRef}
@@ -790,6 +799,16 @@ const Operations: React.FC = () => {
                 onChange={handleImportChange}
                 className="hidden"
               />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={startImport}
+                  className="inline-flex items-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-semibold hover:opacity-90 transition-colors disabled:opacity-60"
+                  disabled={!selectedImportFile || importing}
+                >
+                  {importing ? 'Importando...' : 'Importar arquivo'}
+                </button>
+              </div>
             </div>
           </div>
         )}

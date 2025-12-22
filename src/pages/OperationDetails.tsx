@@ -1,13 +1,14 @@
 ﻿import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Trash2, Plus } from 'lucide-react';
+import { Search, Trash2, Plus, FileUp, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
-import { deleteContainer, getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
+import { createContainer, deleteContainer, getContainersByOperation, type ApiContainer, type ApiContainerStatus, type CreateContainerPayload } from '../services/containers';
 
 interface User {
   name: string;
@@ -110,6 +111,28 @@ const coalesceDate = (...values: unknown[]): string => {
   return '';
 };
 
+const normalizeKey = (key: string) => key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+const sanitizeText = (value: string): string => value.replace(/\//g, '-').trim();
+const normalizeRowKeys = (row: Record<string, any>): Record<string, any> =>
+  Object.entries(row).reduce<Record<string, any>>((acc, [key, value]) => {
+    acc[normalizeKey(key)] = value;
+    return acc;
+  }, {});
+const pickCell = (row: Record<string, any>, keys: string[]): string => {
+  for (const key of keys) {
+    const normalized = normalizeKey(key);
+    const value = row[normalized];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return sanitizeText(String(value));
+    }
+  }
+  return '';
+};
+const toOptionalNumber = (value: string): number | undefined => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+};
+
 const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
   const text = String(value ?? '').toUpperCase();
   if (text === 'COMPLETED' || text.includes('FINAL') || text.includes('FECH')) return 'Fechada';
@@ -117,11 +140,11 @@ const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
 };
 
 const mapApiContainerStatusToDisplay = (status?: ApiContainerStatus): ContainerStatus => {
-  if (!status) return 'Nao inicializado';
+  if (!status) return 'Não inicializado';
   const upper = String(status).toUpperCase();
   if (upper === 'COMPLETED' || upper.includes('FINAL')) return 'Completo';
   if (upper === 'PENDING') return 'Parcial';
-  return 'Nao inicializado';
+  return 'Não inicializado';
 };
 
 const mapOperation = (op: ApiOperation): OperationInfo => {
@@ -269,6 +292,13 @@ const OperationDetails: React.FC = () => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [deleteContainerLoading, setDeleteContainerLoading] = useState<string | null>(null);
+  const [importingContainers, setImportingContainers] = useState<boolean>(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
+  const [isDragOverImport, setIsDragOverImport] = useState<boolean>(false);
+  const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const sectionsLoading = (loadingOp || containersLoading) && !loadError;
   const controlsDisabled = sectionsLoading;
   const operationLabel = opInfo.ctv || decodedOperationId;
@@ -294,7 +324,7 @@ const OperationDetails: React.FC = () => {
     const q = containerSearch.trim().toLowerCase();
     const byStatus = (statusKey === 'todos')
       ? containers
-      : containers.filter(c => statusOf(c.id) === (statusKey === 'ni' ? 'Nao inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo'));
+      : containers.filter(c => statusOf(c.id) === (statusKey === 'ni' ? 'Não inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo'));
 
     if (!q) return byStatus;
     return byStatus.filter((c) => {
@@ -328,11 +358,165 @@ const OperationDetails: React.FC = () => {
       await deleteContainer(containerId);
       setContainers((prev) => prev.filter((c) => c.id !== containerId));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Nao foi possivel excluir o container.';
+      const msg = err instanceof Error ? err.message : 'Não foi possivel excluir o container.';
       setLoadError(msg);
     } finally {
       setDeleteContainerLoading(null);
     }
+  };
+
+  const buildContainerPayloadFromRow = (row: Record<string, any>): CreateContainerPayload => {
+    const normalized = normalizeRowKeys(row);
+    const containerId = pickCell(normalized, ['containerid', 'id', 'codigo', 'identificacao', 'container']);
+    const description = pickCell(normalized, ['description', 'descricao', 'desc']);
+    const sacksCount = toOptionalNumber(pickCell(normalized, ['sackscount', 'sacos', 'sacas', 'quantidade']));
+    const tareKg = toOptionalNumber(pickCell(normalized, ['tarekg', 'tara', 'tare', 'tara_kg']));
+    const liquidWeight = toOptionalNumber(pickCell(normalized, ['liquidweight', 'peso_liquido', 'liquid', 'liquido']));
+    const grossWeight = toOptionalNumber(pickCell(normalized, ['grossweight', 'peso_bruto', 'bruto']));
+    const agencySeal = pickCell(normalized, ['agencyseal', 'lacre', 'lacreprincipal', 'lacres']);
+    const otherSealsRaw = pickCell(normalized, ['otherseals', 'lacresoutros', 'outroslacres']);
+    const otherSeals = otherSealsRaw
+      ? otherSealsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    return {
+      containerId,
+      description,
+      operationId: Number(decodedOperationId),
+      sacksCount: sacksCount ?? undefined,
+      tareTons: tareKg !== undefined ? tareKg / 1000 : undefined,
+      liquidWeight: liquidWeight ?? undefined,
+      grossWeight: grossWeight ?? undefined,
+      agencySeal,
+      otherSeals,
+    };
+  };
+
+  const REQUIRED_CONTAINER_FIELDS: Array<keyof CreateContainerPayload> = ['containerId', 'description', 'operationId'];
+
+  const refreshContainers = useCallback(async () => {
+    try {
+      const page = await getContainersByOperation(decodedOperationId, { page: 0, size: 200, sortBy: 'id', sortDirection: 'ASC' });
+      const mappedFromApi = mapApiContainers(page.content || []);
+      if (mappedFromApi.length) {
+        setContainers(mappedFromApi);
+        setPage(1);
+      }
+    } catch {
+      // silencioso
+    }
+  }, [decodedOperationId, setPage]);
+
+  const handleImportContainers = useCallback(
+    async (file: File) => {
+      if (!decodedOperationId || !Number.isFinite(Number(decodedOperationId))) {
+        setImportErrors(['ID da operação inválido para importação de containers.']);
+        return;
+      }
+
+      setImportingContainers(true);
+      setImportMessage(null);
+      setImportErrors([]);
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
+        if (!sheet) throw new Error('Planilha vazia ou sem abas.');
+
+        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
+        if (!rows.length) throw new Error('Nenhuma linha encontrada na planilha.');
+
+        const results = { created: 0, errors: [] as string[] };
+
+        for (let i = 0; i < rows.length; i += 1) {
+          const payload = buildContainerPayloadFromRow(rows[i]);
+          const missing = REQUIRED_CONTAINER_FIELDS.filter((field) => {
+            const value = payload[field];
+            return value === undefined || value === null || String(value).trim() === '';
+          });
+          if (missing.length) {
+            results.errors.push(`Linha ${i + 2}: faltam ${missing.join(', ')}`);
+            continue;
+          }
+
+          try {
+            await createContainer(payload);
+            results.created += 1;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Erro ao criar container';
+            results.errors.push(`Linha ${i + 2}: ${message}`);
+          }
+        }
+
+        if (results.created > 0) {
+          setImportMessage(`Importação concluída: ${results.created} containers criados.`);
+        } else if (results.errors.length) {
+          setImportMessage('Importação finalizada com pendências. Confira os erros abaixo.');
+        } else {
+          setImportMessage('Nenhum container criado. Verifique o arquivo importado.');
+        }
+
+        setImportErrors(results.errors);
+        await refreshContainers();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Não foi possível importar o arquivo.';
+        setImportErrors([message]);
+      } finally {
+        setImportingContainers(false);
+        setSelectedImportFile(null);
+        if (importInputRef.current) {
+          importInputRef.current.value = '';
+        }
+      }
+    },
+    [decodedOperationId, refreshContainers]
+  );
+
+  const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImportFile(file);
+      setIsDragOverImport(false);
+    }
+  };
+
+  const handleImportDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOverImport(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      setSelectedImportFile(file);
+    }
+  };
+
+  const handleImportDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOverImport(true);
+  };
+
+  const handleImportDragLeave = () => setIsDragOverImport(false);
+
+  const openImportModal = () => {
+    setImportMessage(null);
+    setImportErrors([]);
+    setSelectedImportFile(null);
+    setShowImportModal(true);
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setIsDragOverImport(false);
+    setSelectedImportFile(null);
+  };
+
+  const triggerImportPicker = () => importInputRef.current?.click();
+
+  const startImport = async () => {
+    if (!selectedImportFile || importingContainers) return;
+    await handleImportContainers(selectedImportFile);
+    setShowImportModal(false);
   };
 
   // Carrega dados reais da operacao e containers (se retornados pela API)
@@ -375,7 +559,7 @@ const OperationDetails: React.FC = () => {
         setPage(1);
       } catch (err) {
         if (!active) return;
-        const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar a operacao.';
+        const msg = err instanceof Error ? err.message : 'Não foi possivel carregar a operacao.';
         setLoadError(msg);
       } finally {
         if (active) {
@@ -477,7 +661,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
       await deleteOperation(decodedOperationId);
       navigate('/operations');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Nao foi possivel excluir a operação.';
+      const msg = err instanceof Error ? err.message : 'Não foi possivel excluir a operação.';
       setDeleteError(msg);
     } finally {
       setDeleteLoading(false);
@@ -490,7 +674,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
     setSaveMessage(null);
 
     if (!decodedOperationId) {
-      setSaveError('Operacao nao encontrada para atualizar.');
+      setSaveError('Operação não encontrada para atualizar.');
       return;
     }
 
@@ -503,7 +687,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
       setSaveMessage('Operação atualizada com sucesso.');
       dispatch({ type: 'setEditing', value: false });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Nao foi possivel atualizar a operação.';
+      const msg = err instanceof Error ? err.message : 'Não foi possível atualizar a operação.';
       setSaveError(msg);
     } finally {
       setSavingOp(false);
@@ -537,7 +721,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
       dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
       setOperationStatus(normalizeStatus(updated.status));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Nao foi possivel atualizar o status.';
+      const msg = err instanceof Error ? err.message : 'Não foi possível atualizar o status.';
       setStatusError(msg);
       setOperationStatus(prevStatus);
     } finally {
@@ -597,7 +781,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
               <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm">
                 <div className="p-6 border-b border-[var(--border)] flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operação</h2>
+                    <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
                   </div>
                   <div className="flex items-center gap-3">
                   <button
@@ -668,6 +852,41 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
               {saveError}
             </div>
           )}
+          {importMessage || importErrors.length ? (
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm flex items-start justify-between gap-3">
+              <div>
+                {importMessage ? <p className="font-semibold text-[var(--text)]">{importMessage}</p> : null}
+                {importErrors.length ? (
+                  <div className="mt-1 space-y-1 text-[var(--muted)]">
+                    {importErrors.slice(0, 3).map((err, idx) => (
+                      <p key={idx}>• {err}</p>
+                    ))}
+                    {importErrors.length > 3 ? (
+                      <p>+ {importErrors.length - 3} erros adicionais.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportMessage(null);
+                  setImportErrors([]);
+                }}
+                className="text-[var(--muted)] hover:text-[var(--text)] text-xs font-medium"
+              >
+                Fechar
+              </button>
+            </div>
+          ) : null}
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleImportFileChange}
+            aria-hidden="true"
+          />
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -892,7 +1111,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                       title="Filtrar containers pelo status"
                     >
                       <option value="todos">Todos os Status</option>
-                    <option value="ni">Nao inicializado</option>
+                    <option value="ni">Não inicializado</option>
                     <option value="parcial">Parcial</option>
                     <option value="completo">Completo</option>
                   </select>
@@ -905,6 +1124,16 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Novo Container
+                </button>
+                <button
+                  type="button"
+                  onClick={openImportModal}
+                  disabled={controlsDisabled}
+                  className="inline-flex items-center px-4 py-2 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] rounded-lg text-sm font-medium hover:bg-[var(--hover)] transition-colors gap-2"
+                  title="Importar containers via planilha XLSX"
+                >
+                  <FileUp className="w-4 h-4" />
+                  Importar
                 </button>
                 <button
                   aria-label="Ver overview da operação"
@@ -1012,6 +1241,79 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
               </div>
             )}
           </section>
+
+          {showImportModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="fixed inset-0 bg-black/40" onClick={closeImportModal} />
+              <div className="relative z-10 w-full max-w-2xl mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-[var(--text)]">Importar containers</p>
+                    <p className="text-sm text-[var(--muted)]">
+                      Baixe o modelo, preencha os campos e arraste o arquivo XLSX aqui para criar containers.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeImportModal}
+                    className="p-2 rounded-full hover:bg-[var(--hover)] text-[var(--muted)]"
+                    aria-label="Fechar modal de importação"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--hover)] text-sm">
+                  <div>
+                    <p className="text-[var(--text)] font-medium">Modelo para download</p>
+                  </div>
+                  <a
+                    href="/modelo-containers.xlsx"
+                    download
+                    className="inline-flex items-center px-3 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-semibold hover:opacity-90 transition-colors"
+                  >
+                    Baixar modelo
+                  </a>
+                </div>
+
+                <div
+                  onDrop={handleImportDrop}
+                  onDragOver={handleImportDragOver}
+                  onDragLeave={handleImportDragLeave}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                    isDragOverImport ? 'border-[var(--primary)] bg-[var(--hover)]' : 'border-[var(--border)] bg-[var(--surface)]'
+                  }`}
+                >
+                  <FileUp className="w-10 h-10 mx-auto mb-3 text-[var(--primary)]" />
+                  <p className="text-[var(--text)] font-semibold">Arraste o arquivo XLSX aqui</p>
+                  <p className="text-sm text-[var(--muted)] mt-1">Ou selecione manualmente</p>
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={triggerImportPicker}
+                      className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors disabled:opacity-60"
+                      disabled={importingContainers}
+                    >
+                      {importingContainers ? 'Processando...' : 'Selecionar arquivo'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mt-3">
+                    {selectedImportFile ? `Selecionado: ${selectedImportFile.name}` : 'Apenas .xlsx ou .xls'}
+                  </p>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={startImport}
+                    className="inline-flex items-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-semibold hover:opacity-90 transition-colors disabled:opacity-60"
+                    disabled={!selectedImportFile || importingContainers}
+                  >
+                    {importingContainers ? 'Importando...' : 'Importar arquivo'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           </>
           )}
         </main>
