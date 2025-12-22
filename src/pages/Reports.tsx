@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { listOperations, type ApiOperation } from '../services/operations';
 import { getContainersByOperation } from '../services/containers';
+import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 type StatusKey = 'todos' | 'aberta' | 'fechada';
 
@@ -304,7 +305,7 @@ const Reports: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `relatrios-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.csv`;
+    link.download = `Relatório de operações-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -320,6 +321,9 @@ const Reports: React.FC = () => {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+
+    const firstCtv = list[0]?.ctv || list[0]?.id || 'operacao';
+    const docTitle = list.length === 1 ? `Relatório ${firstCtv}` : 'Relatório de operações';
 
     const rowsHtml = list
       .map(
@@ -339,10 +343,11 @@ const Reports: React.FC = () => {
     const html = `
       <html>
         <head>
-          <title>Relatorio de operacoes</title>
+          <title>${safe(docTitle)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
-            h2 { margin: 0 0 8px; }
+            .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+            h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
             p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
             th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
@@ -351,7 +356,10 @@ const Reports: React.FC = () => {
           </style>
         </head>
         <body>
-          <h2>Relatorio de operacoes</h2>
+          <div class="header">
+            <h2>${safe(docTitle)}</h2>
+            <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
+          </div>
           <p>Gerado em ${safe(new Date().toLocaleString())}</p>
           <table>
             <thead>
@@ -370,15 +378,27 @@ const Reports: React.FC = () => {
       </html>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) {
-      window.alert('Nao foi possivel abrir o PDF. Verifique o bloqueador de pop-ups.');
-      return;
-    }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc) doc.title = docTitle;
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 300);
+      }
+    };
   };
 
   const rowsForTable = filteredRows.slice(0, 50);

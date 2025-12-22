@@ -4,8 +4,9 @@ import Sidebar from '../components/Sidebar';
 import { Search, Edit, Download } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
+import { getContainersByOperation, updateContainer, type ApiContainer, type ApiContainerStatus, type UpdateContainerPayload } from '../services/containers';
 import { getOperationById } from '../services/operations';
+import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 interface ContainerRow {
   id: string;
@@ -32,12 +33,21 @@ const mapApiContainer = (c: ApiContainer, index: number): ContainerRow => {
   };
 };
 
-const statusDisplay = (status?: ApiContainerStatus) => {
+type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
+
+const statusKeyOfRow = (status?: ApiContainerStatus): StatusKey => {
   const norm = String(status || '').toUpperCase();
-  if (norm === 'COMPLETED') return { label: 'Finalizado', className: 'bg-green-100 text-green-800' };
-  if (norm === 'PENDING') return { label: 'Parcial', className: 'bg-yellow-100 text-yellow-800' };
-  if (norm === 'OPEN') return { label: 'Aberto', className: 'bg-gray-200 text-gray-700' };
-  return { label: '-', className: 'bg-gray-200 text-gray-700' };
+  if (norm.includes('COMP')) return 'completo';
+  if (norm.includes('PEND') || norm.includes('PARC')) return 'parcial';
+  // trata desconhecidos ou vazios como não inicializado
+  return 'ni';
+};
+
+const statusDisplay = (status?: ApiContainerStatus) => {
+  const key = statusKeyOfRow(status);
+  if (key === 'completo') return { label: 'Finalizado', className: 'bg-green-100 text-green-800' };
+  if (key === 'parcial') return { label: 'Parcial', className: 'bg-yellow-100 text-yellow-800' };
+  return { label: 'Não inicializado', className: 'bg-gray-200 text-gray-700' };
 };
 
 const OperationOverview: React.FC = () => {
@@ -58,6 +68,9 @@ const OperationOverview: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState<boolean>(false);
 
   // Atualiza quando navega para outra operacao
   useEffect(() => {
@@ -96,7 +109,7 @@ const OperationOverview: React.FC = () => {
         setRows(mapped);
         setDraftRows(mapped);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar os containers.';
+        const msg = err instanceof Error ? err.message : 'Não foi possivel carregar os containers.';
         setLoadError(msg);
       } finally {
         setLoading(false);
@@ -105,22 +118,12 @@ const OperationOverview: React.FC = () => {
     load();
   }, [decodedOperationId]);
 
-  type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
   const [statusKey, setStatusKey] = useState<StatusKey>('todos');
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = q ? rows.filter((r) => r.id.toLowerCase().includes(q)) : rows;
     if (statusKey === 'todos') return base;
-
-    const matchesStatus = (status?: ApiContainerStatus) => {
-      const norm = String(status || '').toUpperCase();
-      if (statusKey === 'ni') return norm === 'OPEN';
-      if (statusKey === 'parcial') return norm === 'PENDING';
-      if (statusKey === 'completo') return norm === 'COMPLETED';
-      return true;
-    };
-
-    return base.filter((r) => matchesStatus(r.status));
+    return base.filter((r) => statusKeyOfRow(r.status) === statusKey);
   }, [rows, search, statusKey]);
 
   const sorted = useMemo(() => filtered, [filtered]);
@@ -135,9 +138,58 @@ const OperationOverview: React.FC = () => {
   const endIdx = Math.min(startIdx + PAGE_SIZE, totalFiltered);
   const paginated = useMemo(() => sorted.slice(startIdx, endIdx), [sorted, startIdx, endIdx]);
 
-  const startEditAll = () => { setDraftRows(rows); setIsEditing(true); };
-  const cancelEditAll = () => { setIsEditing(false); setDraftRows(rows); };
-  const saveEditAll = () => { setRows(draftRows); setIsEditing(false); };
+  const startEditAll = () => { setDraftRows(rows); setIsEditing(true); setSaveError(null); setSaveMessage(null); };
+  const cancelEditAll = () => { setIsEditing(false); setDraftRows(rows); setSaveError(null); setSaveMessage(null); };
+
+  const buildUpdatePayload = (row: ContainerRow): UpdateContainerPayload => ({
+    agencySeal: row.lacreAgencia ?? '',
+    otherSeals: row.lacreOutros ? row.lacreOutros.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    sacksCount: row.qtdSacarias ?? 0,
+    grossWeight: row.pesoBruto ?? 0,
+    liquidWeight: row.pesoLiquido ?? 0,
+  });
+
+  const saveEditAll = async () => {
+    setSaveError(null);
+    setSaveMessage(null);
+
+    const changes = draftRows.filter((draft) => {
+      const original = rows.find((r) => r.id === draft.id);
+      if (!original) return true;
+      return (
+        (original.lacreAgencia || '') !== (draft.lacreAgencia || '') ||
+        (original.lacrePrincipal || '') !== (draft.lacrePrincipal || '') ||
+        (original.lacreOutros || '') !== (draft.lacreOutros || '') ||
+        (original.qtdSacarias ?? 0) !== (draft.qtdSacarias ?? 0) ||
+        (original.pesoBruto ?? 0) !== (draft.pesoBruto ?? 0) ||
+        (original.pesoLiquido ?? 0) !== (draft.pesoLiquido ?? 0)
+      );
+    });
+
+    if (!changes.length) {
+      setSaveMessage('Nenhuma alteração para salvar.');
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await Promise.all(
+        changes.map(async (draft) => {
+          const payload = buildUpdatePayload(draft);
+          await updateContainer(draft.id, payload);
+        })
+      );
+      setRows(draftRows);
+      setIsEditing(false);
+      setSaveMessage('Containers atualizados com sucesso.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível salvar as alterações.';
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const updateDraft = (id: string, patch: Partial<ContainerRow>) => {
     setDraftRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -213,7 +265,8 @@ const OperationOverview: React.FC = () => {
           <title>Overview de Containers</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
-            h2 { margin: 0 0 8px; }
+            .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+            h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
             p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
             th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
@@ -222,7 +275,12 @@ const OperationOverview: React.FC = () => {
           </style>
         </head>
         <body>
-          <h2>Overview de Containers</h2>
+          <div class="header">
+            <h2>
+              Overview de Containers
+            </h2>
+            <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
+          </div>
           <p>Operacao: ${safe(operationLabel)}</p>
           <p>Gerado em ${safe(new Date().toLocaleString())}</p>
           <table>
@@ -244,15 +302,27 @@ const OperationOverview: React.FC = () => {
       </html>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) {
-      window.alert('Nao foi possivel abrir o PDF. Verifique o bloqueador de pop-ups.');
-      return;
-    }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc) doc.title = 'Overview de Containers';
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 300);
+      }
+    };
   };
 
   return (
@@ -288,6 +358,11 @@ const OperationOverview: React.FC = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
+          {saveError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-3">
+              {saveError}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-5 h-5" />
@@ -308,7 +383,7 @@ const OperationOverview: React.FC = () => {
                 title="Filtrar containers pelo status"
               >
                 <option value="todos">Todos os Status</option>
-                <option value="ni">Nao inicializado</option>
+                <option value="ni">Não inicializado</option>
                 <option value="parcial">Parcial</option>
                 <option value="completo">Completo</option>
               </select>
