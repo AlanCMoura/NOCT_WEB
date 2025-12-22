@@ -7,7 +7,7 @@ import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
-import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
+import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, getSackImages, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
 import { createContainer, deleteContainer, getContainersByOperation, getAllContainerImages, getContainerById, CONTAINER_IMAGE_SECTIONS, mapApiCategoryToSectionKey, type ApiContainer, type ApiContainerStatus, type ContainerImageCategoryKey, type CreateContainerPayload } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
@@ -403,6 +403,20 @@ const OperationDetails: React.FC = () => {
     [toDataUri]
   );
 
+  const fetchSacariaImages = useCallback(async () => {
+    if (!decodedOperationId) return [] as string[];
+    try {
+      const data = await getSackImages(decodedOperationId);
+      const urls = (data || [])
+        .map((img: any) => img?.url || img?.imageUrl || img?.signedUrl)
+        .filter(Boolean) as string[];
+      if (!urls.length) return [];
+      return Promise.all(urls.map((u) => toDataUri(u)));
+    } catch {
+      return [] as string[];
+    }
+  }, [decodedOperationId, toDataUri]);
+
   const exportPdf = useCallback(async () => {
     if (exportingPdf) return;
     if (!opInfo || sectionsLoading) {
@@ -441,6 +455,7 @@ const OperationDetails: React.FC = () => {
           imagesByCategory: await fetchContainerImages(c),
         }))
       );
+      const sacariaImages = await fetchSacariaImages();
 
       const opRowsHtml = opRows
         .map(
@@ -493,6 +508,29 @@ const OperationDetails: React.FC = () => {
         )
         .join('');
 
+      const sacariaHtml = `
+        <div class="container-block">
+          <div class="container-header">
+            <h3>Sacaria</h3>
+            <span class="badge">Operação</span>
+          </div>
+          <div class="img-grid">
+            ${
+              sacariaImages.length
+                ? sacariaImages
+                    .map(
+                      (url) => `
+              <div class="img-box">
+                <img src="${safe(url)}" alt="Sacaria - imagem" />
+              </div>`
+                    )
+                    .join('')
+                : '<p class="muted">Sem imagens de sacaria</p>'
+            }
+          </div>
+        </div>
+      `;
+
       const html = `
         <html>
           <head>
@@ -523,6 +561,7 @@ const OperationDetails: React.FC = () => {
               <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
             </div>
             <table>${opRowsHtml}</table>
+            ${sacariaHtml}
             <div>${containersHtml || '<p class="muted">Nenhum container</p>'}</div>
           </body>
         </html>
