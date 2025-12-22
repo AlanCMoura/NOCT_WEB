@@ -1,6 +1,6 @@
 ﻿import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Trash2, Plus, FileUp, X } from 'lucide-react';
+import { Search, Trash2, Plus, FileUp, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
@@ -8,7 +8,8 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
-import { createContainer, deleteContainer, getContainersByOperation, type ApiContainer, type ApiContainerStatus, type CreateContainerPayload } from '../services/containers';
+import { createContainer, deleteContainer, getContainersByOperation, getAllContainerImages, getContainerById, CONTAINER_IMAGE_SECTIONS, mapApiCategoryToSectionKey, type ApiContainer, type ApiContainerStatus, type ContainerImageCategoryKey, type CreateContainerPayload } from '../services/containers';
+import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 interface User {
   name: string;
@@ -298,6 +299,7 @@ const OperationDetails: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [isDragOverImport, setIsDragOverImport] = useState<boolean>(false);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const [exportingPdf, setExportingPdf] = useState<boolean>(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const sectionsLoading = (loadingOp || containersLoading) && !loadError;
   const controlsDisabled = sectionsLoading;
@@ -319,6 +321,242 @@ const OperationDetails: React.FC = () => {
     },
     [containers]
   );
+
+  const toDataUri = useCallback(async (url: string) => {
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') resolve(reader.result);
+          else reject(new Error('reader failed'));
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return url; // fallback ao URL original se nÇõÇœ conseguir embutir
+    }
+  }, []);
+
+  const fetchContainerImages = useCallback(
+    async (container: Container) => {
+      const keys = Array.from(
+        new Set(
+          [container.apiId, container.id]
+            .filter(Boolean)
+            .map((k) => String(k))
+        )
+      );
+      const empty: Record<ContainerImageCategoryKey, string[]> = CONTAINER_IMAGE_SECTIONS.reduce((acc, { key }) => {
+        acc[key] = [];
+        return acc;
+      }, {} as Record<ContainerImageCategoryKey, string[]>);
+      if (!keys.length) return empty;
+
+      try {
+        const byCategory: Record<ContainerImageCategoryKey, Set<string>> = CONTAINER_IMAGE_SECTIONS.reduce((acc, { key }) => {
+          acc[key] = new Set<string>();
+          return acc;
+        }, {} as Record<ContainerImageCategoryKey, Set<string>>);
+
+        // Imagens vindas do detalhe do container (caso já venham com categoria)
+        for (const key of keys) {
+          try {
+            const full = await getContainerById(key);
+            (full?.containerImages || []).forEach((img) => {
+              const url = img?.signedUrl || img?.url || img?.imageUrl;
+              const mappedKey = mapApiCategoryToSectionKey(img?.category) ?? 'lacresOutros';
+              if (url) byCategory[mappedKey]?.add(url);
+            });
+          } catch {
+            /* ignore */
+          }
+        }
+
+        // Endpoint dedicado por seção
+        for (const key of keys) {
+          try {
+            const bySection = await getAllContainerImages(key);
+            (Object.keys(bySection || {}) as ContainerImageCategoryKey[]).forEach((cat) => {
+              (bySection?.[cat] || []).forEach((img) => {
+                const url = img?.signedUrl || img?.url || img?.imageUrl;
+                if (url) byCategory[cat]?.add(url);
+              });
+            });
+          } catch {
+            /* ignore */
+          }
+        }
+
+        const result: Record<ContainerImageCategoryKey, string[]> = {} as Record<ContainerImageCategoryKey, string[]>;
+        for (const { key } of CONTAINER_IMAGE_SECTIONS) {
+          const urls = Array.from(byCategory[key]);
+          result[key] = await Promise.all(urls.map((u) => toDataUri(u)));
+        }
+        return result;
+      } catch {
+        return empty;
+      }
+    },
+    [toDataUri]
+  );
+
+  const exportPdf = useCallback(async () => {
+    if (exportingPdf) return;
+    if (!opInfo || sectionsLoading) {
+      window.alert('Carregue a operaÇõÇœ e os containers antes de exportar.');
+      return;
+    }
+
+    setExportingPdf(true);
+    try {
+      const safe = (val: string | number) =>
+        String(val ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+      const fmt = (val: string | number | undefined) => (val === undefined || val === null || val === '' ? '-' : String(val));
+      const opTitle = `Relatório Operação ${opInfo.ctv || decodedOperationId || '---'}`;
+      const opRows = [
+        { label: 'CTV', value: opInfo.ctv || decodedOperationId },
+        { label: 'Reserva', value: opInfo.reserva },
+        { label: 'Local (Terminal)', value: opInfo.local },
+        { label: 'Destino', value: opInfo.destination },
+        { label: 'Navio', value: opInfo.ship },
+        { label: 'Exportador', value: opInfo.exporter },
+        { label: 'Deadline Draft', value: opInfo.deadline },
+        { label: 'Ref. Cliente', value: opInfo.cliente },
+        { label: 'Data de Chegada', value: opInfo.data },
+        { label: 'Deadline de Carregamento', value: opInfo.entrega },
+        { label: 'Status', value: operationStatus },
+      ];
+
+      const containersWithImages = await Promise.all(
+        containers.map(async (c) => ({
+          ...c,
+          status: statusOf(c.id),
+          imagesByCategory: await fetchContainerImages(c),
+        }))
+      );
+
+      const opRowsHtml = opRows
+        .map(
+          ({ label, value }) => `
+        <tr>
+          <th>${safe(label)}</th>
+          <td>${safe(fmt(value))}</td>
+        </tr>`
+        )
+        .join('');
+
+      const containersHtml = containersWithImages
+        .map(
+          (c) => `
+        <div class="container-block">
+          <div class="container-header">
+            <h3>Container ${safe(c.id)}</h3>
+            <span class="badge">${safe(c.status || '')}</span>
+          </div>
+          <table>
+            <tr><th>Descrição</th><td>${safe(fmt(c.description))}</td></tr>
+            <tr><th>Peso Bruto</th><td>${safe(fmt(c.pesoBruto))}</td></tr>
+            <tr><th>Lacre Agencia</th><td>${safe(fmt(c.lacreAgencia))}</td></tr>
+            <tr><th>Lacre Principal</th><td>${safe(fmt(c.lacrePrincipal))}</td></tr>
+            <tr><th>Outros Lacres</th><td>${safe(fmt(c.lacreOutros))}</td></tr>
+            <tr><th>Qtd. Sacarias</th><td>${safe(fmt(c.qtdSacarias))}</td></tr>
+          </table>
+          ${CONTAINER_IMAGE_SECTIONS.map(({ key, label }) => {
+            const imgs = c.imagesByCategory?.[key] || [];
+            const content = imgs.length
+              ? imgs
+                  .map(
+                    (url: string) => `
+              <div class="img-box">
+                <img src="${safe(url)}" alt="${safe(label)} - ${safe(c.id)}" />
+              </div>`
+                  )
+                  .join('')
+              : '<p class="muted">Sem imagens</p>';
+            return `
+              <div class="img-section">
+                <h4>${safe(label)}</h4>
+                <div class="img-grid">
+                  ${content}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>`
+        )
+        .join('');
+
+      const html = `
+        <html>
+          <head>
+            <title>${safe(opTitle)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+              .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+              h2 { margin: 0; }
+              p { margin: 4px 0 12px; font-size: 12px; color: #6b7280; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+              th { text-align: left; width: 35%; background: #f3f4f6; padding: 6px 8px; border: 1px solid #e5e7eb; font-size: 12px; }
+              td { padding: 6px 8px; border: 1px solid #e5e7eb; font-size: 12px; }
+              .container-block { page-break-inside: avoid; margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+              .container-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+              .badge { background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+              .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+              .img-box { border: 1px dashed #e5e7eb; padding: 6px; border-radius: 6px; background: #fafafa; }
+              .img-box img { width: 100%; height: auto; display: block; border-radius: 4px; }
+              .muted { color: #9ca3af; font-size: 12px; margin: 0; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div>
+                <h2>${safe(opTitle)}</h2>
+                <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+              </div>
+              <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
+            </div>
+            <table>${opRowsHtml}</table>
+            <div>${containersHtml || '<p class="muted">Nenhum container</p>'}</div>
+          </body>
+        </html>
+      `;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.title = opTitle;
+      iframe.srcdoc = html;
+      document.body.appendChild(iframe);
+      const previousTitle = document.title;
+      document.title = opTitle;
+      iframe.onload = () => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (doc) doc.title = opTitle;
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } finally {
+          setTimeout(() => {
+            document.title = previousTitle;
+            document.body.removeChild(iframe);
+          }, 300);
+        }
+      };
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [containers, decodedOperationId, exportingPdf, fetchContainerImages, opInfo, operationStatus, sectionsLoading, statusOf]);
 
   const filteredContainers = useMemo(() => {
     const q = containerSearch.trim().toLowerCase();
@@ -891,7 +1129,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operação</h2>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
                   {!isEditing && (
                     <ToggleSwitch
                       id="operation-status-toggle"
@@ -954,6 +1192,15 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                       >
                         <Trash2 className="w-4 h-4" />
                         {deleteLoading ? 'Excluindo...' : 'Excluir Operação'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={exportPdf}
+                        disabled={controlsDisabled || exportingPdf}
+                        className="px-6 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
+                      >
+                        <Download className="w-4 h-4" />
+                        {exportingPdf ? 'Exportando...' : 'Exportar Operação'}
                       </button>
                     <button
                       type="button"

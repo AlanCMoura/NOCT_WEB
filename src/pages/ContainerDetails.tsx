@@ -2,7 +2,7 @@
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import { Trash2 } from "lucide-react";
+import { Trash2, Download } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import ContainerImageSection, { ImageItem as SectionImageItem } from "../components/ContainerImageSection";
 import ToggleSwitch from "../components/ToggleSwitch";
@@ -23,6 +23,7 @@ import {
   type ContainerImagesPayload,
   updateContainer,
 } from "../services/containers";
+import { LOGO_DATA_URI } from "../utils/logoDataUri";
 
 type ImageSectionKey = ContainerImageCategoryKey;
 type SectionImageWithId = SectionImageItem & { id?: number; localId?: string | number };
@@ -696,6 +697,129 @@ const ContainerDetails: React.FC = () => {
   })();
   const isContainerFinalized = statusBadge.text === "Finalizado";
 
+  const exportPdf = () => {
+    if (!container) {
+      window.alert("Nenhum container carregado para exportar.");
+      return;
+    }
+
+    const safe = (val: string | number) =>
+      String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const formatNum = (val?: number | string | null) => {
+      if (val === undefined || val === null || val === "") return "-";
+      const num = Number(val);
+      return Number.isFinite(num) ? num.toString() : String(val);
+    };
+
+    const title = `Relatório Container ${container.containerId || decodedContainerId}`;
+    const details = [
+      { label: "Container", value: container.containerId || decodedContainerId },
+      { label: "Descri??o", value: container.description ?? "-" },
+      { label: "Quantidade de Sacas", value: formatNum(container.sacksCount) },
+      { label: "Tara (kg)", value: formatNum(container.tareTons ? container.tareTons * 1000 : form.tareKg) },
+      { label: "Peso L?quido (kg)", value: formatNum(container.liquidWeight) },
+      { label: "Peso Bruto (kg)", value: formatNum(container.grossWeight) },
+      { label: "Lacre Principal (Ag?ncia)", value: container.agencySeal ?? "-" },
+      { label: "Outros Lacres", value: (container.otherSeals || []).join(", ") || "-" },
+      { label: "Status", value: statusBadge.text },
+      { label: "Opera??o", value: operationCtv || decodedOperationId || "-" },
+    ];
+
+    const imagesHtml = CONTAINER_IMAGE_SECTIONS.map(({ key, label }) => {
+      const imgs = (imageSections[key] || []).filter((img) => img.url);
+      const content = imgs.length
+        ? imgs
+            .map(
+              (img) => `
+              <div class="img-box">
+                <img src="${safe(img.url || "")}" alt="${safe(label)}" />
+              </div>
+            `
+            )
+            .join("")
+        : '<p class="muted">Sem imagens</p>';
+      return `
+        <div class="img-section">
+          <h4>${safe(label)}</h4>
+          <div class="img-grid">
+            ${content}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const detailsRows = details
+      .map(
+        ({ label, value }) => `
+        <tr>
+          <th>${safe(label)}</th>
+          <td>${safe(value)}</td>
+        </tr>
+      `
+      )
+      .join("");
+
+    const html = `
+      <html>
+        <head>
+          <title>${safe(title)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+            .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+            h2 { margin: 0; }
+            p { margin: 4px 0 12px; font-size: 12px; color: #6b7280; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            th { text-align: left; width: 35%; background: #f3f4f6; padding: 6px 8px; border: 1px solid #e5e7eb; font-size: 12px; }
+            td { padding: 6px 8px; border: 1px solid #e5e7eb; font-size: 12px; }
+            .img-section { margin-bottom: 16px; }
+            .img-section h4 { margin: 0 0 8px; font-size: 13px; }
+            .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+            .img-box { border: 1px dashed #e5e7eb; padding: 6px; border-radius: 6px; background: #fafafa; }
+            .img-box img { width: 100%; height: auto; display: block; border-radius: 4px; }
+            .muted { color: #9ca3af; font-size: 12px; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h2>${safe(title)}</h2>
+              <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+            </div>
+            <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
+          </div>
+          <table>${detailsRows}</table>
+          <div>${imagesHtml}</div>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc) doc.title = title;
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 300);
+      }
+    };
+  };
+
   /**
    * CORREÃ‡ÃƒO 9: RenderizaÃ§Ã£o condicional do modal fora do return principal
    */
@@ -936,6 +1060,15 @@ const ContainerDetails: React.FC = () => {
                 ) : (
                   <SkeletonBlock className="h-10 w-32" />
                 )}
+                <button
+                  type="button"
+                  onClick={exportPdf}
+                  disabled={!hasContainer || loading}
+                  className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Download className="w-4 h-4" aria-hidden="true" />
+                  Exportar PDF
+                </button>
                 <button
                   type="button"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`)}
