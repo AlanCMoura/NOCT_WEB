@@ -25,6 +25,8 @@ interface OperationResume {
   shipName: string;
   status: OperationStatus;
   createdAt: string;
+  sortDate?: string;
+  updatedAt?: string;
   containerCount?: number;
   terminal?: string;
   reservation?: string;
@@ -70,13 +72,23 @@ const mapOperation = (op: ApiOperation): OperationResume => {
     backendId ??
     `op-${Date.now()}`;
 
-  const createdAt =
+  const createdRaw =
     parseDateValue(op.createdAt) ||
-    parseDateValue(op.updatedAt) ||
     parseDateValue(op.arrivalDate) ||
     parseDateValue(op.deadline) ||
     parseDateValue(op.deadlineDraft) ||
     parseDateValue(op.loadDeadline) ||
+    '';
+
+  const updatedRaw = parseDateValue(op.updatedAt) || '';
+
+  const sortDate =
+    updatedRaw ||
+    createdRaw ||
+    parseDateValue(op.deadline) ||
+    parseDateValue(op.deadlineDraft) ||
+    parseDateValue(op.loadDeadline) ||
+    parseDateValue(op.arrivalDate) ||
     '';
 
   const containerCount =
@@ -89,7 +101,9 @@ const mapOperation = (op: ApiOperation): OperationResume => {
     backendId,
     shipName: String(op.shipName ?? op.ship ?? op.vesselName ?? op.vessel ?? op.navio ?? '-'),
     status: normalizeStatus(op.status),
-    createdAt,
+    createdAt: createdRaw || sortDate,
+    updatedAt: updatedRaw || undefined,
+    sortDate: sortDate || createdRaw,
     containerCount,
     terminal: op.terminal ? String(op.terminal) : undefined,
     reservation: op.reserva
@@ -244,7 +258,7 @@ const MultiLineChart: React.FC<{ data: TrendPoint[]; showNovDecPair?: boolean }>
   const operationsPath = buildPath((p) => p.operations);
   const containersPath = buildPath((p) => p.containers);
 
-  const operationsColor = 'var(--accent-blue)';
+  const operationsColor = '#FBBF24'; // amarelo
   const containersColor = 'var(--primary)';
 
   const clampIndex = (idx: number) => Math.min(Math.max(idx, 0), data.length - 1);
@@ -451,8 +465,11 @@ const TerminalBars: React.FC<{ data: { label: string; value: number }[] }> = ({ 
           </div>
           <div className="h-2 w-full rounded-full bg-[var(--hover)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--primary)]"
-              style={{ width: `${(item.value / max) * 100}%` }}
+              className="h-full rounded-full"
+              style={{
+                width: `${(item.value / max) * 100}%`,
+                background: 'linear-gradient(90deg, #FBBF24 0%, #FFD54F 100%)', // amarelo
+              }}
             />
           </div>
         </div>
@@ -542,7 +559,16 @@ const Dashboard: React.FC = () => {
       const mapped = aggregated.map(mapOperation);
       const withCounts = await ensureContainerCounts(mapped);
 
-      setOperations(withCounts);
+      const sorted = [...withCounts].sort((a, b) => {
+        const aTime = new Date(a.sortDate || a.createdAt).getTime();
+        const bTime = new Date(b.sortDate || b.createdAt).getTime();
+        if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+        if (Number.isNaN(aTime)) return 1;
+        if (Number.isNaN(bTime)) return -1;
+        return bTime - aTime; // mais recentes primeiro
+      });
+
+      setOperations(sorted);
       setTotalOperations(totalElements || withCounts.length);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Não foi possível carregar os dados.';
@@ -556,14 +582,14 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const statusSegments = useMemo<ChartSegment[]>(() => {
-    const open = operations.filter((op) => op.status === 'Aberta').length;
-    const closed = operations.filter((op) => op.status === 'Fechada').length;
-    return [
-      { label: 'Abertas', value: open, color: 'var(--accent-blue)' },
+const statusSegments = useMemo<ChartSegment[]>(() => {
+  const open = operations.filter((op) => op.status === 'Aberta').length;
+  const closed = operations.filter((op) => op.status === 'Fechada').length;
+  return [
+      { label: 'Abertas', value: open, color: '#FBBF24' }, // amarelo
       { label: 'Fechadas', value: closed, color: 'var(--accent-green)' },
-    ];
-  }, [operations]);
+  ];
+}, [operations]);
 
   const totalContainers = useMemo(
     () =>
@@ -652,6 +678,26 @@ const Dashboard: React.FC = () => {
         </div>
       ))}
     </div>
+  );
+
+  const timelineText = useCallback(
+    (op: OperationResume) => {
+      const createdTime = op.createdAt ? new Date(op.createdAt).getTime() : NaN;
+      const updatedTime = op.updatedAt ? new Date(op.updatedAt).getTime() : NaN;
+      const hasUpdated = !Number.isNaN(updatedTime);
+      const hasCreated = !Number.isNaN(createdTime);
+
+      if (hasUpdated && (!hasCreated || updatedTime > createdTime)) {
+        return `Editada em ${formatDate(op.updatedAt!)}`;
+      }
+
+      if (hasCreated) {
+        return `Criada em ${formatDate(op.createdAt)}`;
+      }
+
+      return 'Data indisponível';
+    },
+    []
   );
 
   return (
@@ -815,7 +861,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <div className=" gap-4">
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm xl:col-span-2">
                   <div className="flex items-center justify-between mb-2">
                     <div>
@@ -837,7 +883,7 @@ const Dashboard: React.FC = () => {
                               {op.shipName}
                             </p>
                             <p className="text-xs text-[var(--muted)]">
-                              {op.reservation ? `Reserva: ${op.reservation}` : 'Sem reserva'} • {formatDate(op.createdAt)}
+                              {op.reservation ? `Reserva: ${op.reservation}` : 'Sem reserva'} • {timelineText(op)}
                             </p>
                           </div>
                           <div className="flex items-center gap-3">
@@ -845,7 +891,7 @@ const Dashboard: React.FC = () => {
                               className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                 op.status === 'Fechada'
                                   ? 'bg-green-100 text-green-700'
-                                  : 'bg-blue-100 text-blue-700'
+                                  : 'bg-amber-100 text-amber-700'
                               }`}
                             >
                               {op.status}
@@ -858,21 +904,6 @@ const Dashboard: React.FC = () => {
                       ))
                     )}
                   </div>
-                </div>
-
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-sm text-[var(--muted)]">Terminais frequentes</p>
-                      <p className="text-lg font-semibold text-[var(--text)]">Distribuição</p>
-                    </div>
-                    <MapPin className="w-5 h-5 text-[var(--accent-green)]" />
-                  </div>
-                  {topTerminals.length === 0 ? (
-                    <p className="text-sm text-[var(--muted)]">Sem terminais informados.</p>
-                  ) : (
-                    <TerminalBars data={topTerminals} />
-                  )}
                 </div>
               </div>
             </>

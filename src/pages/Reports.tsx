@@ -21,7 +21,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { listOperations, type ApiOperation } from '../services/operations';
-import { getContainersByOperation } from '../services/containers';
+import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 type StatusKey = 'todos' | 'aberta' | 'fechada';
@@ -282,6 +282,122 @@ const Reports: React.FC = () => {
     }
   };
 
+  const statusLabel = (status?: ApiContainerStatus) => {
+    const norm = String(status || '').toUpperCase();
+    if (norm.includes('COMP')) return 'Finalizado';
+    if (norm.includes('PEND') || norm.includes('PARC')) return 'Parcial';
+    return 'Não inicializado';
+  };
+
+  const exportOverviewPdf = async (operation: ReportRow) => {
+    try {
+      const resp = await getContainersByOperation(operation.id, { page: 0, size: 500, sortBy: 'id', sortDirection: 'ASC' });
+      const list: ApiContainer[] = resp?.content || [];
+
+      const safe = (val: string | number) =>
+        String(val ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+      const rowsHtml = list
+        .map((c, index) => {
+          const id = safe(c.containerId ?? c.id ?? `CONT-${index + 1}`);
+          const status = statusLabel(c.status);
+          const lacreAgencia = safe(c.agencySeal ?? '-');
+          const lacrePrincipal = safe(c.agencySeal ?? '-');
+          const lacreOutros = safe((c.otherSeals || []).join(', ') || '-');
+          const qtdSacarias = safe(typeof c.sacksCount === 'number' ? c.sacksCount : '-');
+          const pesoBruto = safe(typeof c.grossWeight === 'number' ? c.grossWeight : '-');
+          const pesoLiquido = safe(typeof c.liquidWeight === 'number' ? c.liquidWeight : '-');
+          return `
+            <tr>
+              <td>${id}</td>
+              <td>${status}</td>
+              <td>${lacreAgencia}</td>
+              <td>${lacrePrincipal}</td>
+              <td>${lacreOutros}</td>
+              <td style="text-align:center">${qtdSacarias}</td>
+              <td style="text-align:center">${pesoBruto}</td>
+              <td style="text-align:center">${pesoLiquido}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      const pdfTitle = `Overview ${operation.ctv || operation.id}`;
+      const html = `
+        <html>
+          <head>
+            <title>${safe(pdfTitle)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+              .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+              h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+              p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+              th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
+              td:nth-last-child(-n+3) { text-align: center; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>${safe(pdfTitle)}</h2>
+              <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
+            </div>
+            <p>Operação: ${safe(operation.ctv || operation.id)}</p>
+            <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Container</th>
+                  <th>Status</th>
+                  <th>Lacre Agência</th>
+                  <th>Lacre Principal</th>
+                  <th>Lacre Outros</th>
+                  <th>Qtd. Sacarias</th>
+                  <th>Peso Bruto</th>
+                  <th>Peso Líquido</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.title = pdfTitle;
+      iframe.srcdoc = html;
+      document.body.appendChild(iframe);
+      const previousTitle = document.title;
+      document.title = pdfTitle;
+      iframe.onload = () => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (doc) doc.title = pdfTitle;
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } finally {
+          setTimeout(() => {
+            document.title = previousTitle;
+            document.body.removeChild(iframe);
+          }, 300);
+        }
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível exportar o overview.';
+      window.alert(msg);
+    }
+  };
+
   const exportCsv = (list: ReportRow[]) => {
     if (!list.length) {
       window.alert('Nenhum dado para exportar com os filtros atuais.');
@@ -323,7 +439,7 @@ const Reports: React.FC = () => {
         .replace(/>/g, '&gt;');
 
     const firstCtv = list[0]?.ctv || list[0]?.id || 'operacao';
-    const docTitle = list.length === 1 ? `Relatório ${firstCtv}` : 'Relatório de operações';
+    const docTitle = 'Relatório de Operações';
 
     const rowsHtml = list
       .map(
@@ -385,8 +501,11 @@ const Reports: React.FC = () => {
     iframe.style.width = '0';
     iframe.style.height = '0';
     iframe.style.border = '0';
+    iframe.title = docTitle;
     iframe.srcdoc = html;
     document.body.appendChild(iframe);
+    const previousTitle = document.title;
+    document.title = docTitle;
     iframe.onload = () => {
       try {
         const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -395,6 +514,7 @@ const Reports: React.FC = () => {
         iframe.contentWindow?.print();
       } finally {
         setTimeout(() => {
+          document.title = previousTitle;
           document.body.removeChild(iframe);
         }, 300);
       }
@@ -657,7 +777,7 @@ const Reports: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => exportCsv([row])}
+                              onClick={() => exportOverviewPdf(row)}
                               className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:opacity-90"
                             >
                               <Download className="w-4 h-4 mr-1.5" /> Exportar

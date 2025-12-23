@@ -259,10 +259,11 @@ const OperationOverview: React.FC = () => {
       })
       .join('');
 
+    const pdfTitle = `Overview ${operationLabel || decodedOperationId || 'operacao'}`;
     const html = `
       <html>
         <head>
-          <title>Overview de Containers</title>
+          <title>${safe(pdfTitle)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
             .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
@@ -277,7 +278,7 @@ const OperationOverview: React.FC = () => {
         <body>
           <div class="header">
             <h2>
-              Overview de Containers
+              ${safe(pdfTitle)}
             </h2>
             <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
           </div>
@@ -309,16 +310,20 @@ const OperationOverview: React.FC = () => {
     iframe.style.width = '0';
     iframe.style.height = '0';
     iframe.style.border = '0';
+    iframe.title = pdfTitle;
     iframe.srcdoc = html;
     document.body.appendChild(iframe);
+    const previousTitle = document.title;
+    document.title = pdfTitle;
     iframe.onload = () => {
       try {
         const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (doc) doc.title = 'Overview de Containers';
+        if (doc) doc.title = pdfTitle;
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
       } finally {
         setTimeout(() => {
+          document.title = previousTitle;
           document.body.removeChild(iframe);
         }, 300);
       }

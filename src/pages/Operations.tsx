@@ -294,8 +294,8 @@ const mapApiOperation = (op: ApiOperation): OperationItem => {
 
 const StatusBadge: React.FC<{ status: OperationStatus }> = ({ status }) => {
   const map = {
-    Aberta: { label: 'Aberta', className: 'bg-green-100 text-green-800' },
-    Fechada: { label: 'Fechada', className: 'bg-blue-100 text-blue-800' },
+    Aberta: { label: 'Aberta', className: 'bg-amber-100 text-amber-700' },
+    Fechada: { label: 'Fechada', className: 'bg-green-100 text-green-800' },
   } as const;
   const cfg = map[status] ?? map.Aberta;
   return <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${cfg.className}`}>{cfg.label}</span>;

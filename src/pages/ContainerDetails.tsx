@@ -715,7 +715,7 @@ const ContainerDetails: React.FC = () => {
       return Number.isFinite(num) ? num.toString() : String(val);
     };
 
-    const title = `Relatório Container ${container.containerId || decodedContainerId}`;
+    const title = `Relatório ${container.containerId || decodedContainerId}`;
     const details = [
       { label: "Container", value: container.containerId || decodedContainerId },
       { label: "Descri??o", value: container.description ?? "-" },
@@ -804,8 +804,11 @@ const ContainerDetails: React.FC = () => {
     iframe.style.width = "0";
     iframe.style.height = "0";
     iframe.style.border = "0";
+    iframe.title = title;
     iframe.srcdoc = html;
     document.body.appendChild(iframe);
+    const previousTitle = document.title;
+    document.title = title;
     iframe.onload = () => {
       try {
         const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -814,6 +817,7 @@ const ContainerDetails: React.FC = () => {
         iframe.contentWindow?.print();
       } finally {
         setTimeout(() => {
+          document.title = previousTitle;
           document.body.removeChild(iframe);
         }, 300);
       }

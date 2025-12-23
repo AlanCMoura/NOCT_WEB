@@ -3,8 +3,13 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
+
+  const isInspector = typeof user?.role === 'string' && user.role.toLowerCase() === 'inspetor';
+  const pathname = location.pathname || '';
+  const inspectorAllowed =
+    pathname.startsWith('/operations') || pathname === '/profile';
 
   if (isLoading) {
     return (
@@ -19,6 +24,10 @@ const ProtectedRoute: React.FC = () => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (isInspector && !inspectorAllowed) {
+    return <Navigate to="/operations" replace />;
   }
 
   return <Outlet />;

@@ -239,6 +239,13 @@ const emptyOperation: OperationInfo = {
   entrega: ''
 };
 
+const formatDatePt = (value?: string): string => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('pt-BR');
+};
+
 const OperationDetails: React.FC = () => {
   type Field = keyof OperationInfo;
   type Errors = Partial<Record<Field, string>>;
@@ -441,10 +448,10 @@ const OperationDetails: React.FC = () => {
         { label: 'Destino', value: opInfo.destination },
         { label: 'Navio', value: opInfo.ship },
         { label: 'Exportador', value: opInfo.exporter },
-        { label: 'Deadline Draft', value: opInfo.deadline },
+        { label: 'Deadline Draft', value: formatDatePt(opInfo.deadline) },
         { label: 'Ref. Cliente', value: opInfo.cliente },
-        { label: 'Data de Chegada', value: opInfo.data },
-        { label: 'Deadline de Carregamento', value: opInfo.entrega },
+        { label: 'Data de Chegada', value: formatDatePt(opInfo.data) },
+        { label: 'Deadline de Carregamento', value: formatDatePt(opInfo.entrega) },
         { label: 'Status', value: operationStatus },
       ];
 
@@ -1325,7 +1332,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                   />
                   {errors.deadline && (<p id="deadline-error" className="mt-1 text-xs text-red-600">{errors.deadline}</p>)}
                 </>) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.deadline}</span>
+                  <span className="text-[var(--text)] font-medium">{formatDatePt(opInfo.deadline)}</span>
                 )}
               </div>
               <div>
@@ -1350,7 +1357,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                     className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.data || '-'}</span>
+                  <span className="text-[var(--text)] font-medium">{formatDatePt(opInfo.data)}</span>
                 )}
               </div>
               <div>
@@ -1363,7 +1370,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                     className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.entrega || '-'}</span>
+                  <span className="text-[var(--text)] font-medium">{formatDatePt(opInfo.entrega)}</span>
                 )}
               </div>
             </div>

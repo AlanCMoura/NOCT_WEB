@@ -20,19 +20,24 @@ interface SidebarProps {
   user: User;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) => {
   const { currentPage: ctxPage, changePage } = useSidebar();
   const activePage = currentPage ?? ctxPage;
+  const isInspector = typeof user?.role === 'string' && user.role.toLowerCase() === 'inspetor';
 
-  const sidebarItems: SidebarItem[] = [
-    { id: 'dashboard', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
-    { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' },
-  ];
+  const sidebarItems: SidebarItem[] = isInspector
+    ? [{ id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' }]
+    : [
+        { id: 'dashboard', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
+        { id: 'operations', icon: <FileText className="w-5 h-5" />, label: 'Operações' },
+      ];
 
-  const managementItems: SidebarItem[] = [
-    { id: 'usuarios', icon: <Users className="w-5 h-5" />, label: 'Usuários' },
-    { id: 'relatorios', icon: <FileBarChart className="w-5 h-5" />, label: 'Relatórios' },
-  ];
+  const managementItems: SidebarItem[] = isInspector
+    ? []
+    : [
+        { id: 'usuarios', icon: <Users className="w-5 h-5" />, label: 'Usuários' },
+        { id: 'relatorios', icon: <FileBarChart className="w-5 h-5" />, label: 'Relatórios' },
+      ];
 
   const systemItems: SidebarItem[] = [
     { id: 'perfil', icon: <UserIcon className="w-5 h-5" />, label: 'Meu Perfil' },
@@ -79,10 +84,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           {renderNavItems(sidebarItems)}
         </div>
 
-        <div className="mb-6">
-          <div className="text-xs text-[var(--sidebar-muted)] uppercase tracking-wider mb-3">Gestão</div>
-          {renderNavItems(managementItems)}
-        </div>
+        {!isInspector && (
+          <div className="mb-6">
+            <div className="text-xs text-[var(--sidebar-muted)] uppercase tracking-wider mb-3">Gestão</div>
+            {renderNavItems(managementItems)}
+          </div>
+        )}
 
         <div>
           <div className="text-xs text-[var(--sidebar-muted)] uppercase tracking-wider mb-3">Sistema</div>
