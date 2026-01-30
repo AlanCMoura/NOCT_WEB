@@ -10,14 +10,10 @@ import {
   Timer,
   Download,
   RefreshCcw,
-  Rocket,
   Search,
   Filter,
-  ClipboardList,
   AlertCircle,
-  ArrowUpRight,
   FileText,
-  CheckCircle,
   Clock,
 } from 'lucide-react';
 import { listOperations, type ApiOperation } from '../services/operations';
@@ -148,12 +144,7 @@ const Reports: React.FC = () => {
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastSync, setLastSync] = useState<string | null>(null);
   const [rangeWarning, setRangeWarning] = useState<string | null>(null);
-
-  const gotoBuilder = (preset?: string) => {
-    navigate(preset ? `/reports/generate?preset=${encodeURIComponent(preset)}` : '/reports/generate');
-  };
 
   const fetchOperations = async () => {
     setLoading(true);
@@ -176,7 +167,6 @@ const Reports: React.FC = () => {
       );
 
       setRows(enriched);
-      setLastSync(new Date().toISOString());
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar os dados de relatórios.';
       setError(msg);
@@ -239,14 +229,6 @@ const Reports: React.FC = () => {
       return matchesSearch && matchesStatus && matchesDate;
     });
   }, [rows, search, statusFilter, startDate, endDate]);
-
-  const summary = useMemo(() => {
-    const total = rows.length;
-    const abertas = rows.filter((r) => r.status === 'Aberta').length;
-    const fechadas = rows.filter((r) => r.status === 'Fechada').length;
-    const containers = rows.reduce((sum, r) => sum + (r.containers ?? 0), 0);
-    return { total, abertas, fechadas, containers };
-  }, [rows]);
 
   const clearFilters = () => {
     setSearch('');
@@ -452,8 +434,6 @@ const Reports: React.FC = () => {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-
-    const firstCtv = list[0]?.ctv || list[0]?.id || 'operacao';
     const docTitle = 'Relatório de Operações';
 
     const rowsHtml = list

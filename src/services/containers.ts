@@ -108,23 +108,6 @@ export interface UpdateContainerPayload {
   status?: ApiContainerStatus;
 }
 
-const appendRequired = (form: FormData, key: string, value: unknown): void => {
-  if (value === undefined || value === null) {
-    form.append(key, '');
-    return;
-  }
-  form.append(key, String(value));
-};
-
-const appendStringArray = (form: FormData, key: string, list?: string[]): void => {
-  const items = (list || []).filter((item) => item !== undefined && item !== null);
-  if (!items.length) {
-    form.append(key, '');
-    return;
-  }
-  items.forEach((item) => form.append(key, item));
-};
-
 const appendImages = (form: FormData, images?: ContainerImagesPayload): boolean => {
   if (!images) return false;
   let hasImages = false;

@@ -1,16 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
 import { deleteSackImage, getSackImages, uploadSackImages, getOperationById } from '../services/operations';
-
-interface User {
-  name: string;
-  role: string;
-}
 
 type SackImageItem = SectionImageItem & { id?: string | number };
 
@@ -19,7 +14,6 @@ const IMAGES_PER_VIEW = 3;
 const Sacaria: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
-  const navigate = useNavigate();
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Supervisor' });
 
@@ -45,7 +39,7 @@ const Sacaria: React.FC = () => {
       })
       .filter((x): x is SackImageItem => Boolean(x));
 
-  const loadImages = async () => {
+  const loadImages = useCallback(async () => {
     if (!operationId) return;
     setLoading(true);
     setError(null);
@@ -59,11 +53,11 @@ const Sacaria: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [operationId]);
 
   useEffect(() => {
     loadImages();
-  }, [operationId]);
+  }, [operationId, loadImages]);
 
   useEffect(() => {
     let active = true;

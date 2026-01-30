@@ -197,7 +197,6 @@ const ContainerDetails: React.FC = () => {
   const [saving, setSaving] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [statusUpdating, setStatusUpdating] = useState<boolean>(false);
-  const [imagesLoading, setImagesLoading] = useState<boolean>(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -315,7 +314,6 @@ const ContainerDetails: React.FC = () => {
     const load = async () => {
       setLoading(true);
       setError(null);
-      setImagesLoading(true);
       
       try {
         const data = await getContainerById(decodedContainerId);
@@ -336,7 +334,6 @@ const ContainerDetails: React.FC = () => {
       } finally {
         if (!abortController.signal.aborted) {
           setLoading(false);
-          setImagesLoading(false);
         }
       }
     };
@@ -521,7 +518,6 @@ const ContainerDetails: React.FC = () => {
 
     try {
       setSaving(true);
-      setImagesLoading(true);
 
       // Processa exclusÃµes pendentes
       if (pendingDeleteIds.length) {
@@ -560,7 +556,6 @@ const ContainerDetails: React.FC = () => {
           });
           
           setSaving(false);
-          setImagesLoading(false);
           isSavingRef.current = false;
           return;
         }
@@ -590,7 +585,6 @@ const ContainerDetails: React.FC = () => {
       setError(getErrorMessage(err, "Não foi possível atualizar o container."));
     } finally {
       setSaving(false);
-      setImagesLoading(false);
       isSavingRef.current = false;
     }
   }, [decodedContainerId, saving, loading, form, imageSections, pendingDeleteIds]);
@@ -612,32 +606,6 @@ const ContainerDetails: React.FC = () => {
       setDeleting(false);
     }
   }, [decodedContainerId, decodedOperationId, deleting, loading, navigate]);
-
-  const handleCompleteStatus = useCallback(async () => {
-    if (!decodedContainerId || statusUpdating || loading) return;
-    
-    const missingSections = REQUIRED_IMAGE_SECTIONS
-      .filter(({ key }) => (imageSections[key]?.length ?? 0) === 0)
-      .map(({ label }) => label);
-      
-    if (missingSections.length) {
-      setError(`Para finalizar, adicione pelo menos uma imagem em: ${missingSections.join(', ')}`);
-      return;
-    }
-    
-    setError(null);
-    setSuccess(null);
-    try {
-      setStatusUpdating(true);
-      const updated = await completeContainerStatus(decodedContainerId);
-      setContainer(updated);
-      setSuccess("Status do container atualizado para FINALIZADO.");
-    } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível atualizar o status do container."));
-    } finally {
-      setStatusUpdating(false);
-    }
-  }, [decodedContainerId, statusUpdating, loading, imageSections]);
 
   const nextImages = useCallback((section: ImageSectionKey): void => {
     const images = imageSections[section] || [];
