@@ -360,7 +360,7 @@ const NewContainer: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--text)] mb-2">
-                  Identificação
+                  Identificacao (ex: CONT123456)
                 </label>
                 <input
                   type="text"
@@ -373,7 +373,7 @@ const NewContainer: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Descrição</label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Descricao</label>
                 <input
                   type="text"
                   value={form.descricao}
@@ -405,6 +405,7 @@ const NewContainer: React.FC = () => {
                   placeholder="2500"
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
+                <p className="text-xs text-[var(--muted)] mt-1">Enviamos em toneladas para a API automaticamente.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text)] mb-2">Peso Liquido (kg)</label>

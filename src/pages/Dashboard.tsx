@@ -791,7 +791,7 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
                 <StatCard
                   title="Operações registradas"
                   value={totalOperations}
-                  helper="Total de operações registradas"
+                  helper="Total retornado pelo backend"
                   icon={<Activity className="w-5 h-5 text-[var(--accent-green)]" />}
                   accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
                 />
@@ -822,8 +822,8 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm xl:col-span-2">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-sm text-[var(--muted)]">Volume (operações x containers)</p>
-                      <p className="text-lg font-semibold text-[var(--text)]">Tendência</p>
+                      <p className="text-sm text-[var(--muted)]">Volume (operacoes x containers)</p>
+                      <p className="text-lg font-semibold text-[var(--text)]">Tendencia</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="inline-flex bg-[var(--hover)] rounded-full p-1 text-xs text-[var(--text)]">
