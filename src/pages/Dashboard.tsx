@@ -4,7 +4,6 @@ import {
   Activity,
   CheckCircle2,
   Clock3,
-  MapPin,
   Package,
   RefreshCcw,
   Ship,
@@ -453,31 +452,6 @@ const MultiLineChart: React.FC<{ data: TrendPoint[]; showNovDecPair?: boolean }>
   );
 };
 
-const TerminalBars: React.FC<{ data: { label: string; value: number }[] }> = ({ data }) => {
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <div className="space-y-3">
-      {data.map((item) => (
-        <div key={item.label}>
-          <div className="flex items-center justify-between text-sm mb-1">
-            <span className="text-[var(--text)]">{item.label}</span>
-            <span className="text-[var(--muted)]">{item.value}</span>
-          </div>
-          <div className="h-2 w-full rounded-full bg-[var(--hover)] overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${(item.value / max) * 100}%`,
-                background: 'linear-gradient(90deg, #FBBF24 0%, #FFD54F 100%)', // amarelo
-              }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { changePage } = useSidebar();
@@ -642,18 +616,6 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
   }, [operations, trendSemester]);
 
   const recentOperations = useMemo(() => operations.slice(0, 6), [operations]);
-
-  const topTerminals = useMemo(() => {
-    const counts: Record<string, number> = {};
-    operations.forEach((op) => {
-      const label = op.terminal?.trim() || 'Sem terminal';
-      counts[label] = (counts[label] ?? 0) + 1;
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([label, value]) => ({ label, value }));
-  }, [operations]);
 
   const avgContainers = useMemo(() => {
     if (!operations.length) return 0;

@@ -9,8 +9,6 @@ import { getOperationStatus, type OperationStatus } from '../services/operationS
 import { createOperation, listOperations, type ApiOperation } from '../services/operations';
 import { getContainersByOperation } from '../services/containers';
 
-interface User { name: string; role: string; }
-
 interface OperationItem {
   id: string;
   ctv: string;
@@ -131,7 +129,7 @@ const convertToISODate = (value: unknown): string | null => {
     }
 
     // Formato DD/MM/YYYY ou DD-MM-YYYY
-    const brFormat = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    const brFormat = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
     if (brFormat) {
       const [, day, month, year] = brFormat;
       const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12, 0, 0));

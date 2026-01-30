@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Trash2, Plus, FileUp, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -6,15 +6,10 @@ import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { computeStatus, getProgress, setComplete, setImages, ContainerStatus } from '../services/containerProgress';
+import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, getSackImages, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
 import { createContainer, deleteContainer, getContainersByOperation, getAllContainerImages, getContainerById, CONTAINER_IMAGE_SECTIONS, mapApiCategoryToSectionKey, type ApiContainer, type ApiContainerStatus, type ContainerImageCategoryKey, type CreateContainerPayload } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
-
-interface User {
-  name: string;
-  role: string;
-}
 
 interface OperationInfo {
   id: string;
@@ -43,9 +38,6 @@ interface Container {
   data?: string; // yyyy-mm-dd
   apiStatus?: ApiContainerStatus;
 }
-
-// Local image item type (avoids heavy component import here)
-type SectionImageItem = { file?: File; url: string };
 
 const coalesceText = (...values: unknown[]): string => {
   const found = values.find((v) => v !== undefined && v !== null && String(v).trim() !== '');
@@ -291,7 +283,6 @@ const OperationDetails: React.FC = () => {
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
   const isOperationClosed = operationStatus === 'Fechada';
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [loadingOp, setLoadingOp] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingOp, setSavingOp] = useState<boolean>(false);
@@ -602,7 +593,7 @@ const OperationDetails: React.FC = () => {
     } finally {
       setExportingPdf(false);
     }
-  }, [containers, decodedOperationId, exportingPdf, fetchContainerImages, opInfo, operationStatus, sectionsLoading, statusOf]);
+  }, [containers, decodedOperationId, exportingPdf, fetchContainerImages, fetchSacariaImages, opInfo, operationStatus, sectionsLoading, statusOf]);
 
   const filteredContainers = useMemo(() => {
     const q = containerSearch.trim().toLowerCase();
@@ -649,34 +640,40 @@ const OperationDetails: React.FC = () => {
     }
   };
 
-  const buildContainerPayloadFromRow = (row: Record<string, any>): CreateContainerPayload => {
-    const normalized = normalizeRowKeys(row);
-    const containerId = pickCell(normalized, ['containerid', 'id', 'codigo', 'identificacao', 'container']);
-    const description = pickCell(normalized, ['description', 'descricao', 'desc']);
-    const sacksCount = toOptionalNumber(pickCell(normalized, ['sackscount', 'sacos', 'sacas', 'quantidade']));
-    const tareKg = toOptionalNumber(pickCell(normalized, ['tarekg', 'tara', 'tare', 'tara_kg']));
-    const liquidWeight = toOptionalNumber(pickCell(normalized, ['liquidweight', 'peso_liquido', 'liquid', 'liquido']));
-    const grossWeight = toOptionalNumber(pickCell(normalized, ['grossweight', 'peso_bruto', 'bruto']));
-    const agencySeal = pickCell(normalized, ['agencyseal', 'lacre', 'lacreprincipal', 'lacres']);
-    const otherSealsRaw = pickCell(normalized, ['otherseals', 'lacresoutros', 'outroslacres']);
-    const otherSeals = otherSealsRaw
-      ? otherSealsRaw.split(',').map((s) => s.trim()).filter(Boolean)
-      : [];
+  const buildContainerPayloadFromRow = useCallback(
+    (row: Record<string, any>): CreateContainerPayload => {
+      const normalized = normalizeRowKeys(row);
+      const containerId = pickCell(normalized, ['containerid', 'id', 'codigo', 'identificacao', 'container']);
+      const description = pickCell(normalized, ['description', 'descricao', 'desc']);
+      const sacksCount = toOptionalNumber(pickCell(normalized, ['sackscount', 'sacos', 'sacas', 'quantidade']));
+      const tareKg = toOptionalNumber(pickCell(normalized, ['tarekg', 'tara', 'tare', 'tara_kg']));
+      const liquidWeight = toOptionalNumber(pickCell(normalized, ['liquidweight', 'peso_liquido', 'liquid', 'liquido']));
+      const grossWeight = toOptionalNumber(pickCell(normalized, ['grossweight', 'peso_bruto', 'bruto']));
+      const agencySeal = pickCell(normalized, ['agencyseal', 'lacre', 'lacreprincipal', 'lacres']);
+      const otherSealsRaw = pickCell(normalized, ['otherseals', 'lacresoutros', 'outroslacres']);
+      const otherSeals = otherSealsRaw
+        ? otherSealsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
 
-    return {
-      containerId,
-      description,
-      operationId: Number(decodedOperationId),
-      sacksCount: sacksCount ?? undefined,
-      tareTons: tareKg !== undefined ? tareKg / 1000 : undefined,
-      liquidWeight: liquidWeight ?? undefined,
-      grossWeight: grossWeight ?? undefined,
-      agencySeal,
-      otherSeals,
-    };
-  };
+      return {
+        containerId,
+        description,
+        operationId: Number(decodedOperationId),
+        sacksCount: sacksCount ?? undefined,
+        tareTons: tareKg !== undefined ? tareKg / 1000 : undefined,
+        liquidWeight: liquidWeight ?? undefined,
+        grossWeight: grossWeight ?? undefined,
+        agencySeal,
+        otherSeals,
+      };
+    },
+    [decodedOperationId]
+  );
 
-  const REQUIRED_CONTAINER_FIELDS: Array<keyof CreateContainerPayload> = ['containerId', 'description', 'operationId'];
+  const REQUIRED_CONTAINER_FIELDS = useMemo<Array<keyof CreateContainerPayload>>(
+    () => ['containerId', 'description', 'operationId'],
+    []
+  );
 
   const refreshContainers = useCallback(async () => {
     try {
@@ -755,7 +752,7 @@ const OperationDetails: React.FC = () => {
         }
       }
     },
-    [decodedOperationId, refreshContainers]
+    [REQUIRED_CONTAINER_FIELDS, buildContainerPayloadFromRow, decodedOperationId, refreshContainers]
   );
 
   const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -876,54 +873,6 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
   const endIdx = Math.min(startIdx + PAGE_SIZE, total);
   const paginated = useMemo(() => filteredContainers.slice(startIdx, endIdx), [filteredContainers, startIdx, endIdx]);
 
-  // Sacaria - imagens e navegacao do carrossel
-  const [sacariaImages, setSacariaImages] = useState<SectionImageItem[]>([]);
-  const [sacariaIndex, setSacariaIndex] = useState<number>(0);
-  const SACARIA_PER_VIEW = 5;
-  const sacariaInputRef = useRef<HTMLInputElement | null>(null);
-
-  const nextSacaria = () => {
-    const maxIndex = Math.max(0, sacariaImages.length - SACARIA_PER_VIEW);
-    setSacariaIndex(prev => Math.min(prev + SACARIA_PER_VIEW, maxIndex));
-  };
-
-  const prevSacaria = () => {
-    setSacariaIndex(prev => Math.max(0, prev - SACARIA_PER_VIEW));
-  };
-
-  const handleSacariaDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!isEditing) return;
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    if (files.length) {
-      setSacariaImages(prev => ([...prev, ...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))]));
-    }
-  };
-
-  const handleSacariaSelect = () => {
-    if (!isEditing) return;
-    sacariaInputRef.current?.click();
-  };
-
-  const handleSacariaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isEditing || !e.target.files) return;
-    const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-    if (files.length) {
-      setSacariaImages(prev => ([...prev, ...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))]));
-    }
-    e.target.value = '';
-  };
-
-  const handleSacariaRemove = (index: number) => {
-    if (!isEditing) return;
-    setSacariaImages(prev => {
-      const list = [...prev];
-      const [removed] = list.splice(index, 1);
-      if (removed && (removed as any).file) URL.revokeObjectURL(removed.url);
-      return list;
-    });
-  };
-
   const startEdit = () => {
     setSaveMessage(null);
     setSaveError(null);
@@ -939,14 +888,14 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
     if (!decodedOperationId) return;
     const confirmed = window.confirm('Tem certeza que deseja excluir a Operação ' + operationLabel + '?');
     if (!confirmed) return;
-    setDeleteError(null);
+    
     setDeleteLoading(true);
     try {
       await deleteOperation(decodedOperationId);
       navigate('/operations');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Não foi possivel excluir a operação.';
-      setDeleteError(msg);
+      setLoadError(msg);
     } finally {
       setDeleteLoading(false);
     }

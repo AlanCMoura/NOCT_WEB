@@ -5,11 +5,6 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { createOperation } from '../services/operations';
 
-interface User {
-  name: string;
-  role: string;
-}
-
 interface NewOperationForm {
   ctv: string;
   reservation: string;

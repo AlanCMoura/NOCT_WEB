@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth, useSessionUser, AuthUser } from '../context/AuthContext';
 

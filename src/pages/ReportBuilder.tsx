@@ -19,8 +19,6 @@ import {
   Trash2
 } from 'lucide-react';
 
-interface UserLogged { name: string; role: string }
-
 type ReportType = 'operacoes' | 'containers' | 'performance' | 'auditoria';
 
 const types: { id: ReportType; title: string; desc: string; color: string; emoji: string }[] = [

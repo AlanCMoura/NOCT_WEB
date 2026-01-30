@@ -368,6 +368,11 @@ const OperationOverview: React.FC = () => {
               {saveError}
             </div>
           )}
+          {saveMessage && !saveError && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 mb-3">
+              {saveMessage}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-5 h-5" />
@@ -562,9 +567,15 @@ const OperationOverview: React.FC = () => {
               ) : (
                 <>
                   <button onClick={cancelEditAll} className="px-4 py-2 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">Cancelar</button>
-                  <button onClick={saveEditAll} className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors">Salvar</button>
-                </>
-              )}
+          <button
+            onClick={saveEditAll}
+            disabled={saving}
+            className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </>
+      )}
               <button onClick={handleBack} className="px-4 py-2 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors">Voltar</button>
             </div>
           </div>
