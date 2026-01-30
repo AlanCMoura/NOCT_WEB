@@ -21,6 +21,7 @@ import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } 
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 type StatusKey = 'todos' | 'aberta' | 'fechada';
+type PresetKey = 'hoje' | '7d' | '30d' | 'pendencias';
 
 interface ReportRow {
   id: string;
@@ -59,17 +60,21 @@ const formatDate = (value: string): string => {
 
 const parseInputDate = (value: string): number | null => {
   if (!value) return null;
-  const d = new Date(value);
+  // Parse date-only inputs as local midnight to avoid timezone shifts
+  const [year, month, day] = value.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const d = new Date(year, month - 1, day, 0, 0, 0, 0);
   const ts = d.getTime();
   return Number.isNaN(ts) ? null : ts;
 };
 
 const endOfDay = (value: string): number | null => {
-  const ts = parseInputDate(value);
-  if (ts === null) return null;
-  const d = new Date(ts);
-  d.setHours(23, 59, 59, 999);
-  return d.getTime();
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const d = new Date(year, month - 1, day, 23, 59, 59, 999);
+  const ts = d.getTime();
+  return Number.isNaN(ts) ? null : ts;
 };
 
 const mapOperation = (op: ApiOperation): ReportRow => {
@@ -135,6 +140,7 @@ const Reports: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusKey>('todos');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState<PresetKey | null>(null);
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -229,11 +235,13 @@ const Reports: React.FC = () => {
     setStatusFilter('todos');
     setStartDate('');
     setEndDate('');
+    setSelectedPreset(null);
   };
 
-  const applyPresetRange = (preset: 'hoje' | '7d' | '30d' | 'pendencias') => {
+  const applyPresetRange = (preset: PresetKey) => {
     const today = new Date();
     const toIso = (d: Date) => d.toISOString().slice(0, 10);
+    setSelectedPreset(preset);
     if (preset === 'pendencias') {
       setStatusFilter('aberta');
       setStartDate('');
@@ -263,6 +271,13 @@ const Reports: React.FC = () => {
       setEndDate(toIso(today));
     }
   };
+
+  const presetButtonClass = (key: PresetKey) =>
+    `inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+      selectedPreset === key
+        ? 'bg-teal-50 border-teal-500 text-teal-800'
+        : 'border-[var(--border)] text-[var(--text)] hover:bg-[var(--hover)]'
+    }`;
 
   const statusLabel = (status?: ApiContainerStatus) => {
     const norm = String(status || '').toUpperCase();
@@ -610,7 +625,10 @@ const Reports: React.FC = () => {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setSelectedPreset(null);
+                  }}
                   className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -620,7 +638,10 @@ const Reports: React.FC = () => {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setSelectedPreset(null);
+                  }}
                   className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -629,28 +650,28 @@ const Reports: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => applyPresetRange('hoje')}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  className={presetButtonClass('hoje')}
                 >
                   <Clock className="w-4 h-4 mr-2" /> Hoje
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetRange('7d')}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  className={presetButtonClass('7d')}
                 >
                   <BarChart3 className="w-4 h-4 mr-2" /> Ultimos 7 dias
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetRange('30d')}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  className={presetButtonClass('30d')}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" /> Ultimos 30 dias
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetRange('pendencias')}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  className={presetButtonClass('pendencias')}
                 >
                   <Timer className="w-4 h-4 mr-2" /> Pendências
                 </button>
