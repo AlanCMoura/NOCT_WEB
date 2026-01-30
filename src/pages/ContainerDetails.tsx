@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
@@ -87,7 +87,7 @@ const cloneSections = (sections: Record<ImageSectionKey, SectionImageWithId[]>) 
   }, {} as Record<ImageSectionKey, SectionImageWithId[]>);
 
 /**
- * CORREÃ‡ÃƒO 1: FunÃ§Ã£o centralizada para revogar URLs temporÃ¡rias
+ * CORREÃ‡ÃƒO 1: Função centralizada para revogar URLs temporárias
  * Evita memory leaks ao limpar todas as URLs criadas com createObjectURL
  */
 const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageWithId[]>) => {
@@ -399,7 +399,7 @@ const ContainerDetails: React.FC = () => {
       
       if (!target) return prev;
 
-      // Marca para exclusÃ£o no servidor se tiver ID
+      // Marca para exclusão no servidor se tiver ID
       if (target.id !== undefined && target.id !== null) {
         setPendingDeleteIds((prevIds) => 
           prevIds.includes(target.id!) ? prevIds : [...prevIds, target.id!]
@@ -481,10 +481,10 @@ const ContainerDetails: React.FC = () => {
   }, [resetEdits]);
 
   /**
-   * CORREÃ‡ÃƒO 7: FunÃ§Ã£o de salvamento com proteÃ§Ã£o contra submissÃµes duplicadas
+   * CORREÃ‡ÃƒO 7: Função de salvamento com proteção contra submissões duplicadas
    */
   const handleSave = useCallback(async () => {
-    // Previne submissÃµes duplicadas
+    // Previne submissões duplicadas
     if (!decodedContainerId || saving || loading || isSavingRef.current) return;
     
     isSavingRef.current = true;
@@ -587,7 +587,7 @@ const ContainerDetails: React.FC = () => {
       setIsEditing(false);
       setSuccess("Container atualizado com sucesso.");
     } catch (err) {
-      setError(getErrorMessage(err, "NÃ£o foi possÃ­vel atualizar o container."));
+      setError(getErrorMessage(err, "Não foi possível atualizar o container."));
     } finally {
       setSaving(false);
       setImagesLoading(false);
@@ -607,7 +607,7 @@ const ContainerDetails: React.FC = () => {
       await deleteContainerApi(decodedContainerId);
       navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
     } catch (err) {
-      setError(getErrorMessage(err, "NÃ£o foi possÃ­vel excluir o container."));
+      setError(getErrorMessage(err, "Não foi possível excluir o container."));
     } finally {
       setDeleting(false);
     }
@@ -633,7 +633,7 @@ const ContainerDetails: React.FC = () => {
       setContainer(updated);
       setSuccess("Status do container atualizado para FINALIZADO.");
     } catch (err) {
-      setError(getErrorMessage(err, "NÃ£o foi possÃ­vel atualizar o status do container."));
+      setError(getErrorMessage(err, "Não foi possível atualizar o status do container."));
     } finally {
       setStatusUpdating(false);
     }
@@ -825,7 +825,7 @@ const ContainerDetails: React.FC = () => {
   };
 
   /**
-   * CORREÃ‡ÃƒO 9: RenderizaÃ§Ã£o condicional do modal fora do return principal
+   * CORREÃ‡ÃƒO 9: Renderização condicional do modal fora do return principal
    */
   const renderImageModal = () => {
     if (!selectedImageModal) return null;
@@ -851,7 +851,7 @@ const ContainerDetails: React.FC = () => {
         onClick={closeImageModal}
         role="dialog"
         aria-modal="true"
-        aria-label={`VisualizaÃ§Ã£o de imagem: ${sectionLabel}`}
+        aria-label={`Visualização de imagem: ${sectionLabel}`}
       >
         <div className="relative w-full h-full flex items-center justify-center">
           <button
@@ -860,7 +860,7 @@ const ContainerDetails: React.FC = () => {
               closeImageModal();
             }}
             className="absolute top-4 right-4 text-white hover:text-gray-200 bg-black/60 rounded-full p-2 z-10"
-            aria-label="Fechar visualizaÃ§Ã£o"
+            aria-label="Fechar visualização"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1096,7 +1096,7 @@ const ContainerDetails: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Campo: IdentificaÃ§Ã£o */}
+                  {/* Campo: Identificação */}
                   <div>
                     <label 
                       htmlFor="containerId"
@@ -1118,7 +1118,7 @@ const ContainerDetails: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Campo: DescriÃ§Ã£o */}
+                  {/* Campo: Descrição */}
                   <div>
                     <label 
                       htmlFor="description"
