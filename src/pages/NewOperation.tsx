@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
@@ -113,8 +113,8 @@ const NewOperation: React.FC = () => {
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
           <div className="flex items-center justify-between h-full px-6">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Nova Operação</h1>
-              <p className="text-sm text-[var(--muted)]">Cadastre uma nova operação portuária</p>
+              <h1 className="text-2xl font-bold text-[var(--text)]">Nova Operacao</h1>
+              <p className="text-sm text-[var(--muted)]">Cadastre uma nova operacao portuaria</p>
             </div>
             <div className="flex items-center gap-4">
               <div
@@ -145,7 +145,7 @@ const NewOperation: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Informacoes da Operacao</h2>
                 <p className="text-sm text-[var(--muted)]">Preencha os campos abaixo</p>
               </div>
               <div className="flex gap-3">
@@ -161,7 +161,7 @@ const NewOperation: React.FC = () => {
                   disabled={saving}
                   className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60"
                 >
-                  {saving ? 'Salvando...' : 'Criar Operação'}
+                  {saving ? 'Salvando...' : 'Criar Operacao'}
                 </button>
               </div>
             </div>
