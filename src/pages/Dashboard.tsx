@@ -12,22 +12,21 @@ import {
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { listOperations, type ApiOperation } from '../services/operations';
-import { getContainersByOperation } from '../services/containers';
+import {
+  getDashboardMetrics,
+  type DashboardMetricsDTO,
+  type MonthlyTrendDTO,
+  type RecentOperationDTO,
+} from '../services/dashboard';
 
 type OperationStatus = 'Aberta' | 'Fechada';
 type TrendSemester = 'H1' | 'H2';
 
-interface OperationResume {
-  id: string; // usado para chaves/rotas (fallback para exibição)
-  backendId?: string | number; // id real para chamadas de API
-  shipName: string;
+interface RecentOperation {
+  id: string;
   status: OperationStatus;
   createdAt: string;
-  sortDate?: string;
-  updatedAt?: string;
-  containerCount?: number;
-  terminal?: string;
+  containerCount: number;
   reservation?: string;
   ctv?: string;
 }
@@ -44,77 +43,36 @@ interface TrendPoint {
   containers: number;
 }
 
-const parseDateValue = (value: unknown): string => {
-  if (!value) return '';
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (typeof value === 'string') return value;
-  return '';
-};
-
 const normalizeStatus = (value: unknown): OperationStatus => {
   const text = String(value ?? '').toUpperCase();
   if (text === 'COMPLETED' || text.includes('FINAL') || text.includes('FECH')) return 'Fechada';
   return 'Aberta';
 };
 
-const mapOperation = (op: ApiOperation): OperationResume => {
-  const backendId = op.id ?? op.code ?? op.bookingCode ?? op.booking ?? op.reservation ?? op.reserva;
+const getMonthOrder = (monthNumber: number | null | undefined): number => {
+  if (typeof monthNumber !== 'number' || Number.isNaN(monthNumber)) return 1;
+  if (monthNumber >= 1 && monthNumber <= 12) return monthNumber;
+  return monthNumber + 1; // fallback para APIs que usam 0-11
+};
 
-  const displayId =
-    op.ctv ??
-    op.amv ??
-    op.code ??
-    op.booking ??
-    op.bookingCode ??
-    op.reserva ??
-    op.reservation ??
-    backendId ??
-    `op-${Date.now()}`;
+const formatMonthLabel = (item: MonthlyTrendDTO): string => {
+  const raw = String(item.month ?? '').trim();
+  if (raw) return raw.replace('.', '').toUpperCase();
+  const monthOrder = getMonthOrder(item.monthNumber);
+  const year = typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : new Date().getFullYear();
+  const date = new Date(year, Math.min(Math.max(monthOrder - 1, 0), 11), 1);
+  return date.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+};
 
-  const createdRaw =
-    parseDateValue(op.createdAt) ||
-    parseDateValue(op.arrivalDate) ||
-    parseDateValue(op.deadline) ||
-    parseDateValue(op.deadlineDraft) ||
-    parseDateValue(op.loadDeadline) ||
-    '';
-
-  const updatedRaw = parseDateValue(op.updatedAt) || '';
-
-  const sortDate =
-    updatedRaw ||
-    createdRaw ||
-    parseDateValue(op.deadline) ||
-    parseDateValue(op.deadlineDraft) ||
-    parseDateValue(op.loadDeadline) ||
-    parseDateValue(op.arrivalDate) ||
-    '';
-
-  const containerCount =
-    op.containerCount ??
-    (Array.isArray(op.containers) ? op.containers.length : undefined) ??
-    (Array.isArray(op.containerList) ? op.containerList.length : undefined);
-
+const mapRecentOperation = (op: RecentOperationDTO): RecentOperation => {
+  const idValue = op.id ?? op.ctv ?? op.reservation ?? `op-${Date.now()}`;
   return {
-    id: String(displayId),
-    backendId,
-    shipName: String(op.shipName ?? op.ship ?? op.vesselName ?? op.vessel ?? op.navio ?? '-'),
-    status: normalizeStatus(op.status),
-    createdAt: createdRaw || sortDate,
-    updatedAt: updatedRaw || undefined,
-    sortDate: sortDate || createdRaw,
-    containerCount,
-    terminal: op.terminal ? String(op.terminal) : undefined,
-    reservation: op.reserva
-      ? String(op.reserva)
-      : op.reservation
-        ? String(op.reservation)
-        : op.booking
-          ? String(op.booking)
-          : op.bookingCode
-            ? String(op.bookingCode)
-            : undefined,
+    id: String(idValue),
     ctv: op.ctv ? String(op.ctv) : undefined,
+    reservation: op.reservation ? String(op.reservation) : undefined,
+    status: normalizeStatus(op.status),
+    createdAt: op.createdAt ? String(op.createdAt) : '',
+    containerCount: typeof op.containerCount === 'number' ? op.containerCount : 0,
   };
 };
 
@@ -459,119 +417,38 @@ const Dashboard: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [operations, setOperations] = useState<OperationResume[]>([]);
-  const [totalOperations, setTotalOperations] = useState(0);
-
-  const PAGE_SIZE = 100;
-  const MAX_PAGES = 10; // evita loop infinito caso a API retorne paginação inesperada
-
-  const ensureContainerCounts = useCallback(async (ops: OperationResume[]): Promise<OperationResume[]> => {
-    const missing = ops.filter((op) => (op.containerCount === undefined || op.containerCount === null) && op.backendId);
-    if (!missing.length) return ops;
-
-    const fetched = new Map<string | number, number>();
-    const CHUNK = 4; // limita requisições simultâneas
-
-    for (let i = 0; i < missing.length; i += CHUNK) {
-      const chunk = missing.slice(i, i + CHUNK);
-      await Promise.all(
-        chunk.map(async (op) => {
-          try {
-            const pageData = await getContainersByOperation(op.backendId as string | number, { page: 0, size: 1 });
-            const count =
-              pageData?.totalElements ??
-              (Array.isArray(pageData?.content) ? pageData.content.length : 0) ??
-              0;
-            fetched.set(op.backendId as string | number, count);
-          } catch (error) {
-            console.warn(`Não foi possível obter contagem de containers para operação ${op.backendId}`, error);
-          }
-        })
-      );
-    }
-
-    return ops.map((op) => {
-      if (op.containerCount !== undefined && op.containerCount !== null) return op;
-      if (op.backendId === undefined || op.backendId === null) return op;
-      const count = fetched.get(op.backendId);
-      if (count !== undefined) {
-        return { ...op, containerCount: count };
-      }
-      return { ...op, containerCount: 0 };
-    });
-  }, []);
+  const [metrics, setMetrics] = useState<DashboardMetricsDTO | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      let page = 0;
-      let totalElements = 0;
-      let totalPages = 1;
-      const aggregated: ApiOperation[] = [];
-
-      while (page < totalPages && page < MAX_PAGES) {
-        const data = await listOperations({
-          page,
-          size: PAGE_SIZE,
-          sortBy: 'createdAt',
-          sortDirection: 'DESC',
-        });
-
-        totalElements = data?.totalElements ?? totalElements;
-        totalPages = data?.totalPages ?? totalPages;
-
-        if (Array.isArray(data?.content) && data.content.length) {
-          aggregated.push(...data.content);
-        }
-
-        if (!data?.content?.length) break;
-        page += 1;
-      }
-
-      const mapped = aggregated.map(mapOperation);
-      const withCounts = await ensureContainerCounts(mapped);
-
-      const sorted = [...withCounts].sort((a, b) => {
-        const aTime = new Date(a.sortDate || a.createdAt).getTime();
-        const bTime = new Date(b.sortDate || b.createdAt).getTime();
-        if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
-        if (Number.isNaN(aTime)) return 1;
-        if (Number.isNaN(bTime)) return -1;
-        return bTime - aTime; // mais recentes primeiro
-      });
-
-      setOperations(sorted);
-      setTotalOperations(totalElements || withCounts.length);
+      const data = await getDashboardMetrics();
+      setMetrics(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Não foi possível carregar os dados.';
       setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, [ensureContainerCounts]);
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-const statusSegments = useMemo<ChartSegment[]>(() => {
-  const open = operations.filter((op) => op.status === 'Aberta').length;
-  const closed = operations.filter((op) => op.status === 'Fechada').length;
-  return [
-      { label: 'Abertas', value: open, color: '#FBBF24' }, // amarelo
-      { label: 'Fechadas', value: closed, color: 'var(--accent-green)' },
-  ];
-}, [operations]);
+  const totalOperations = metrics?.totalOperations ?? 0;
+  const openOperations = metrics?.openOperations ?? 0;
+  const closedOperations = metrics?.completedOperations ?? 0;
+  const totalContainers = metrics?.totalContainers ?? 0;
 
-  const totalContainers = useMemo(
-    () =>
-      operations.reduce((sum, op) => {
-        const value = typeof op.containerCount === 'number' ? op.containerCount : 0;
-        return sum + value;
-      }, 0),
-    [operations]
+  const statusSegments = useMemo<ChartSegment[]>(
+    () => [
+      { label: 'Abertas', value: openOperations, color: '#FBBF24' }, // amarelo
+      { label: 'Fechadas', value: closedOperations, color: 'var(--accent-green)' },
+    ],
+    [openOperations, closedOperations]
   );
 
   const currentMonth = new Date().getMonth();
@@ -579,54 +456,69 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
   const [trendSemester, setTrendSemester] = useState<TrendSemester>(initialSemester);
 
   const monthlyTrend = useMemo<TrendPoint[]>(() => {
-    const now = new Date();
-    const years = operations
-      .map((op) => {
-        const d = new Date(op.createdAt);
-        return Number.isNaN(d.getTime()) ? null : d.getFullYear();
-      })
-      .filter((y): y is number => y !== null);
-    const currentYear = now.getFullYear();
+    const source = metrics?.monthlyTrend ?? [];
+    if (!source.length) return [];
+
+    const years = source
+      .map((item) => (typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : null))
+      .filter((year): year is number => year !== null);
+    const currentYear = new Date().getFullYear();
     const targetYear = years.length ? Math.max(...years) : currentYear;
 
-    const start = trendSemester === 'H1' ? 0 : 6;
-    const range = Array.from({ length: 6 }, (_, idx) => {
-      const m = start + idx;
-      const label = new Date(targetYear, m, 1)
-        .toLocaleString('pt-BR', { month: 'short' })
-        .replace('.', '')
-        .toUpperCase();
-      return { month: m, year: targetYear, label };
+    const startMonth = trendSemester === 'H1' ? 1 : 7;
+    const months = Array.from({ length: 6 }, (_, idx) => startMonth + idx);
+
+    const byMonth = new Map<number, MonthlyTrendDTO>();
+    source.forEach((item) => {
+      const monthOrder = getMonthOrder(item.monthNumber);
+      const yearValue = typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : targetYear;
+      if (yearValue === targetYear && monthOrder >= 1 && monthOrder <= 12) {
+        byMonth.set(monthOrder, item);
+      }
     });
 
-    return range.map(({ month, year, label }) => {
-      let operationsCount = 0;
-      let containersCount = 0;
-
-      operations.forEach((op) => {
-        const date = new Date(op.createdAt);
-        if (date.getFullYear() === year && date.getMonth() === month) {
-          operationsCount += 1;
-          containersCount += typeof op.containerCount === 'number' ? op.containerCount : 0;
-        }
-      });
-
-      return { label, operations: operationsCount, containers: containersCount };
+    return months.map((monthOrder) => {
+      const fallback: MonthlyTrendDTO = {
+        month: '',
+        year: targetYear,
+        monthNumber: monthOrder,
+        operations: 0,
+        containers: 0,
+      };
+      const item = byMonth.get(monthOrder) ?? fallback;
+      return {
+        label: formatMonthLabel(item),
+        operations: typeof item.operations === 'number' ? item.operations : 0,
+        containers: typeof item.containers === 'number' ? item.containers : 0,
+      };
     });
-  }, [operations, trendSemester]);
+  }, [metrics?.monthlyTrend, trendSemester]);
 
-  const recentOperations = useMemo(() => operations.slice(0, 6), [operations]);
+  const recentOperations = useMemo(() => {
+    const toTime = (value: string) => {
+      const time = new Date(value).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    };
+
+    return (metrics?.recentOperations ?? [])
+      .map(mapRecentOperation)
+      .sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt))
+      .slice(0, 6);
+  }, [metrics?.recentOperations]);
 
   const avgContainers = useMemo(() => {
-    if (!operations.length) return 0;
-    return +(totalContainers / operations.length).toFixed(1);
-  }, [operations.length, totalContainers]);
+    const raw = metrics?.averageContainersPerOperation;
+    if (typeof raw === 'number' && !Number.isNaN(raw)) return +raw.toFixed(1);
+    if (!totalOperations) return 0;
+    return +(totalContainers / totalOperations).toFixed(1);
+  }, [metrics?.averageContainersPerOperation, totalContainers, totalOperations]);
 
   const completionRate = useMemo(() => {
-    if (!totalOperations) return 0;
-    const closed = statusSegments.find((seg) => seg.label === 'Fechadas')?.value ?? 0;
-    return Math.round((closed / totalOperations) * 100);
-  }, [statusSegments, totalOperations]);
+    const raw = metrics?.completionRate;
+    if (typeof raw !== 'number' || Number.isNaN(raw)) return 0;
+    const normalized = raw <= 1 ? raw * 100 : raw;
+    return Math.round(normalized);
+  }, [metrics?.completionRate]);
 
   const skeletonCards = (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -643,20 +535,11 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
   );
 
   const timelineText = useCallback(
-    (op: OperationResume) => {
+    (op: RecentOperation) => {
       const createdTime = op.createdAt ? new Date(op.createdAt).getTime() : NaN;
-      const updatedTime = op.updatedAt ? new Date(op.updatedAt).getTime() : NaN;
-      const hasUpdated = !Number.isNaN(updatedTime);
-      const hasCreated = !Number.isNaN(createdTime);
-
-      if (hasUpdated && (!hasCreated || updatedTime > createdTime)) {
-        return `Editada em ${formatDate(op.updatedAt!)}`;
-      }
-
-      if (hasCreated) {
+      if (!Number.isNaN(createdTime)) {
         return `Criada em ${formatDate(op.createdAt)}`;
       }
-
       return 'Data indisponível';
     },
     []
@@ -759,14 +642,14 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
                 />
                 <StatCard
                   title="Operações abertas"
-                  value={statusSegments.find((s) => s.label === 'Abertas')?.value ?? 0}
+                  value={openOperations}
                   helper="Em andamento"
                   icon={<Clock3 className="w-5 h-5 text-[var(--accent-green)]" />}
                   accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
                 />
                 <StatCard
                   title="Operações fechadas"
-                  value={statusSegments.find((s) => s.label === 'Fechadas')?.value ?? 0}
+                  value={closedOperations}
                   helper={`Taxa de conclusão: ${completionRate}%`}
                   icon={<CheckCircle2 className="w-5 h-5 text-[var(--accent-green)]" />}
                   accent="bg-[rgba(23,191,160,0.12)] text-[var(--accent-green)] border border-[rgba(23,191,160,0.3)]"
@@ -837,17 +720,16 @@ const statusSegments = useMemo<ChartSegment[]>(() => {
                     ) : (
                       recentOperations.map((op) => (
                         <div key={op.id} className="py-3 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-[var(--text)] flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--hover)] px-2 py-1 text-xs text-[var(--muted)]">
-                                {op.ctv || op.id}
-                              </span>
-                              {op.shipName}
-                            </p>
-                            <p className="text-xs text-[var(--muted)]">
-                              {op.reservation ? `Reserva: ${op.reservation}` : 'Sem reserva'} • {timelineText(op)}
-                            </p>
-                          </div>
+                            <div>
+                              <p className="text-sm font-semibold text-[var(--text)] flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--hover)] px-2 py-1 text-xs text-[var(--muted)]">
+                                  {op.ctv || op.id}
+                                </span>
+                              </p>
+                              <p className="text-xs text-[var(--muted)]">
+                                {op.reservation ? `Reserva: ${op.reservation}` : 'Sem reserva'} • {timelineText(op)}
+                              </p>
+                            </div>
                           <div className="flex items-center gap-3">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-semibold ${
