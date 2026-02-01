@@ -265,7 +265,7 @@ const OperationOverview: React.FC = () => {
       })
       .join('');
 
-    const pdfTitle = `Overview ${operationLabel || decodedOperationId || 'operacao'}`;
+    const pdfTitle = `Overview ${operationLabel || decodedOperationId || 'operação'}`;
     const html = `
       <html>
         <head>
@@ -288,19 +288,19 @@ const OperationOverview: React.FC = () => {
             </h2>
             <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
           </div>
-          <p>Operacao: ${safe(operationLabel)}</p>
+            <p>Operação: ${safe(operationLabel)}</p>
           <p>Gerado em ${safe(new Date().toLocaleString())}</p>
           <table>
             <thead>
               <tr>
                 <th>Container</th>
                 <th>Status</th>
-                <th>Lacre Agencia</th>
+                  <th>Lacre Agência</th>
                 <th>Lacre Principal</th>
                 <th>Lacre Outros</th>
                 <th>Qtd. Sacarias</th>
                 <th>Peso Bruto</th>
-                <th>Peso Liquido</th>
+                  <th>Peso Líquido</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>

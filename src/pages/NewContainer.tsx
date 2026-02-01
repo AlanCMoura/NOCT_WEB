@@ -241,13 +241,13 @@ const NewContainer: React.FC = () => {
     setSuccess(null);
 
     if (!decodedOperationId) {
-      setError("Operacao nao encontrada para criar container.");
+      setError("Operação não encontrada para criar container.");
       return;
     }
 
     const numericOperation = Number(decodedOperationId);
     if (!Number.isFinite(numericOperation)) {
-      setError("ID da operacao invalido para criar container.");
+      setError("ID da operação inválido para criar container.");
       return;
     }
 
@@ -319,7 +319,7 @@ const NewContainer: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)]">Novo Container</h1>
-              <p className="text-sm text-[var(--muted)]">Operacao {operationCtv || decodedOperationId}</p>
+              <p className="text-sm text-[var(--muted)]">Operação {operationCtv || decodedOperationId}</p>
             </div>
             <div className="flex items-center gap-4">
               <div

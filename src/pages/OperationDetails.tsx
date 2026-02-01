@@ -419,7 +419,7 @@ const OperationDetails: React.FC = () => {
   const exportPdf = useCallback(async () => {
     if (exportingPdf) return;
     if (!opInfo || sectionsLoading) {
-      window.alert('Carregue a operaÇõÇœ e os containers antes de exportar.');
+      window.alert('Carregue a operação e os containers antes de exportar.');
       return;
     }
 
@@ -477,7 +477,7 @@ const OperationDetails: React.FC = () => {
           <table>
             <tr><th>Descrição</th><td>${safe(fmt(c.description))}</td></tr>
             <tr><th>Peso Bruto</th><td>${safe(fmt(c.pesoBruto))}</td></tr>
-            <tr><th>Lacre Agencia</th><td>${safe(fmt(c.lacreAgencia))}</td></tr>
+            <tr><th>Lacre Agência</th><td>${safe(fmt(c.lacreAgencia))}</td></tr>
             <tr><th>Lacre Principal</th><td>${safe(fmt(c.lacrePrincipal))}</td></tr>
             <tr><th>Outros Lacres</th><td>${safe(fmt(c.lacreOutros))}</td></tr>
             <tr><th>Qtd. Sacarias</th><td>${safe(fmt(c.qtdSacarias))}</td></tr>

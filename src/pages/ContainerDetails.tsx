@@ -702,15 +702,15 @@ const ContainerDetails: React.FC = () => {
     const title = `Relatório ${container.ctvId || container.containerId || "-"}`;
     const details = [
       { label: "Container", value: container.ctvId || container.containerId || "-" },
-      { label: "Descri??o", value: container.description ?? "-" },
+      { label: "Descrição", value: container.description ?? "-" },
       { label: "Quantidade de Sacas", value: formatNum(container.sacksCount) },
       { label: "Tara (kg)", value: formatNum(container.tareTons ? container.tareTons * 1000 : form.tareKg) },
-      { label: "Peso L?quido (kg)", value: formatNum(container.liquidWeight) },
+      { label: "Peso Líquido (kg)", value: formatNum(container.liquidWeight) },
       { label: "Peso Bruto (kg)", value: formatNum(container.grossWeight) },
-      { label: "Lacre Principal (Ag?ncia)", value: container.agencySeal ?? "-" },
+      { label: "Lacre Principal (Agência)", value: container.agencySeal ?? "-" },
       { label: "Outros Lacres", value: (container.otherSeals || []).join(", ") || "-" },
       { label: "Status", value: statusBadge.text },
-      { label: "Opera??o", value: operationCtv || decodedOperationId || "-" },
+      { label: "Operação", value: operationCtv || decodedOperationId || "-" },
     ];
 
     const imagesHtml = CONTAINER_IMAGE_SECTIONS.map(({ key, label }) => {
