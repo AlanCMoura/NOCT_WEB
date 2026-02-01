@@ -299,7 +299,7 @@ const Reports: React.FC = () => {
 
       const rowsHtml = list
         .map((c, index) => {
-          const id = safe(c.containerId ?? c.id ?? `CONT-${index + 1}`);
+          const id = safe(c.ctvId ?? c.containerId ?? `CONT-${index + 1}`);
           const status = statusLabel(c.status);
           const lacreAgencia = safe(c.agencySeal ?? '-');
           const lacrePrincipal = safe(c.agencySeal ?? '-');

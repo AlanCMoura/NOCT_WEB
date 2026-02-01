@@ -10,6 +10,7 @@ import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 interface ContainerRow {
   id: string;
+  apiId?: string;
   status?: ApiContainerStatus;
   lacreAgencia?: string;
   lacrePrincipal?: string;
@@ -22,7 +23,8 @@ interface ContainerRow {
 const mapApiContainer = (c: ApiContainer, index: number): ContainerRow => {
   const status = (c.status as ApiContainerStatus | undefined) || undefined;
   return {
-    id: String(c.containerId || c.id || `CONT-${index + 1}`),
+    id: String(c.ctvId || c.containerId || `CONT-${index + 1}`),
+    apiId: c.id !== undefined && c.id !== null ? String(c.id) : undefined,
     status,
     lacreAgencia: c.agencySeal || '',
     lacrePrincipal: c.agencySeal || '',
@@ -177,7 +179,11 @@ const OperationOverview: React.FC = () => {
       await Promise.all(
         changes.map(async (draft) => {
           const payload = buildUpdatePayload(draft);
-          await updateContainer(draft.id, payload);
+          const targetId = draft.apiId ?? draft.id;
+          if (!targetId) {
+            throw new Error('ID do container indisponível para atualização.');
+          }
+          await updateContainer(targetId, payload);
         })
       );
       setRows(draftRows);

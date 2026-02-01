@@ -23,6 +23,7 @@ export type ContainerImageResponseDTO = {
 export interface ApiContainer {
   id?: number;
   containerId: string;
+  ctvId?: string;
   description?: string;
   operationId?: number;
   sacksCount?: number;
@@ -31,6 +32,8 @@ export interface ApiContainer {
   grossWeight?: number;
   agencySeal?: string;
   otherSeals?: string[];
+  dataRetirada?: string;
+  dataEstufagem?: string;
   status?: ApiContainerStatus;
   containerImages?: ApiContainerImage[];
 }
@@ -86,6 +89,7 @@ const REQUIRED_IMAGE_CATEGORIES: ContainerImageCategoryKey[] = [
 
 export interface CreateContainerPayload {
   containerId: string;
+  ctvId?: string;
   description: string;
   operationId: number;
   sacksCount?: number;
@@ -94,6 +98,8 @@ export interface CreateContainerPayload {
   grossWeight?: number;
   agencySeal?: string;
   otherSeals?: string[];
+  dataRetirada?: string;
+  dataEstufagem?: string;
   images?: ContainerImagesPayload;
 }
 
@@ -105,6 +111,8 @@ export interface UpdateContainerPayload {
   grossWeight?: number;
   agencySeal?: string;
   otherSeals?: string[];
+  dataRetirada?: string;
+  dataEstufagem?: string;
   status?: ApiContainerStatus;
 }
 
@@ -124,6 +132,7 @@ const appendImages = (form: FormData, images?: ContainerImagesPayload): boolean 
 const buildContainerJsonPayload = (payload: CreateContainerPayload) => {
   const {
     containerId,
+    ctvId,
     description,
     operationId,
     sacksCount,
@@ -132,10 +141,12 @@ const buildContainerJsonPayload = (payload: CreateContainerPayload) => {
     grossWeight,
     agencySeal,
     otherSeals,
+    dataRetirada,
+    dataEstufagem,
   } = payload;
 
   return {
-    containerId,
+    ctvId: ctvId ?? containerId,
     description,
     operationId,
     sacksCount: sacksCount ?? 0,
@@ -144,6 +155,8 @@ const buildContainerJsonPayload = (payload: CreateContainerPayload) => {
     grossWeight: grossWeight ?? 0,
     agencySeal: agencySeal ?? '',
     otherSeals: otherSeals && otherSeals.length ? otherSeals : [],
+    dataRetirada: dataRetirada || undefined,
+    dataEstufagem: dataEstufagem || undefined,
   };
 };
 
@@ -162,10 +175,10 @@ export const createContainer = async (payload: CreateContainerPayload): Promise<
     // Cria o container via JSON e envia imagens de forma incremental sem validar obrigatórios
     const body = buildContainerJsonPayload(payload);
     const { data } = await api.post<ApiContainer>('/containers', body);
-    const targetId = data.containerId || payload.containerId;
-    if (targetId) {
+    const targetId = data.id ?? data.containerId ?? payload.containerId;
+    if (targetId !== undefined && targetId !== null && String(targetId).trim() !== '') {
       try {
-        const updated = await addImagesToContainer(targetId, images, false);
+        const updated = await addImagesToContainer(String(targetId), images, false);
         return updated;
       } catch {
         // Caso o upload falhe, retornamos ao menos o container criado
@@ -175,7 +188,7 @@ export const createContainer = async (payload: CreateContainerPayload): Promise<
   }
 
   const form = new FormData();
-  form.append('containerId', payload.containerId);
+  form.append('ctvId', payload.ctvId ?? payload.containerId);
   form.append('description', payload.description);
   form.append('operationId', String(payload.operationId));
   form.append('sacksCount', String(payload.sacksCount ?? 0));
@@ -184,6 +197,12 @@ export const createContainer = async (payload: CreateContainerPayload): Promise<
   form.append('grossWeight', String(payload.grossWeight ?? 0));
   form.append('agencySeal', payload.agencySeal ?? '');
   form.append('validateMandatory', 'false');
+  if (payload.dataRetirada) {
+    form.append('dataRetirada', payload.dataRetirada);
+  }
+  if (payload.dataEstufagem) {
+    form.append('dataEstufagem', payload.dataEstufagem);
+  }
 
   const seals = payload.otherSeals && payload.otherSeals.length ? payload.otherSeals : [''];
   seals.forEach((seal) => form.append('otherSeals', seal));
@@ -218,6 +237,8 @@ export const updateContainer = async (
     grossWeight,
     agencySeal,
     otherSeals,
+    dataRetirada,
+    dataEstufagem,
     status,
   } = payload;
 
@@ -230,6 +251,13 @@ export const updateContainer = async (
     agencySeal: agencySeal ?? '',
     otherSeals: otherSeals && otherSeals.length ? otherSeals : [],
   };
+
+  if (dataRetirada !== undefined) {
+    body.dataRetirada = dataRetirada;
+  }
+  if (dataEstufagem !== undefined) {
+    body.dataEstufagem = dataEstufagem;
+  }
 
   if (status !== undefined) {
     body.status = status;

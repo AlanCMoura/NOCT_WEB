@@ -51,8 +51,6 @@ interface NewContainerForm {
   pesoLiquido: string;
   lacreAgencia: string;
   lacreOutros: string;
-  dataRetirada: string;
-  dataEstufagem: string;
 }
 
 const emptyImages = (): Record<ImageSectionKey, SectionImageItem[]> =>
@@ -78,8 +76,6 @@ const NewContainer: React.FC = () => {
     pesoLiquido: "",
     lacreAgencia: "",
     lacreOutros: "",
-    dataRetirada: "",
-    dataEstufagem: "",
   });
 
   const [saving, setSaving] = useState(false);
@@ -274,6 +270,7 @@ const NewContainer: React.FC = () => {
 
     const payload = {
       containerId: form.container.trim(),
+      ctvId: form.container.trim(),
       description: form.descricao.trim(),
       operationId: numericOperation,
       sacksCount: parseNumber(form.quantidade) ?? 0,
@@ -291,7 +288,10 @@ const NewContainer: React.FC = () => {
     try {
       setSaving(true);
       const created = await createContainer(payload);
-      const nextContainerId = created.containerId || payload.containerId || String(created.id ?? '');
+      const nextContainerId =
+        created.id !== undefined && created.id !== null
+          ? String(created.id)
+          : created.containerId || payload.containerId || String(created.id ?? '');
       setSuccess("Container criado com sucesso.");
       navigate(
         `/operations/${encodeURIComponent(decodedOperationId)}/containers/${encodeURIComponent(nextContainerId)}`
@@ -445,24 +445,6 @@ const NewContainer: React.FC = () => {
                   value={form.lacreOutros}
                   onChange={(e) => setField("lacreOutros", e.target.value)}
                   placeholder="SEAL-001, SEAL-002"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Data Retirada do Terminal</label>
-                <input
-                  type="date"
-                  value={form.dataRetirada}
-                  onChange={(e) => setField("dataRetirada", e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Data de Estufagem</label>
-                <input
-                  type="date"
-                  value={form.dataEstufagem}
-                  onChange={(e) => setField("dataEstufagem", e.target.value)}
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>

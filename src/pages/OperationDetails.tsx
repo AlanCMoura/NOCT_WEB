@@ -179,7 +179,8 @@ const mapContainers = (data: ApiOperation): Container[] => {
     const c = item as Record<string, unknown>;
     const apiId = c?.id !== undefined && c?.id !== null ? String(c.id) : undefined;
     const id = coalesceText(
-      c?.id,
+      c?.ctvId,
+      c?.containerId,
       c?.container,
       c?.name,
       c?.codigo,
@@ -204,7 +205,7 @@ const mapContainers = (data: ApiOperation): Container[] => {
 
 const mapApiContainers = (items: ApiContainer[] = []): Container[] =>
   items.map((c, index) => ({
-    id: coalesceText(c.containerId, c.id, `CONT-${index + 1}`),
+    id: coalesceText(c.ctvId, c.containerId, `CONT-${index + 1}`),
     apiId: c.id !== undefined && c.id !== null ? String(c.id) : undefined,
     description: coalesceText(c.description),
     pesoBruto: coalesceText(c.grossWeight),
@@ -342,7 +343,7 @@ const OperationDetails: React.FC = () => {
     async (container: Container) => {
       const keys = Array.from(
         new Set(
-          [container.apiId, container.id]
+          (container.apiId ? [container.apiId] : [container.id])
             .filter(Boolean)
             .map((k) => String(k))
         )
@@ -624,14 +625,20 @@ const OperationDetails: React.FC = () => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
-  const handleDeleteContainer = async (containerId: string) => {
-    const confirmed = window.confirm(`Excluir o container ${containerId}?`);
+  const handleDeleteContainer = async (container: Container) => {
+    const displayId = container.id;
+    const targetId = container.apiId ?? container.id;
+    if (!targetId) {
+      window.alert('ID do container indisponível para exclusão.');
+      return;
+    }
+    const confirmed = window.confirm(`Excluir o container ${displayId}?`);
     if (!confirmed) return;
-    setDeleteContainerLoading(containerId);
+    setDeleteContainerLoading(displayId);
     setLoadError(null);
     try {
-      await deleteContainer(containerId);
-      setContainers((prev) => prev.filter((c) => c.id !== containerId));
+      await deleteContainer(targetId);
+      setContainers((prev) => prev.filter((c) => c.id !== displayId));
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Não foi possivel excluir o container.';
       setLoadError(msg);
@@ -964,9 +971,14 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
 
   // navegacao via SidebarProvider; handler antigo removido
 
-  const handleContainerClick = (containerId: string): void => {
+  const handleContainerClick = (container: Container): void => {
+    const targetId = container.apiId ?? container.id;
+    if (!targetId) {
+      window.alert('ID do container indisponível para abrir detalhes.');
+      return;
+    }
     navigate(
-      `/operations/${encodeURIComponent(decodedOperationId)}/containers/${encodeURIComponent(containerId)}`
+      `/operations/${encodeURIComponent(decodedOperationId)}/containers/${encodeURIComponent(String(targetId))}`
     );
   };
 
@@ -1419,8 +1431,8 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                       key={container.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => handleContainerClick(container.id)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleContainerClick(container.id); }}
+                      onClick={() => handleContainerClick(container)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleContainerClick(container); }}
                       className="w-full text-left p-4 flex items-center justify-between hover:bg-[var(--hover)] transition-colors cursor-pointer focus:outline-none"
                       aria-label={`Abrir container ${container.id}`}
                     >
@@ -1437,7 +1449,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container); }}
                             onKeyDown={(e) => e.stopPropagation()}
                             disabled={deleteContainerLoading === container.id}
                             className="px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2"

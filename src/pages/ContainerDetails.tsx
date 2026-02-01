@@ -37,6 +37,8 @@ interface EditForm {
   grossWeight: string;
   agencySeal: string;
   otherSeals: string;
+  dataRetirada: string;
+  dataEstufagem: string;
 }
 
 const IMAGES_PER_VIEW = 3;
@@ -106,7 +108,7 @@ const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageWithId[]>)
 };
 
 const mapContainerToForm = (container: ApiContainer): EditForm => ({
-  containerId: container.containerId || "",
+  containerId: container.ctvId || container.containerId || "",
   description: container.description ?? "",
   sacksCount: container.sacksCount !== undefined ? String(container.sacksCount) : "",
   tareKg:
@@ -117,6 +119,8 @@ const mapContainerToForm = (container: ApiContainer): EditForm => ({
   grossWeight: container.grossWeight !== undefined ? String(container.grossWeight) : "",
   agencySeal: container.agencySeal ?? "",
   otherSeals: (container.otherSeals || []).filter(Boolean).join(", "),
+  dataRetirada: toDateInput(container.dataRetirada),
+  dataEstufagem: toDateInput(container.dataEstufagem),
 });
 
 const mapContainerImages = (container: ApiContainer): Record<ImageSectionKey, SectionImageWithId[]> => {
@@ -129,6 +133,13 @@ const mapContainerImages = (container: ApiContainer): Record<ImageSectionKey, Se
     }
   });
   return sections;
+};
+
+const toDateInput = (value?: string): string => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) return date.toISOString().slice(0, 10);
+  return value.length >= 10 ? value.slice(0, 10) : value;
 };
 
 const parseNumber = (value: string): number | undefined => {
@@ -187,6 +198,8 @@ const ContainerDetails: React.FC = () => {
     grossWeight: "",
     agencySeal: "",
     otherSeals: "",
+    dataRetirada: "",
+    dataEstufagem: "",
   });
   const [imageSections, setImageSections] = useState<Record<ImageSectionKey, SectionImageWithId[]>>(emptyImages);
   const initialImagesRef = useRef<Record<ImageSectionKey, SectionImageWithId[]>>(emptyImages());
@@ -208,6 +221,7 @@ const ContainerDetails: React.FC = () => {
   const [headerStatusLoading, setHeaderStatusLoading] = useState<boolean>(false);
   const [operationCtv, setOperationCtv] = useState<string>("");
   const [operationLabelLoading, setOperationLabelLoading] = useState<boolean>(true);
+  const containerLabel = container?.ctvId || container?.containerId || '-';
   /**
    * CORREÃ‡ÃƒO 7: Ref para prevenir submissÃµes duplicadas
    */
@@ -514,6 +528,8 @@ const ContainerDetails: React.FC = () => {
       grossWeight: parseNumber(form.grossWeight) ?? 0,
       agencySeal: form.agencySeal.trim(),
       otherSeals: otherSeals.length ? otherSeals : [],
+      dataRetirada: form.dataRetirada || undefined,
+      dataEstufagem: form.dataEstufagem || undefined,
     };
 
     try {
@@ -683,9 +699,9 @@ const ContainerDetails: React.FC = () => {
       return Number.isFinite(num) ? num.toString() : String(val);
     };
 
-    const title = `Relatório ${container.containerId || decodedContainerId}`;
+    const title = `Relatório ${container.ctvId || container.containerId || "-"}`;
     const details = [
-      { label: "Container", value: container.containerId || decodedContainerId },
+      { label: "Container", value: container.ctvId || container.containerId || "-" },
       { label: "Descri??o", value: container.description ?? "-" },
       { label: "Quantidade de Sacas", value: formatNum(container.sacksCount) },
       { label: "Tara (kg)", value: formatNum(container.tareTons ? container.tareTons * 1000 : form.tareKg) },
@@ -893,7 +909,7 @@ const ContainerDetails: React.FC = () => {
           <div className="flex items-center justify-between h-full px-6">
             <div>
               <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-3">
-                Container {decodedContainerId}
+                Container {containerLabel}
                 {hasContainer ? (
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadge.className}`}
