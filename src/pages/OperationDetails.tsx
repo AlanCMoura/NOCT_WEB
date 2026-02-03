@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useMemo, useEffect, useReducer } from 'react';
+import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Trash2, Plus, FileUp, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -121,9 +122,60 @@ const pickCell = (row: Record<string, any>, keys: string[]): string => {
   }
   return '';
 };
-const toOptionalNumber = (value: string): number | undefined => {
-  const num = Number(value);
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+
+  const compact = raw.replace(/\s/g, '');
+  const hasComma = compact.includes(',');
+  const hasDot = compact.includes('.');
+
+  let normalized = compact;
+
+  if (hasComma && hasDot) {
+    const lastComma = compact.lastIndexOf(',');
+    const lastDot = compact.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      normalized = compact.replace(/\./g, '').replace(',', '.');
+    } else {
+      normalized = compact.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    const thousands = /^\d{1,3}(,\d{3})+$/.test(compact);
+    normalized = thousands ? compact.replace(/,/g, '') : compact.replace(',', '.');
+  } else if (hasDot) {
+    const thousands = /^\d{1,3}(\.\d{3})+$/.test(compact);
+    normalized = thousands ? compact.replace(/\./g, '') : compact;
+  }
+
+  const num = Number(normalized);
   return Number.isFinite(num) ? num : undefined;
+};
+
+const formatApiError = (err: unknown): string => {
+  if (axios.isAxiosError(err)) {
+    const status = err.response?.status;
+    const data = err.response?.data as any;
+    if (data) {
+      if (typeof data === 'string') return data;
+      if (typeof data === 'object') {
+        const message = data.message || data.error || data.detail;
+        const errorId = data.errorId || data.traceId;
+        const errors = Array.isArray(data.errors) ? data.errors.filter(Boolean).join(', ') : '';
+        const composed = [message, errors].filter(Boolean).join(' - ');
+        if (composed) return errorId ? `${composed} (ID: ${errorId})` : composed;
+      }
+    }
+    if (status) return `HTTP ${status}: ${err.message}`;
+    return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return 'Erro ao criar container';
 };
 
 const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
@@ -650,7 +702,7 @@ const OperationDetails: React.FC = () => {
   const buildContainerPayloadFromRow = useCallback(
     (row: Record<string, any>): CreateContainerPayload => {
       const normalized = normalizeRowKeys(row);
-      const containerId = pickCell(normalized, ['containerid', 'id', 'codigo', 'identificacao', 'container']);
+      const containerId = pickCell(normalized, ['containerid', 'ctvid', 'ctv', 'id', 'codigo', 'identificacao', 'container']);
       const description = pickCell(normalized, ['description', 'descricao', 'desc']);
       const sacksCount = toOptionalNumber(pickCell(normalized, ['sackscount', 'sacos', 'sacas', 'quantidade']));
       const tareKg = toOptionalNumber(pickCell(normalized, ['tarekg', 'tara', 'tare', 'tara_kg']));
@@ -733,7 +785,7 @@ const OperationDetails: React.FC = () => {
             await createContainer(payload);
             results.created += 1;
           } catch (err) {
-            const message = err instanceof Error ? err.message : 'Erro ao criar container';
+            const message = formatApiError(err);
             results.errors.push(`Linha ${i + 2}: ${message}`);
           }
         }
@@ -749,7 +801,7 @@ const OperationDetails: React.FC = () => {
         setImportErrors(results.errors);
         await refreshContainers();
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Não foi possível importar o arquivo.';
+        const message = formatApiError(err) || 'Não foi possível importar o arquivo.';
         setImportErrors([message]);
       } finally {
         setImportingContainers(false);
