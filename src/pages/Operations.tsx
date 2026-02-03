@@ -63,6 +63,12 @@ const parseDateValue = (value: unknown): string => {
 const normalizeSearchKey = (value: string): string =>
   value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+const mapStatusToApi = (value: 'todos' | 'aberta' | 'fechada'): string | undefined => {
+  if (value === 'aberta') return 'OPEN';
+  if (value === 'fechada') return 'COMPLETED';
+  return undefined;
+};
+
 const getDatePriority = (value: string): number => {
   const timestamp = new Date(value).getTime();
   return Number.isNaN(timestamp) ? 0 : timestamp;
@@ -264,8 +270,8 @@ const mapApiOperation = (op: ApiOperation): OperationItem => {
     op.shipName ?? op.ship ?? op.vesselName ?? op.vessel ?? op.navio ?? id
   );
   const dateSource =
-    parseDateValue(op.updatedAt) ||
     parseDateValue(op.createdAt) ||
+    parseDateValue(op.updatedAt) ||
     parseDateValue(op.arrivalDate) ||
     parseDateValue(op.deadline) ||
     parseDateValue(op.deadlineDraft) ||
@@ -330,11 +336,13 @@ const Operations: React.FC = () => {
       setLoading(true);
       setListError(null);
       try {
+        const statusParam = mapStatusToApi(statusFilter);
         const data = await listOperations({
           page: targetPage,
           size: pageSize,
           sortBy: 'createdAt',
           sortDirection: 'DESC',
+          status: statusParam,
         });
         const mapped = (data?.content ?? []).map(mapApiOperation);
 
@@ -373,7 +381,7 @@ const Operations: React.FC = () => {
         setLoading(false);
       }
     },
-    [pageSize]
+    [pageSize, statusFilter]
   );
 
   const handleImportFile = useCallback(
@@ -508,7 +516,7 @@ const Operations: React.FC = () => {
 
   useEffect(() => {
     fetchOperations(page);
-  }, [fetchOperations, page, pageSize]);
+  }, [fetchOperations, page, pageSize, statusFilter]);
 
   const filtered = useMemo(() => {
     const q = normalizeSearchKey(search.trim());
@@ -582,7 +590,10 @@ const Operations: React.FC = () => {
               <div className="w-40">
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as typeof statusFilter);
+                    setPage(0);
+                  }}
                   className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
                   aria-label="Filtrar por status"
                 >

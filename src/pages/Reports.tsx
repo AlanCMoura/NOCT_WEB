@@ -39,6 +39,12 @@ const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
   return 'Aberta';
 };
 
+const mapStatusToApi = (value: StatusKey): string | undefined => {
+  if (value === 'aberta') return 'OPEN';
+  if (value === 'fechada') return 'COMPLETED';
+  return undefined;
+};
+
 const parseDateValue = (value: unknown): string => {
   if (!value) return '';
   if (typeof value === 'number') return new Date(value).toISOString();
@@ -155,11 +161,13 @@ const Reports: React.FC = () => {
     setError(null);
     try {
       const normalizedSize = Math.min(Math.max(pageSize, 1), 100);
+      const statusParam = mapStatusToApi(statusFilter);
       const data = await listOperations({
         page: targetPage,
         size: normalizedSize,
-        sortBy: 'updatedAt',
+        sortBy: 'createdAt',
         sortDirection: 'DESC',
+        status: statusParam,
       });
       const mapped = (data?.content ?? []).map(mapOperation);
 
@@ -190,7 +198,7 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     fetchOperations(page);
-  }, [page, pageSize]);
+  }, [page, pageSize, statusFilter]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -207,12 +215,7 @@ const Reports: React.FC = () => {
           row.reserva.toLowerCase().includes(q) ||
           row.ship.toLowerCase().includes(q);
 
-        const matchesStatus =
-          statusFilter === 'todos' ||
-          (statusFilter === 'aberta' && row.status === 'Aberta') ||
-          (statusFilter === 'fechada' && row.status === 'Fechada');
-
-        return matchesSearch && matchesStatus;
+        return matchesSearch;
       });
     }
     setRangeWarning(null);
@@ -225,11 +228,6 @@ const Reports: React.FC = () => {
         row.reserva.toLowerCase().includes(q) ||
           row.ship.toLowerCase().includes(q);
 
-      const matchesStatus =
-        statusFilter === 'todos' ||
-        (statusFilter === 'aberta' && row.status === 'Aberta') ||
-        (statusFilter === 'fechada' && row.status === 'Fechada');
-
       const matchesDate = (() => {
         if (start === null && end === null) return true;
         const ts = row.date ? new Date(row.date).getTime() : NaN;
@@ -239,7 +237,7 @@ const Reports: React.FC = () => {
         return true;
       })();
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesDate;
     });
   }, [rows, search, statusFilter, startDate, endDate]);
 
