@@ -112,7 +112,12 @@ export const createOperation = async (payload: CreateOperationPayload): Promise<
 };
 
 export const getOperationById = async (id: string | number): Promise<ApiOperation> => {
-  const { data } = await api.get<ApiOperation>(`/operations/${id}`);
+  const { data } = await api.get<ApiOperation>(`/operations/id/${encodeURIComponent(String(id))}`);
+  return data;
+};
+
+export const getOperationByCtv = async (ctv: string): Promise<ApiOperation> => {
+  const { data } = await api.get<ApiOperation>(`/operations/ctv/${encodeURIComponent(ctv)}`);
   return data;
 };
 

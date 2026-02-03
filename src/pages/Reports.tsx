@@ -145,12 +145,22 @@ const Reports: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [rangeWarning, setRangeWarning] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [totalElements, setTotalElements] = useState<number>(0);
 
-  const fetchOperations = async () => {
+  const fetchOperations = async (targetPage = page) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listOperations({ page: 0, size: 200, sortBy: 'updatedAt', sortDirection: 'DESC' });
+      const normalizedSize = Math.min(Math.max(pageSize, 1), 100);
+      const data = await listOperations({
+        page: targetPage,
+        size: normalizedSize,
+        sortBy: 'updatedAt',
+        sortDirection: 'DESC',
+      });
       const mapped = (data?.content ?? []).map(mapOperation);
 
       const enriched = await Promise.all(
@@ -167,6 +177,9 @@ const Reports: React.FC = () => {
       );
 
       setRows(enriched);
+      setPage(data?.number ?? targetPage);
+      setTotalPages(data?.totalPages ?? 0);
+      setTotalElements(data?.totalElements ?? 0);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar os dados de relatórios.';
       setError(msg);
@@ -176,8 +189,8 @@ const Reports: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchOperations();
-  }, []);
+    fetchOperations(page);
+  }, [page, pageSize]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -236,12 +249,14 @@ const Reports: React.FC = () => {
     setStartDate('');
     setEndDate('');
     setSelectedPreset(null);
+    setPage(0);
   };
 
   const applyPresetRange = (preset: PresetKey) => {
     const today = new Date();
     const toIso = (d: Date) => d.toISOString().slice(0, 10);
     setSelectedPreset(preset);
+    setPage(0);
     if (preset === 'pendencias') {
       setStatusFilter('aberta');
       setStartDate('');
@@ -516,7 +531,7 @@ const Reports: React.FC = () => {
     };
   };
 
-  const rowsForTable = filteredRows.slice(0, 50);
+  const rowsForTable = filteredRows;
 
   return (
     <div className="flex h-screen bg-app">
@@ -586,7 +601,7 @@ const Reports: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={fetchOperations}
+                  onClick={() => fetchOperations(page)}
                   disabled={loading}
                   className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-60"
                 >
@@ -611,7 +626,10 @@ const Reports: React.FC = () => {
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as StatusKey)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as StatusKey);
+                    setPage(0);
+                  }}
                   className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="todos">Todos os status</option>
@@ -691,7 +709,7 @@ const Reports: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text)]">Operações para relatório</h2>
                 <p className="text-sm text-[var(--muted)]">
-                  {filteredRows.length} encontradas com os filtros atuais
+                  {filteredRows.length} encontradas nesta página (total: {totalElements})
                 </p>
               </div>
               {startDate || endDate ? (
@@ -789,11 +807,51 @@ const Reports: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
-                {filteredRows.length > rowsForTable.length && (
-                  <div className="px-6 py-3 text-xs text-[var(--muted)] bg-[var(--hover)] border-t border-[var(--border)]">
-                    Mostrando {rowsForTable.length} de {filteredRows.length}. Ajuste filtros ou exporte o CSV para todos.
+                <div className="px-6 py-3 text-xs text-[var(--muted)] bg-[var(--hover)] border-t border-[var(--border)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    Mostrando {filteredRows.length} de {rows.length} |  Total: {totalElements}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2">
+                      <span>Linhas por página</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setPage(0);
+                        }}
+                        className="h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        {[10, 20, 50, 100].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                        disabled={page === 0}
+                        className="h-8 px-3 rounded-md border border-[var(--border)] text-[var(--text)] disabled:opacity-50 hover:bg-[var(--surface)]"
+                      >
+                        Anterior
+                      </button>
+                      <span>
+                        Página {totalPages === 0 ? 0 : page + 1} de {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.min(prev + 1, Math.max(totalPages - 1, 0)))}
+                        disabled={totalPages === 0 || page + 1 >= totalPages}
+                        className="h-8 px-3 rounded-md border border-[var(--border)] text-[var(--text)] disabled:opacity-50 hover:bg-[var(--surface)]"
+                      >
+                        Próxima
+                      </button>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </section>

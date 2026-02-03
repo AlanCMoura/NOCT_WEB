@@ -60,6 +60,9 @@ const parseDateValue = (value: unknown): string => {
   return '';
 };
 
+const normalizeSearchKey = (value: string): string =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
 const getDatePriority = (value: string): number => {
   const timestamp = new Date(value).getTime();
   return Number.isNaN(timestamp) ? 0 : timestamp;
@@ -304,12 +307,12 @@ const Operations: React.FC = () => {
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Administrador' });
 
-  const PAGE_SIZE = 10;
   const [loading, setLoading] = useState(true);
   const [operations, setOperations] = useState<OperationItem[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'aberta' | 'fechada'>('todos');
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [totalOperations, setTotalOperations] = useState(0);
   const [listError, setListError] = useState<string | null>(null);
@@ -329,7 +332,7 @@ const Operations: React.FC = () => {
       try {
         const data = await listOperations({
           page: targetPage,
-          size: PAGE_SIZE,
+          size: pageSize,
           sortBy: 'createdAt',
           sortDirection: 'DESC',
         });
@@ -370,7 +373,7 @@ const Operations: React.FC = () => {
         setLoading(false);
       }
     },
-    [PAGE_SIZE]
+    [pageSize]
   );
 
   const handleImportFile = useCallback(
@@ -505,17 +508,17 @@ const Operations: React.FC = () => {
 
   useEffect(() => {
     fetchOperations(page);
-  }, [fetchOperations, page]);
+  }, [fetchOperations, page, pageSize]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeSearchKey(search.trim());
     return operations.filter((op) => {
       const matchesSearch =
         !q ||
-        op.ctv.toLowerCase().includes(q) ||
-        op.id.toLowerCase().includes(q) ||
-        op.reserva.toLowerCase().includes(q) ||
-        op.shipName.toLowerCase().includes(q);
+        normalizeSearchKey(op.ctv).includes(q) ||
+        normalizeSearchKey(op.id).includes(q) ||
+        normalizeSearchKey(op.reserva).includes(q) ||
+        normalizeSearchKey(op.shipName).includes(q);
 
       const matchesStatus =
         statusFilter === 'todos' ||
@@ -706,25 +709,44 @@ const Operations: React.FC = () => {
 
           {filtered.length > 0 && !loading && !listError && (
             <div className="px-6 py-4 border-t border-[var(--border)]">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="text-sm text-[var(--muted)]">
                   Pagina {totalPages === 0 ? 0 : page + 1} de {totalPages} | Total: {totalOperations}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={goToPrevious}
-                    disabled={page === 0}
-                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    onClick={goToNext}
-                    disabled={totalPages === 0 || page + 1 >= totalPages}
-                    className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Proximo
-                  </button>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                    <span>Linhas por página</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setPage(0);
+                      }}
+                      className="h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                      {[10, 20, 50, 100].map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={goToPrevious}
+                      disabled={page === 0}
+                      className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      onClick={goToNext}
+                      disabled={totalPages === 0 || page + 1 >= totalPages}
+                      className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Proximo
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

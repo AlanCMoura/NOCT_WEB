@@ -57,9 +57,13 @@ const getMonthOrder = (monthNumber: number | null | undefined): number => {
 
 const formatMonthLabel = (item: MonthlyTrendDTO): string => {
   const raw = String(item.month ?? '').trim();
-  if (raw) return raw.replace('.', '').toUpperCase();
   const monthOrder = getMonthOrder(item.monthNumber);
   const year = typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : new Date().getFullYear();
+  if (raw) {
+    const cleaned = raw.replace('.', '').trim().toUpperCase();
+    const stripped = cleaned.replace(/[0-9/.\-\s]/g, '').trim();
+    if (stripped) return stripped;
+  }
   const date = new Date(year, Math.min(Math.max(monthOrder - 1, 0), 11), 1);
   return date.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
 };
