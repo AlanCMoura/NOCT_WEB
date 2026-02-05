@@ -427,7 +427,8 @@ const Reports: React.FC = () => {
       ]),
     ];
     const csv = lines.map((line) => line.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const csvWithBom = `\uFEFF${csv}`;
+    const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

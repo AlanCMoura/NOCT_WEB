@@ -4,6 +4,8 @@ import {
   Activity,
   CheckCircle2,
   Clock3,
+  Download,
+  FileText,
   Package,
   RefreshCcw,
   Ship,
@@ -18,6 +20,7 @@ import {
   type MonthlyTrendDTO,
   type RecentOperationDTO,
 } from '../services/dashboard';
+import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 type OperationStatus = 'Aberta' | 'Fechada';
 type TrendSemester = 'H1' | 'H2';
@@ -66,6 +69,59 @@ const formatMonthLabel = (item: MonthlyTrendDTO): string => {
   }
   const date = new Date(year, Math.min(Math.max(monthOrder - 1, 0), 11), 1);
   return date.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+};
+
+const escapeCsvValue = (value: unknown): string =>
+  `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+const toCsvLine = (values: unknown[]): string => values.map(escapeCsvValue).join(';');
+
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+const buildTrendData = (source: MonthlyTrendDTO[], semester: TrendSemester) => {
+  if (!source.length) {
+    return { points: [] as TrendPoint[], year: new Date().getFullYear() };
+  }
+
+  const years = source
+    .map((item) => (typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : null))
+    .filter((year): year is number => year !== null);
+  const currentYear = new Date().getFullYear();
+  const targetYear = years.length ? Math.max(...years) : currentYear;
+
+  const startMonth = semester === 'H1' ? 1 : 7;
+  const months = Array.from({ length: 6 }, (_, idx) => startMonth + idx);
+
+  const byMonth = new Map<number, MonthlyTrendDTO>();
+  source.forEach((item) => {
+    const monthOrder = getMonthOrder(item.monthNumber);
+    const yearValue = typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : targetYear;
+    if (yearValue === targetYear && monthOrder >= 1 && monthOrder <= 12) {
+      byMonth.set(monthOrder, item);
+    }
+  });
+
+  const points = months.map((monthOrder) => {
+    const fallback: MonthlyTrendDTO = {
+      month: '',
+      year: targetYear,
+      monthNumber: monthOrder,
+      operations: 0,
+      containers: 0,
+    };
+    const item = byMonth.get(monthOrder) ?? fallback;
+    return {
+      label: formatMonthLabel(item),
+      operations: typeof item.operations === 'number' ? item.operations : 0,
+      containers: typeof item.containers === 'number' ? item.containers : 0,
+    };
+  });
+
+  return { points, year: targetYear };
 };
 
 const mapRecentOperation = (op: RecentOperationDTO): RecentOperation => {
@@ -390,7 +446,7 @@ const MultiLineChart: React.FC<{ data: TrendPoint[]; showNovDecPair?: boolean }>
         <g transform={`translate(${padding}, ${legendY})`} className="text-[11px]">
           <rect width="12" height="12" rx="3" fill={operationsColor} />
           <text x="16" y="10" className="fill-[var(--text)]">
-            Operacoes
+            Operações
           </text>
         </g>
         <g transform={`translate(${padding + 120}, ${legendY})`} className="text-[11px]">
@@ -458,45 +514,12 @@ const Dashboard: React.FC = () => {
   const currentMonth = new Date().getMonth();
   const initialSemester: TrendSemester = currentMonth < 6 ? 'H1' : 'H2';
   const [trendSemester, setTrendSemester] = useState<TrendSemester>(initialSemester);
+  const trendSemesterLabel = trendSemester === 'H1' ? '1o Semestre' : '2o Semestre';
 
-  const monthlyTrend = useMemo<TrendPoint[]>(() => {
-    const source = metrics?.monthlyTrend ?? [];
-    if (!source.length) return [];
-
-    const years = source
-      .map((item) => (typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : null))
-      .filter((year): year is number => year !== null);
-    const currentYear = new Date().getFullYear();
-    const targetYear = years.length ? Math.max(...years) : currentYear;
-
-    const startMonth = trendSemester === 'H1' ? 1 : 7;
-    const months = Array.from({ length: 6 }, (_, idx) => startMonth + idx);
-
-    const byMonth = new Map<number, MonthlyTrendDTO>();
-    source.forEach((item) => {
-      const monthOrder = getMonthOrder(item.monthNumber);
-      const yearValue = typeof item.year === 'number' && !Number.isNaN(item.year) ? item.year : targetYear;
-      if (yearValue === targetYear && monthOrder >= 1 && monthOrder <= 12) {
-        byMonth.set(monthOrder, item);
-      }
-    });
-
-    return months.map((monthOrder) => {
-      const fallback: MonthlyTrendDTO = {
-        month: '',
-        year: targetYear,
-        monthNumber: monthOrder,
-        operations: 0,
-        containers: 0,
-      };
-      const item = byMonth.get(monthOrder) ?? fallback;
-      return {
-        label: formatMonthLabel(item),
-        operations: typeof item.operations === 'number' ? item.operations : 0,
-        containers: typeof item.containers === 'number' ? item.containers : 0,
-      };
-    });
-  }, [metrics?.monthlyTrend, trendSemester]);
+  const { points: monthlyTrend, year: trendYear } = useMemo(
+    () => buildTrendData(metrics?.monthlyTrend ?? [], trendSemester),
+    [metrics?.monthlyTrend, trendSemester]
+  );
 
   const recentOperations = useMemo(() => {
     const toTime = (value: string) => {
@@ -524,6 +547,8 @@ const Dashboard: React.FC = () => {
     return Math.round(normalized);
   }, [metrics?.completionRate]);
 
+  const canExport = Boolean(metrics) && !isLoading;
+
   const skeletonCards = (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
@@ -537,6 +562,422 @@ const Dashboard: React.FC = () => {
       ))}
     </div>
   );
+
+  const exportDashboardCsv = () => {
+    if (!metrics) {
+      window.alert('Carregue o dashboard antes de exportar.');
+      return;
+    }
+
+    const now = new Date();
+    const lines: string[] = [];
+
+    lines.push(toCsvLine(['Dashboard']));
+    lines.push(toCsvLine(['Gerado em', now.toLocaleString()]));
+    lines.push('');
+
+    lines.push(toCsvLine(['Resumo']));
+    lines.push(toCsvLine(['Indicador', 'Valor']));
+    lines.push(toCsvLine(['Operações registradas', totalOperations]));
+    lines.push(toCsvLine(['Operações abertas', openOperations]));
+    lines.push(toCsvLine(['Operações fechadas', closedOperations]));
+    lines.push(toCsvLine(['Containers totais', totalContainers]));
+    lines.push(toCsvLine(['Media por operação', avgContainers]));
+    lines.push(toCsvLine(['Taxa de conclusao', `${completionRate}%`]));
+    lines.push('');
+
+    lines.push(toCsvLine(['Distribuição por status']));
+    lines.push(toCsvLine(['Status', 'Quantidade']));
+    lines.push(toCsvLine(['Abertas', openOperations]));
+    lines.push(toCsvLine(['Fechadas', closedOperations]));
+    lines.push('');
+
+    lines.push(toCsvLine([`Tendencia ${trendSemesterLabel} ${trendYear}`]));
+    lines.push(toCsvLine(['Mes', 'Operações', 'Containers']));
+    if (!monthlyTrend.length) {
+      lines.push(toCsvLine(['Sem dados', '', '']));
+    } else {
+      monthlyTrend.forEach((point) => {
+        lines.push(toCsvLine([point.label, point.operations, point.containers]));
+      });
+    }
+    lines.push('');
+
+    lines.push(toCsvLine(['Operações recentes']));
+    lines.push(toCsvLine(['CTV/ID', 'Reserva', 'Status', 'Data', 'Containers']));
+    if (!recentOperations.length) {
+      lines.push(toCsvLine(['Sem dados', '', '', '', '']));
+    } else {
+      recentOperations.forEach((op) => {
+        lines.push(
+          toCsvLine([
+            op.ctv || op.id,
+            op.reservation || '-',
+            op.status,
+            formatDate(op.createdAt),
+            op.containerCount,
+          ])
+        );
+      });
+    }
+
+    const csv = lines.join('\n');
+    const csvWithBom = `\uFEFF${csv}`;
+    const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dashboard-${now.toISOString().replace(/[:T]/g, '-').slice(0, 19)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const buildStatusChartHtml = () => {
+    const size = 200;
+    const stroke = 22;
+    const radius = (size - stroke) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const total = openOperations + closedOperations;
+    const safeTotal = Math.max(total, 1);
+    const segments = [
+      { label: 'Abertas', value: openOperations, color: '#FBBF24' },
+      { label: 'Fechadas', value: closedOperations, color: '#10B981' },
+    ];
+
+    let offset = 0;
+    const circles = segments
+      .map((seg) => {
+        const dash = (seg.value / safeTotal) * circumference;
+        const circle = `
+          <circle
+            cx="${size / 2}"
+            cy="${size / 2}"
+            r="${radius}"
+            fill="transparent"
+            stroke="${seg.color}"
+            stroke-width="${stroke}"
+            stroke-dasharray="${dash} ${circumference - dash}"
+            stroke-dashoffset="${-offset}"
+            stroke-linecap="round"
+          />
+        `;
+        offset += dash;
+        return circle;
+      })
+      .join('');
+
+    const svg = `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="Distribuicao por status">
+        ${circles}
+        <circle
+          cx="${size / 2}"
+          cy="${size / 2}"
+          r="${radius - stroke * 0.6}"
+          fill="#ffffff"
+          stroke="#e5e7eb"
+          stroke-width="1"
+        />
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="18" font-weight="600" fill="#111827">
+          ${escapeHtml(total)}
+        </text>
+      </svg>
+    `;
+
+    const legend = segments
+      .map(
+        (seg) => `
+          <div class="legend-item">
+            <span class="legend-dot" style="background:${seg.color}"></span>
+            <span>${escapeHtml(seg.label)}</span>
+            <strong>${escapeHtml(seg.value)}</strong>
+          </div>
+        `
+      )
+      .join('');
+
+    return `
+      <div class="chart-row">
+        <div class="chart">${svg}</div>
+        <div class="legend">${legend}</div>
+      </div>
+    `;
+  };
+
+  const buildTrendChartHtml = () => {
+    if (!monthlyTrend.length) {
+      return `<div class="empty">Sem dados</div>`;
+    }
+
+    const width = 720;
+    const height = 300;
+    const padding = 50;
+    const plotWidth = width - padding * 2;
+    const plotHeight = height - padding * 2;
+    const maxValue = Math.max(
+      ...monthlyTrend.map((p) => Math.max(p.operations, p.containers)),
+      1
+    );
+    const steps = Math.max(monthlyTrend.length - 1, 1);
+    const getX = (idx: number) => padding + (idx / steps) * plotWidth;
+    const getY = (value: number) => padding + plotHeight - (value / maxValue) * plotHeight;
+
+    const buildPath = (selector: (p: TrendPoint) => number) =>
+      monthlyTrend
+        .map((point, idx) => {
+          const x = getX(idx);
+          const y = getY(selector(point));
+          return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+        })
+        .join(' ');
+
+    const operationsColor = '#FBBF24';
+    const containersColor = '#14B8A6';
+    const operationsPath = buildPath((p) => p.operations);
+    const containersPath = buildPath((p) => p.containers);
+
+    const pointsSvg = monthlyTrend
+      .map((point, idx) => {
+        const x = getX(idx);
+        const yOps = getY(point.operations);
+        const yCont = getY(point.containers);
+        return `
+          <g>
+            <circle cx="${x}" cy="${yOps}" r="4" fill="${operationsColor}" />
+            <circle cx="${x}" cy="${yCont}" r="4" fill="${containersColor}" />
+            <text x="${x}" y="${height - padding + 18}" text-anchor="middle" font-size="10" fill="#6b7280">
+              ${escapeHtml(point.label)}
+            </text>
+          </g>
+        `;
+      })
+      .join('');
+
+    const gridLines = [0.25, 0.5, 0.75].map((ratio) => {
+      const y = padding + plotHeight - plotHeight * ratio;
+      return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="#e5e7eb" stroke-width="1" />`;
+    });
+
+    const svg = `
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Tendencia">
+        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#d1d5db" stroke-width="1" />
+        <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#d1d5db" stroke-width="1" />
+        ${gridLines.join('')}
+        <path d="${operationsPath}" fill="none" stroke="${operationsColor}" stroke-width="2.5" stroke-linecap="round" />
+        <path d="${containersPath}" fill="none" stroke="${containersColor}" stroke-width="2.5" stroke-linecap="round" />
+        ${pointsSvg}
+      </svg>
+    `;
+
+    return `
+      <div class="chart">
+        ${svg}
+        <div class="chart-legend">
+          <span><i style="background:${operationsColor}"></i> Operacoes</span>
+          <span><i style="background:${containersColor}"></i> Containers</span>
+        </div>
+      </div>
+    `;
+  };
+
+  const exportDashboardPdf = () => {
+    if (!metrics) {
+      window.alert('Carregue o dashboard antes de exportar.');
+      return;
+    }
+
+    const generatedAt = new Date().toLocaleString();
+    const docTitle = `Dashboard ${trendSemesterLabel} ${trendYear}`;
+
+    const summaryRows = [
+      ['Operações registradas', totalOperations],
+      ['Operações abertas', openOperations],
+      ['Operações fechadas', closedOperations],
+      ['Containers totais', totalContainers],
+      ['Media por operação', avgContainers],
+      ['Taxa de conclusao', `${completionRate}%`],
+    ];
+
+    const summaryRowsHtml = summaryRows
+      .map(
+        ([label, value]) => `
+          <tr>
+            <td>${escapeHtml(label)}</td>
+            <td style="text-align:right">${escapeHtml(value)}</td>
+          </tr>
+        `
+      )
+      .join('');
+
+    const statusRowsHtml = `
+      <tr>
+        <td>Abertas</td>
+        <td style="text-align:center">${escapeHtml(openOperations)}</td>
+      </tr>
+      <tr>
+        <td>Fechadas</td>
+        <td style="text-align:center">${escapeHtml(closedOperations)}</td>
+      </tr>
+    `;
+
+    const trendRowsHtml = monthlyTrend.length
+      ? monthlyTrend
+          .map(
+            (point) => `
+              <tr>
+                <td>${escapeHtml(point.label)}</td>
+                <td style="text-align:center">${escapeHtml(point.operations)}</td>
+                <td style="text-align:center">${escapeHtml(point.containers)}</td>
+              </tr>
+            `
+          )
+          .join('')
+      : `
+        <tr>
+          <td colspan="3" style="text-align:center">Sem dados</td>
+        </tr>
+      `;
+
+    const recentRowsHtml = recentOperations.length
+      ? recentOperations
+          .map(
+            (op) => `
+              <tr>
+                <td>${escapeHtml(op.ctv || op.id)}</td>
+                <td>${escapeHtml(op.reservation || '-')}</td>
+                <td>${escapeHtml(op.status)}</td>
+                <td>${escapeHtml(formatDate(op.createdAt))}</td>
+                <td style="text-align:center">${escapeHtml(op.containerCount)}</td>
+              </tr>
+            `
+          )
+          .join('')
+      : `
+        <tr>
+          <td colspan="5" style="text-align:center">Sem dados</td>
+        </tr>
+      `;
+
+    const statusChartHtml = buildStatusChartHtml();
+    const trendChartHtml = buildTrendChartHtml();
+
+    const html = `
+      <html>
+        <head>
+          <title>${escapeHtml(docTitle)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+            .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+            h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+            h3 { margin: 16px 0 6px; font-size: 14px; color: #111827; }
+            h4 { margin: 12px 0 6px; font-size: 12px; color: #111827; font-weight: 600; }
+            p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+            th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
+            .chart-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+            .chart { display: inline-flex; flex-direction: column; gap: 8px; }
+            .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #111827; }
+            .legend-item { display: flex; align-items: center; gap: 6px; }
+            .legend-item strong { margin-left: 4px; font-weight: 600; }
+            .legend-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+            .chart-legend { display: flex; gap: 12px; font-size: 11px; color: #6b7280; align-items: center; }
+            .chart-legend i { width: 10px; height: 10px; display: inline-block; border-radius: 3px; margin-right: 6px; }
+            .empty { font-size: 12px; color: #6b7280; padding: 8px 0; }
+            .page-break { page-break-before: always; break-before: page; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>${escapeHtml(docTitle)}</h2>
+            <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
+          </div>
+          <p>Gerado em ${escapeHtml(generatedAt)}</p>
+
+          <h3>Resumo</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Indicador</th>
+                <th style="text-align:right">Valor</th>
+              </tr>
+            </thead>
+            <tbody>${summaryRowsHtml}</tbody>
+          </table>
+
+          <h3>Distribuição por status</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th style="text-align:center">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody>${statusRowsHtml}</tbody>
+          </table>
+
+          <h3>Tendencia ${escapeHtml(trendSemesterLabel)} ${escapeHtml(trendYear)}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th style="text-align:center">Operações</th>
+                <th style="text-align:center">Containers</th>
+              </tr>
+            </thead>
+            <tbody>${trendRowsHtml}</tbody>
+          </table>
+
+          <h3>Operações recentes</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>CTV/ID</th>
+                <th>Reserva</th>
+                <th>Status</th>
+                <th>Data</th>
+                <th style="text-align:center">Containers</th>
+              </tr>
+            </thead>
+            <tbody>${recentRowsHtml}</tbody>
+          </table>
+
+          <div class="page-break">
+            <h3>Gráficos</h3>
+            <h4>Tendência (operações x containers)</h4>
+            ${trendChartHtml}
+            <h4>Acompanhamento por status</h4>
+            ${statusChartHtml}
+          </div>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.title = docTitle;
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    const previousTitle = document.title;
+    document.title = docTitle;
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc) doc.title = docTitle;
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => {
+          document.title = previousTitle;
+          document.body.removeChild(iframe);
+        }, 300);
+      }
+    };
+  };
 
   const timelineText = useCallback(
     (op: RecentOperation) => {
@@ -571,6 +1012,24 @@ const Dashboard: React.FC = () => {
               >
                 <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Atualizar
+              </button>
+              <button
+                type="button"
+                onClick={exportDashboardCsv}
+                className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors disabled:opacity-50"
+                disabled={!canExport}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar CSV
+              </button>
+              <button
+                type="button"
+                onClick={exportDashboardPdf}
+                className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors disabled:opacity-50"
+                disabled={!canExport}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Exportar PDF
               </button>
               <button
                 type="button"

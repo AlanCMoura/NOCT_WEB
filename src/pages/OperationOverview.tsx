@@ -226,7 +226,8 @@ const OperationOverview: React.FC = () => {
       return values.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';');
     });
     const csv = [header.join(';'), ...rowsCsv].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const csvWithBom = `\uFEFF${csv}`;
+    const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
