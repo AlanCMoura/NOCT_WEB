@@ -33,6 +33,22 @@ const getAuthHeaders = () => {
 const DEFAULT_SUCCESS = 'Usuario registrado com sucesso';
 const DEFAULT_ERROR = 'Nao foi possivel concluir o cadastro. Tente novamente.';
 const DEFAULT_2FA_ERROR = 'Nao foi possivel iniciar a configuracao de 2FA.';
+const DEFAULT_2FA_DISABLE_ERROR = 'Nao foi possivel desabilitar o 2FA.';
+
+const extractMessageFromResponse = (data: unknown, fallback: string): string => {
+  if (typeof data === 'string' && data.trim()) {
+    return data.trim();
+  }
+
+  if (data && typeof data === 'object') {
+    const { message, error } = data as { message?: string; error?: string };
+    if (message || error) {
+      return (message ?? error ?? '').trim() || fallback;
+    }
+  }
+
+  return fallback;
+};
 
 export async function registerUser(payload: RegisterUserPayload): Promise<RegisterUserResponse> {
   try {
@@ -181,5 +197,68 @@ export async function setupTwoFactorForUser(cpf: string): Promise<TotpSetupRespo
     }
 
     throw new Error(DEFAULT_2FA_ERROR);
+  }
+}
+
+// Desabilita 2FA para o usuario logado (exige codigo TOTP)
+export async function disableTwoFactorAuth(code: string | number): Promise<string> {
+  try {
+    const { data } = await api.post('/auth/2fa/disable', { code }, { headers: getAuthHeaders() });
+    return extractMessageFromResponse(data, '2FA desabilitado com sucesso');
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const responseData = error.response?.data;
+      const statusPrefix = error.response?.status ? `[${error.response.status}] ` : '';
+
+      if (typeof responseData === 'string' && responseData.trim()) {
+        throw new Error(`${statusPrefix}${responseData}`);
+      }
+
+      if (responseData && typeof responseData === 'object') {
+        const { message, error: errorMsg } = responseData as { message?: string; error?: string };
+        if (message || errorMsg) {
+          throw new Error(`${statusPrefix}${message ?? errorMsg}`);
+        }
+      }
+
+      if (error.response?.statusText) {
+        throw new Error(`${statusPrefix}${error.response.statusText}`);
+      }
+    }
+
+    throw new Error(DEFAULT_2FA_DISABLE_ERROR);
+  }
+}
+
+// Desabilita 2FA para um usuario especifico (admin)
+export async function disableTwoFactorForUser(cpf: string): Promise<string> {
+  try {
+    const targetCpf = encodeURIComponent(cpf.trim());
+    const { data } = await api.post(`/auth/2fa/disable/${targetCpf}`, undefined, {
+      headers: getAuthHeaders(),
+    });
+    return extractMessageFromResponse(data, '2FA desabilitado com sucesso');
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const responseData = error.response?.data;
+      const statusPrefix = error.response?.status ? `[${error.response.status}] ` : '';
+
+      if (typeof responseData === 'string' && responseData.trim()) {
+        throw new Error(`${statusPrefix}${responseData}`);
+      }
+
+      if (responseData && typeof responseData === 'object') {
+        const { message, error: errorMsg } = responseData as { message?: string; error?: string };
+        if (message || errorMsg) {
+          throw new Error(`${statusPrefix}${message ?? errorMsg}`);
+        }
+      }
+
+      if (error.response?.statusText) {
+        throw new Error(`${statusPrefix}${error.response.statusText}`);
+      }
+    }
+
+    throw new Error(DEFAULT_2FA_DISABLE_ERROR);
   }
 }

@@ -12,6 +12,9 @@ export interface ApiUser {
   cpf?: string;
   role?: UserRoleApi;
   twoFactorEnabled?: boolean;
+  active?: boolean;
+  isActive?: boolean;
+  enabled?: boolean;
   [key: string]: unknown;
 }
 
@@ -57,6 +60,14 @@ export const listUsers = async (params: ListUsersParams = {}): Promise<ApiPage<A
   return data;
 };
 
+export const listInactiveUsers = async (params: ListUsersParams = {}): Promise<ApiPage<ApiUser>> => {
+  const { page = 0, size = 20 } = params;
+  const { data } = await api.get<ApiPage<ApiUser>>('/auth/inactive', {
+    params: { page, size },
+  });
+  return data;
+};
+
 export const getUserById = async (id: number | string): Promise<ApiUser> => {
   const { data } = await api.get<ApiUser>(`/users/${id}`);
   return data;
@@ -70,6 +81,18 @@ export const updateUserById = async (
   return data;
 };
 
+export const deactivateUserById = async (id: number | string): Promise<void> => {
+  await api.patch(`/auth/${id}/deactivate`);
+};
+
+export const reactivateUserById = async (id: number | string): Promise<void> => {
+  await api.patch(`/auth/${id}/reactivate`);
+};
+
+export const permanentDeleteUserById = async (id: number | string): Promise<void> => {
+  await api.delete(`/auth/${id}/permanent`);
+};
+
 export const deleteUserById = async (id: number | string): Promise<void> => {
-  await api.delete(`/users/${id}`);
+  await permanentDeleteUserById(id);
 };

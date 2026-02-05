@@ -1,10 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff, Plus, Search, X, Edit, Trash2, RefreshCcw } from 'lucide-react';
+import { Eye, EyeOff, Plus, Search, X, Edit, Trash2, RefreshCcw, UserCheck, UserX } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { registerUser, setupTwoFactorAuth, setupTwoFactorForUser, TotpSetupResponse, RegisterUserResponse } from '../services/auth';
-import { ApiUser, deleteUserById, listUsers, updateUserById } from '../services/users';
+import {
+  registerUser,
+  setupTwoFactorAuth,
+  setupTwoFactorForUser,
+  disableTwoFactorForUser,
+  TotpSetupResponse,
+  RegisterUserResponse,
+} from '../services/auth';
+import {
+  ApiUser,
+  listInactiveUsers,
+  listUsers,
+  updateUserById,
+  deactivateUserById,
+  reactivateUserById,
+  permanentDeleteUserById,
+} from '../services/users';
 
 interface UserLogged {
   name: string;
@@ -32,6 +47,7 @@ interface ManagedUser {
   email: string;
   role: Role;
   twoFactor: boolean;
+  active: boolean;
 }
 
 // Toggle UI
@@ -55,7 +71,7 @@ const formatCpf = (value: string): string => {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 };
 
-const mapApiUserToManaged = (user: ApiUser): ManagedUser => {
+const mapApiUserToManaged = (user: ApiUser, options?: { forceActive?: boolean }): ManagedUser => {
   const roleFromApi = user.role ? API_ROLE_TO_UI[user.role] ?? 'Inspetor' : 'Inspetor';
   const nameParts = (user.name ?? '').trim().split(' ').filter(Boolean);
   const firstName = user.firstName ?? nameParts[0] ?? 'Usuario';
@@ -63,6 +79,16 @@ const mapApiUserToManaged = (user: ApiUser): ManagedUser => {
   const cpfValue = typeof user.cpf === 'string' ? user.cpf : '';
   const twoFactorEnabled =
     Boolean((user as unknown as { twoFactor?: boolean }).twoFactor) || Boolean(user.twoFactorEnabled);
+  const activeValue =
+    typeof options?.forceActive === 'boolean'
+      ? options.forceActive
+      : typeof user.active === 'boolean'
+      ? user.active
+      : typeof user.isActive === 'boolean'
+      ? user.isActive
+      : typeof user.enabled === 'boolean'
+      ? user.enabled
+      : true;
 
   return {
     id: user.id ?? String(Date.now()),
@@ -72,6 +98,7 @@ const mapApiUserToManaged = (user: ApiUser): ManagedUser => {
     email: user.email ?? '',
     role: roleFromApi,
     twoFactor: twoFactorEnabled,
+    active: activeValue,
   };
 };
 
@@ -91,6 +118,7 @@ const Users: React.FC = () => {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
   const [twoFactorFilter, setTwoFactorFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive'>('active');
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -110,6 +138,7 @@ const Users: React.FC = () => {
   const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
   const [twoFactorSetupInfo, setTwoFactorSetupInfo] = useState<TotpSetupResponse | null>(null);
   const [twoFactorSetupError, setTwoFactorSetupError] = useState<string | null>(null);
+  const [twoFactorTargetCpf, setTwoFactorTargetCpf] = useState<string | null>(null);
 
   const resetForm = (options?: { keepTwoFactorModal?: boolean }) => {
     setFirstName('');
@@ -129,6 +158,7 @@ const Users: React.FC = () => {
       setIsTwoFactorModalOpen(false);
       setTwoFactorSetupInfo(null);
       setTwoFactorSetupError(null);
+      setTwoFactorTargetCpf(null);
     }
 
     setIsTwoFactorLoading(false);
@@ -142,14 +172,22 @@ const Users: React.FC = () => {
       setListError(null);
 
       try {
-        const data = await listUsers({
-          page: targetPage,
-          size: PAGE_SIZE,
-          sortBy: 'id',
-          sortDirection: 'ASC',
-        });
+        const data =
+          statusFilter === 'inactive'
+            ? await listInactiveUsers({
+                page: targetPage,
+                size: PAGE_SIZE,
+              })
+            : await listUsers({
+                page: targetPage,
+                size: PAGE_SIZE,
+                sortBy: 'id',
+                sortDirection: 'ASC',
+              });
 
-        const mapped = (data?.content ?? []).map(mapApiUserToManaged);
+        const mapped = (data?.content ?? []).map((user) =>
+          mapApiUserToManaged(user, statusFilter === 'inactive' ? { forceActive: false } : undefined)
+        );
         setUsers(mapped);
         setPage(data?.number ?? targetPage);
         setTotalPages(data?.totalPages ?? 0);
@@ -163,7 +201,7 @@ const Users: React.FC = () => {
         setIsLoadingUsers(false);
       }
     },
-    [PAGE_SIZE]
+    [PAGE_SIZE, statusFilter]
   );
 
   useEffect(() => {
@@ -181,13 +219,18 @@ const Users: React.FC = () => {
     }
   }, [fetchUsers, page]);
 
-  const loadTwoFactorSetup = async () => {
+  const loadTwoFactorSetup = async (cpfOverride?: string) => {
     setIsTwoFactorLoading(true);
     setTwoFactorSetupInfo(null);
     setTwoFactorSetupError(null);
 
+    const targetCpf = (cpfOverride ?? twoFactorTargetCpf ?? '').trim();
+    if (targetCpf) {
+      setTwoFactorTargetCpf(targetCpf);
+    }
+
     try {
-      const setupData = await setupTwoFactorAuth();
+      const setupData = targetCpf ? await setupTwoFactorForUser(targetCpf) : await setupTwoFactorAuth();
       setTwoFactorSetupInfo(setupData);
     } catch (error) {
       const message =
@@ -206,11 +249,16 @@ const Users: React.FC = () => {
       setTwoFactorSetupInfo(null);
       setTwoFactorSetupError(null);
       setIsTwoFactorLoading(false);
+      setTwoFactorTargetCpf(null);
     }
   };
 
   const closeTwoFactorModal = () => {
     setIsTwoFactorModalOpen(false);
+    setTwoFactorSetupInfo(null);
+    setTwoFactorSetupError(null);
+    setIsTwoFactorLoading(false);
+    setTwoFactorTargetCpf(null);
   };
 
   const handleSave = async () => {
@@ -218,27 +266,52 @@ const Users: React.FC = () => {
 
     setFormError(null);
 
-    const commonPayload = {
+    const basePayload = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       cpf: cpf, // backend espera CPF com mascara
       email: email.trim(),
       role: ROLE_TO_API[role] ?? role,
-      twoFactorEnabled: twoFactor,
     };
 
     if (editingUser) {
+      const twoFactorChanged = editingUser.twoFactor !== twoFactor;
+
+      if (editingUser.twoFactor && !twoFactor) {
+        const confirmed = window.confirm('Desativar 2FA para este usuario?');
+        if (!confirmed) return;
+      }
+
       setIsSubmitting(true);
 
       try {
-        const updatedUser = await updateUserById(editingUser.id, commonPayload);
-        const mapped = mapApiUserToManaged(updatedUser);
+        await updateUserById(editingUser.id, basePayload);
 
-        setUsers((prev) => prev.map((u) => (String(u.id) === String(mapped.id) ? mapped : u)));
+        if (twoFactorChanged && twoFactor) {
+          setIsTwoFactorModalOpen(true);
+          await loadTwoFactorSetup(basePayload.cpf);
+        }
+
+        if (twoFactorChanged && !twoFactor) {
+          try {
+            await disableTwoFactorForUser(basePayload.cpf);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : 'Nao foi possivel desabilitar o 2FA.';
+            setFormError(message);
+            setTwoFactor(true);
+            return;
+          }
+        }
+
         setPageAlert({ type: 'success', message: 'Usuario atualizado com sucesso.' });
         setIsOpen(false);
         setEditingUser(null);
-        resetForm();
+        if (twoFactorChanged && twoFactor) {
+          resetForm({ keepTwoFactorModal: true });
+        } else {
+          resetForm();
+        }
         await refreshCurrentPage();
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Nao foi possivel atualizar o usuario. Tente novamente.';
@@ -256,8 +329,9 @@ const Users: React.FC = () => {
     }
 
     const payload = {
-      ...commonPayload,
+      ...basePayload,
       password,
+      twoFactorEnabled: twoFactor,
     };
 
     setIsSubmitting(true);
@@ -273,11 +347,11 @@ const Users: React.FC = () => {
 
       // Se 2FA estavel, garante exibição do QR Code retornado ou busca via endpoint dedicado
       if (twoFactor) {
-        setIsTwoFactorLoading(true);
-        setTwoFactorSetupError(null);
-
         const cpfToSetup = payload.cpf;
         let setupInfo: TotpSetupResponse | null = null;
+        setTwoFactorTargetCpf(cpfToSetup);
+        setTwoFactorSetupInfo(null);
+        setTwoFactorSetupError(null);
 
         if (response.totpSecret && response.qrCodeDataUri) {
           setupInfo = {
@@ -285,16 +359,10 @@ const Users: React.FC = () => {
             qrCodeDataUri: response.qrCodeDataUri,
             message: response.message || 'Escaneie o QR Code com seu aplicativo Authenticator',
           };
+          setIsTwoFactorLoading(false);
         } else {
-          try {
-            setupInfo = await setupTwoFactorForUser(cpfToSetup);
-          } catch (setupError) {
-            const message =
-              setupError instanceof Error
-                ? setupError.message
-                : 'Nao foi possivel gerar o QR Code. Tente novamente.';
-            setTwoFactorSetupError(message);
-          }
+          setIsTwoFactorModalOpen(true);
+          await loadTwoFactorSetup(cpfToSetup);
         }
 
         if (setupInfo) {
@@ -302,10 +370,8 @@ const Users: React.FC = () => {
           setIsTwoFactorModalOpen(true);
           resetForm({ keepTwoFactorModal: true });
         } else {
-          resetForm();
+          resetForm({ keepTwoFactorModal: true });
         }
-
-        setIsTwoFactorLoading(false);
       } else {
         resetForm();
       }
@@ -332,10 +398,11 @@ const Users: React.FC = () => {
       const matchesTwoFactor =
         twoFactorFilter === 'all' ||
         (twoFactorFilter === 'enabled' ? u.twoFactor : !u.twoFactor);
+      const matchesStatus = statusFilter === 'active' ? u.active : !u.active;
 
-      return matchesSearch && matchesRole && matchesTwoFactor;
+      return matchesSearch && matchesRole && matchesTwoFactor && matchesStatus;
     });
-  }, [users, search, roleFilter, twoFactorFilter]);
+  }, [users, search, roleFilter, twoFactorFilter, statusFilter]);
 
   const isValid = editingUser
     ? Boolean(firstName && lastName && cpfDigits.length === 11 && email && role)
@@ -367,12 +434,41 @@ const Users: React.FC = () => {
     setIsOpen(true);
   };
 
-  const deleteUser = async (id: number | string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este usuário?')) return;
+  const deactivateUser = async (user: ManagedUser) => {
+    if (!window.confirm(`Desativar o usuario ${user.firstName} ${user.lastName}?`)) return;
 
     try {
-      await deleteUserById(id);
-      setPageAlert({ type: 'success', message: 'Usuario excluido com sucesso.' });
+      await deactivateUserById(user.id);
+      setPageAlert({ type: 'success', message: 'Usuario desativado com sucesso.' });
+      await refreshCurrentPage();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel desativar o usuario.';
+      setPageAlert({ type: 'error', message });
+    }
+  };
+
+  const reactivateUser = async (user: ManagedUser) => {
+    if (!window.confirm(`Reativar o usuario ${user.firstName} ${user.lastName}?`)) return;
+
+    try {
+      await reactivateUserById(user.id);
+      setPageAlert({ type: 'success', message: 'Usuario reativado com sucesso.' });
+      await refreshCurrentPage();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel reativar o usuario.';
+      setPageAlert({ type: 'error', message });
+    }
+  };
+
+  const permanentDeleteUser = async (user: ManagedUser) => {
+    const confirmed = window.confirm(
+      `Excluir permanentemente o usuario ${user.firstName} ${user.lastName}? Esta acao nao pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await permanentDeleteUserById(user.id);
+      setPageAlert({ type: 'success', message: 'Usuario excluido permanentemente.' });
       await refreshCurrentPage();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nao foi possivel excluir o usuario.';
@@ -476,6 +572,18 @@ const Users: React.FC = () => {
             </div>
             <div className="flex flex-wrap items-stretch gap-2">
               <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as 'active' | 'inactive');
+                  setPage(0);
+                }}
+                className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                disabled={isLoadingUsers}
+              >
+                <option value="active">Ativos</option>
+                <option value="inactive">Inativos</option>
+              </select>
+              <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value as 'all' | Role)}
                 className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -541,6 +649,7 @@ const Users: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">CPF</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Perfil</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">2FA</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ações</th>
                   </tr>
@@ -548,7 +657,7 @@ const Users: React.FC = () => {
                 <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
   {listError ? (
     <tr>
-      <td colSpan={6} className="px-6 py-6 text-sm text-red-700">
+      <td colSpan={7} className="px-6 py-6 text-sm text-red-700">
         <div className="flex items-center justify-between">
           <span>{listError}</span>
           <button
@@ -563,7 +672,7 @@ const Users: React.FC = () => {
     </tr>
   ) : filtered.length === 0 ? (
     <tr>
-      <td colSpan={6} className="px-6 py-6 text-sm text-[var(--muted)]">
+      <td colSpan={7} className="px-6 py-6 text-sm text-[var(--muted)]">
         Nenhum usuario encontrado.
       </td>
     </tr>
@@ -575,6 +684,13 @@ const Users: React.FC = () => {
         <td className="px-6 py-3 text-sm text-[var(--text)]">{u.cpf}</td>
         <td className="px-6 py-3 text-sm">
           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(u.role)}`}>{u.role}</span>
+        </td>
+        <td className="px-6 py-3 text-sm">
+          {u.active ? (
+            <span className="text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-semibold">Ativo</span>
+          ) : (
+            <span className="text-gray-700 bg-gray-100 px-2 py-1 rounded-full text-xs font-semibold">Inativo</span>
+          )}
         </td>
         <td className="px-6 py-3 text-sm">
           {u.twoFactor ? (
@@ -593,10 +709,29 @@ const Users: React.FC = () => {
               <Edit className="w-4 h-4" />
               <span className="hidden sm:inline">Editar</span>
             </button>
+            {u.active ? (
+              <button
+                onClick={() => deactivateUser(u)}
+                className="px-2 py-1 rounded-md border border-amber-200 text-amber-700 hover:bg-amber-50 inline-flex items-center gap-1"
+                title="Desativar"
+              >
+                <UserX className="w-4 h-4" />
+                <span className="hidden sm:inline">Desativar</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => reactivateUser(u)}
+                className="px-2 py-1 rounded-md border border-emerald-200 text-emerald-700 hover:bg-emerald-50 inline-flex items-center gap-1"
+                title="Reativar"
+              >
+                <UserCheck className="w-4 h-4" />
+                <span className="hidden sm:inline">Reativar</span>
+              </button>
+            )}
             <button
-              onClick={() => deleteUser(u.id)}
+              onClick={() => permanentDeleteUser(u)}
               className="px-2 py-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
-              title="Excluir"
+              title="Excluir permanentemente"
             >
               <Trash2 className="w-4 h-4" />
               <span className="hidden sm:inline">Excluir</span>
@@ -741,7 +876,7 @@ const Users: React.FC = () => {
               <div className="rounded-xl border border-[var(--border)] p-4 flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-semibold text-[var(--text)]">Autenticacao de Dois Fatores (2FA)</h4>
-                  <p className="text-xs text-[var(--muted)]">Habilitar verificacao por email para maior seguranca</p>
+                  <p className="text-xs text-[var(--muted)]">Habilitar autenticacao por aplicativo autenticador (TOTP) para maior seguranca</p>
                 </div>
                 <Toggle checked={twoFactor} onChange={handleTwoFactorToggle} />
               </div>
@@ -795,7 +930,7 @@ const Users: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={loadTwoFactorSetup}
+                    onClick={() => loadTwoFactorSetup()}
                     className="w-full px-4 py-2 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
                   >
                     Tentar novamente
