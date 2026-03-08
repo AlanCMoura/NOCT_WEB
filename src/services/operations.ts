@@ -65,6 +65,12 @@ export interface ListOperationsParams {
   status?: string;
 }
 
+export interface SearchOperationsParams extends ListOperationsParams {
+  ctv?: string;
+  dataInicio?: string;
+  dataFim?: string;
+}
+
 export interface CreateOperationPayload {
   ctv?: string;
   ship?: string;
@@ -101,6 +107,36 @@ export const listOperations = async (
 
   const { data } = await api.get<ApiPage<ApiOperation>>(endpoint, {
     params: { page, size, sortBy, sortDirection },
+  });
+
+  return data;
+};
+
+export const searchOperations = async (
+  params: SearchOperationsParams = {}
+): Promise<ApiPage<ApiOperation>> => {
+  const {
+    page = 0,
+    size = 20,
+    sortBy = 'createdAt',
+    sortDirection = 'DESC',
+    status,
+    ctv,
+    dataInicio,
+    dataFim,
+  } = params;
+
+  const { data } = await api.get<ApiPage<ApiOperation>>('/operations/search', {
+    params: {
+      page,
+      size,
+      sortBy,
+      sortDirection,
+      status,
+      ctv: ctv?.trim() || undefined,
+      dataInicio,
+      dataFim,
+    },
   });
 
   return data;

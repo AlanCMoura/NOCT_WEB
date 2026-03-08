@@ -9,7 +9,7 @@ import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
 import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, getSackImages, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
-import { createContainer, deleteContainer, getContainersByOperation, getAllContainerImages, getContainerById, CONTAINER_IMAGE_SECTIONS, mapApiCategoryToSectionKey, type ApiContainer, type ApiContainerStatus, type ContainerImageCategoryKey, type CreateContainerPayload } from '../services/containers';
+import { createContainer, deleteContainer, getAllContainerImages, getAllContainersByOperation, getContainerById, getContainersByOperation, CONTAINER_IMAGE_SECTIONS, mapApiCategoryToSectionKey, type ApiContainer, type ApiContainerStatus, type ContainerImageCategoryKey, type CreateContainerPayload } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 interface OperationInfo {
@@ -362,6 +362,11 @@ const OperationDetails: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   type StatusKey = 'todos' | 'ni' | 'parcial' | 'completo';
   const [statusKey, setStatusKey] = useState<StatusKey>('todos');
+  const [apiTotalPages, setApiTotalPages] = useState<number>(1);
+  const [apiTotalContainers, setApiTotalContainers] = useState<number>(0);
+  const [containersReloadKey, setContainersReloadKey] = useState<number>(0);
+  const allContainersRef = useRef<Container[] | null>(null);
+  const isContainerFilterMode = Boolean(containerSearch.trim()) || statusKey !== 'todos';
   const statusOf = useCallback(
     (id: string) => {
       const target = containers.find((c) => c.id === id);
@@ -372,6 +377,23 @@ const OperationDetails: React.FC = () => {
     },
     [containers]
   );
+
+  const requestContainersReload = useCallback((resetPage = false) => {
+    allContainersRef.current = null;
+    if (resetPage) {
+      setPage(1);
+    }
+    setContainersReloadKey((current) => current + 1);
+  }, []);
+
+  const loadAllContainers = useCallback(async (): Promise<Container[]> => {
+    const items = await getAllContainersByOperation(decodedOperationId, {
+      size: 100,
+      sortBy: 'id',
+      sortDirection: 'ASC',
+    });
+    return mapApiContainers(items);
+  }, [decodedOperationId]);
 
   const toDataUri = useCallback(async (url: string) => {
     try {
@@ -499,10 +521,41 @@ const OperationDetails: React.FC = () => {
         { label: 'Status', value: operationStatus },
       ];
 
+      const currentFilteredContainers = (() => {
+        const q = containerSearch.trim().toLowerCase();
+        const byStatus = (statusKey === 'todos')
+          ? containers
+          : containers.filter(c => statusOf(c.id) === (statusKey === 'ni' ? 'NÃ£o inicializado' : statusKey === 'parcial' ? 'Parcial' : 'Completo'));
+
+        if (!q) return byStatus;
+        return byStatus.filter((c) => {
+          const text = [
+            c.id,
+            c.description,
+            c.lacreAgencia,
+            c.lacrePrincipal,
+            c.lacreOutros,
+            c.pesoBruto,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return text.includes(q);
+        });
+      })();
+
+      const exportContainers = isContainerFilterMode
+        ? currentFilteredContainers
+        : (allContainersRef.current ?? await loadAllContainers());
+
+      if (!isContainerFilterMode) {
+        allContainersRef.current = exportContainers;
+      }
+
       const containersWithImages = await Promise.all(
-        containers.map(async (c) => ({
+        exportContainers.map(async (c) => ({
           ...c,
-          status: statusOf(c.id),
+          status: c.apiStatus ? mapApiContainerStatusToDisplay(c.apiStatus) : computeStatus(getProgress(c.id)),
           imagesByCategory: await fetchContainerImages(c),
         }))
       );
@@ -646,7 +699,7 @@ const OperationDetails: React.FC = () => {
     } finally {
       setExportingPdf(false);
     }
-  }, [containers, decodedOperationId, exportingPdf, fetchContainerImages, fetchSacariaImages, opInfo, operationStatus, sectionsLoading, statusOf]);
+  }, [containerSearch, containers, decodedOperationId, exportingPdf, fetchContainerImages, fetchSacariaImages, isContainerFilterMode, loadAllContainers, opInfo, operationStatus, sectionsLoading, statusKey, statusOf]);
 
   const filteredContainers = useMemo(() => {
     const q = containerSearch.trim().toLowerCase();
@@ -671,8 +724,8 @@ const OperationDetails: React.FC = () => {
     });
   }, [containers, statusKey, statusOf, containerSearch]);
 
-  const total = filteredContainers.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const total = isContainerFilterMode ? filteredContainers.length : apiTotalContainers;
+  const totalPages = isContainerFilterMode ? Math.max(1, Math.ceil(filteredContainers.length / PAGE_SIZE)) : Math.max(apiTotalPages, 1);
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
@@ -690,7 +743,7 @@ const OperationDetails: React.FC = () => {
     setLoadError(null);
     try {
       await deleteContainer(targetId);
-      setContainers((prev) => prev.filter((c) => c.id !== displayId));
+      refreshContainers();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Não foi possivel excluir o container.';
       setLoadError(msg);
@@ -734,18 +787,9 @@ const OperationDetails: React.FC = () => {
     []
   );
 
-  const refreshContainers = useCallback(async () => {
-    try {
-      const page = await getContainersByOperation(decodedOperationId, { page: 0, size: 200, sortBy: 'id', sortDirection: 'ASC' });
-      const mappedFromApi = mapApiContainers(page.content || []);
-      if (mappedFromApi.length) {
-        setContainers(mappedFromApi);
-        setPage(1);
-      }
-    } catch {
-      // silencioso
-    }
-  }, [decodedOperationId, setPage]);
+  const refreshContainers = useCallback((resetPage = false) => {
+    requestContainersReload(resetPage);
+  }, [requestContainersReload]);
 
   const handleImportContainers = useCallback(
     async (file: File) => {
@@ -859,7 +903,7 @@ const OperationDetails: React.FC = () => {
     setShowImportModal(false);
   };
 
-  // Carrega dados reais da operacao e containers (se retornados pela API)
+  // Carrega dados reais da operacao
   useEffect(() => {
     if (!decodedOperationId) return;
 
@@ -871,7 +915,9 @@ const OperationDetails: React.FC = () => {
       setSaveMessage(null);
       setContainers([]);
       setPage(1);
-      setContainersLoading(true);
+      setApiTotalPages(1);
+      setApiTotalContainers(0);
+      allContainersRef.current = null;
 
       try {
         const data = await getOperationById(decodedOperationId);
@@ -880,23 +926,6 @@ const OperationDetails: React.FC = () => {
         dispatch({ type: 'hydrate', opInfo: mapOperation(data) });
         setOperationStatus(normalizeStatus(data.status));
 
-        try {
-          const containerPage = await getContainersByOperation(decodedOperationId, { page: 0, size: 200, sortBy: 'id', sortDirection: 'ASC' });
-          if (active) {
-            const mappedFromApi = mapApiContainers(containerPage.content || []);
-            if (mappedFromApi.length) {
-              setContainers(mappedFromApi);
-              setPage(1);
-              return;
-            }
-          }
-        } catch {
-          // fallback para containers vindo junto da operacao
-        }
-
-        const mappedContainers = mapContainers(data);
-        setContainers(mappedContainers);
-        setPage(1);
       } catch (err) {
         if (!active) return;
         const msg = err instanceof Error ? err.message : 'Não foi possivel carregar a operacao.';
@@ -904,7 +933,6 @@ const OperationDetails: React.FC = () => {
       } finally {
         if (active) {
           setLoadingOp(false);
-          setContainersLoading(false);
         }
       }
     };
@@ -914,6 +942,75 @@ const OperationDetails: React.FC = () => {
       active = false;
     };
   }, [decodedOperationId]);
+
+  useEffect(() => {
+    if (!decodedOperationId) return;
+
+    let active = true;
+    const loadContainers = async () => {
+      setContainersLoading(true);
+      setLoadError(null);
+
+      try {
+        if (isContainerFilterMode) {
+          const allContainers = allContainersRef.current ?? await loadAllContainers();
+          if (!active) return;
+
+          allContainersRef.current = allContainers;
+          setContainers(allContainers);
+          setApiTotalContainers(allContainers.length);
+          setApiTotalPages(Math.max(1, Math.ceil(allContainers.length / PAGE_SIZE)));
+          return;
+        }
+
+        const containerPage = await getContainersByOperation(decodedOperationId, {
+          page: Math.max(page - 1, 0),
+          size: PAGE_SIZE,
+          sortBy: 'id',
+          sortDirection: 'ASC',
+        });
+        if (!active) return;
+
+        const mappedFromApi = mapApiContainers(containerPage.content || []);
+        setContainers(mappedFromApi);
+        setApiTotalContainers(containerPage.totalElements ?? mappedFromApi.length);
+        setApiTotalPages(Math.max(containerPage.totalPages ?? 1, 1));
+      } catch (err) {
+        try {
+          const fallbackOperation = await getOperationById(decodedOperationId);
+          if (!active) return;
+
+          const mappedContainers = mapContainers(fallbackOperation);
+          allContainersRef.current = mappedContainers;
+
+          if (isContainerFilterMode) {
+            setContainers(mappedContainers);
+            setApiTotalContainers(mappedContainers.length);
+            setApiTotalPages(Math.max(1, Math.ceil(mappedContainers.length / PAGE_SIZE)));
+          } else {
+            const fallbackStart = Math.max(page - 1, 0) * PAGE_SIZE;
+            const fallbackPage = mappedContainers.slice(fallbackStart, fallbackStart + PAGE_SIZE);
+            setContainers(fallbackPage);
+            setApiTotalContainers(mappedContainers.length);
+            setApiTotalPages(Math.max(1, Math.ceil(mappedContainers.length / PAGE_SIZE)));
+          }
+        } catch {
+          if (!active) return;
+          const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar os containers.';
+          setLoadError(msg);
+        }
+      } finally {
+        if (active) {
+          setContainersLoading(false);
+        }
+      }
+    };
+
+    loadContainers();
+    return () => {
+      active = false;
+    };
+  }, [decodedOperationId, isContainerFilterMode, loadAllContainers, page, containersReloadKey]);
 
 const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
   ctv: data.ctv,
@@ -929,8 +1026,13 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
 });
 
   const startIdx = (page - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, total);
-  const paginated = useMemo(() => filteredContainers.slice(startIdx, endIdx), [filteredContainers, startIdx, endIdx]);
+  const endIdx = isContainerFilterMode
+    ? Math.min(startIdx + PAGE_SIZE, filteredContainers.length)
+    : Math.min(startIdx + filteredContainers.length, total);
+  const paginated = useMemo(
+    () => (isContainerFilterMode ? filteredContainers.slice(startIdx, endIdx) : filteredContainers),
+    [endIdx, filteredContainers, isContainerFilterMode, startIdx]
+  );
 
   const startEdit = () => {
     setSaveMessage(null);

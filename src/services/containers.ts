@@ -116,6 +116,13 @@ export interface UpdateContainerPayload {
   status?: ApiContainerStatus;
 }
 
+export interface ListContainersParams {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
+}
+
 const appendImages = (form: FormData, images?: ContainerImagesPayload): boolean => {
   if (!images) return false;
   let hasImages = false;
@@ -283,7 +290,7 @@ export const getContainerById = async (containerId: string): Promise<ApiContaine
 
 export const getContainersByOperation = async (
   operationId: string | number,
-  params?: { page?: number; size?: number; sortBy?: string; sortDirection?: 'ASC' | 'DESC' }
+  params?: ListContainersParams
 ): Promise<ApiPage<ApiContainer>> => {
   const { page = 0, size = 20, sortBy = 'id', sortDirection = 'ASC' } = params || {};
   const { data } = await api.get<ApiPage<ApiContainer>>(
@@ -291,6 +298,35 @@ export const getContainersByOperation = async (
     { params: { page, size, sortBy, sortDirection } }
   );
   return data;
+};
+
+export const getAllContainersByOperation = async (
+  operationId: string | number,
+  params?: Omit<ListContainersParams, 'page'>,
+): Promise<ApiContainer[]> => {
+  const { size = 100, sortBy = 'id', sortDirection = 'ASC' } = params || {};
+  const pageSize = Math.min(size, 100);
+  const all: ApiContainer[] = [];
+  let page = 0;
+
+  while (true) {
+    const response = await getContainersByOperation(operationId, {
+      page,
+      size: pageSize,
+      sortBy,
+      sortDirection,
+    });
+
+    all.push(...(response.content || []));
+
+    if ((response.last ?? false) || response.totalPages === 0 || page + 1 >= response.totalPages) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return all;
 };
 
 export const getContainerImagesByCategory = async (

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
@@ -9,14 +9,13 @@ import {
   TrendingUp,
   Timer,
   Download,
-  RefreshCcw,
   Search,
   Filter,
   AlertCircle,
   FileText,
   Clock,
 } from 'lucide-react';
-import { listOperations, type ApiOperation } from '../services/operations';
+import { listOperations, searchOperations, type ApiOperation } from '../services/operations';
 import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
@@ -62,25 +61,6 @@ const formatDate = (value: string): string => {
   const hh = String(date.getHours()).padStart(2, '0');
   const mi = String(date.getMinutes()).padStart(2, '0');
   return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-};
-
-const parseInputDate = (value: string): number | null => {
-  if (!value) return null;
-  // Parse date-only inputs as local midnight to avoid timezone shifts
-  const [year, month, day] = value.split('-').map((v) => Number(v));
-  if (!year || !month || !day) return null;
-  const d = new Date(year, month - 1, day, 0, 0, 0, 0);
-  const ts = d.getTime();
-  return Number.isNaN(ts) ? null : ts;
-};
-
-const endOfDay = (value: string): number | null => {
-  if (!value) return null;
-  const [year, month, day] = value.split('-').map((v) => Number(v));
-  if (!year || !month || !day) return null;
-  const d = new Date(year, month - 1, day, 23, 59, 59, 999);
-  const ts = d.getTime();
-  return Number.isNaN(ts) ? null : ts;
 };
 
 const mapOperation = (op: ApiOperation): ReportRow => {
@@ -146,6 +126,10 @@ const Reports: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusKey>('todos');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState<StatusKey>('todos');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<PresetKey | null>(null);
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -156,19 +140,32 @@ const Reports: React.FC = () => {
   const [totalPages, setTotalPages] = useState<number>(0);
   const [totalElements, setTotalElements] = useState<number>(0);
 
-  const fetchOperations = async (targetPage = page) => {
+  const fetchOperations = useCallback(async (targetPage = 0) => {
     setLoading(true);
     setError(null);
     try {
       const normalizedSize = Math.min(Math.max(pageSize, 1), 100);
-      const statusParam = mapStatusToApi(statusFilter);
-      const data = await listOperations({
-        page: targetPage,
-        size: normalizedSize,
-        sortBy: 'createdAt',
-        sortDirection: 'DESC',
-        status: statusParam,
-      });
+      const statusParam = mapStatusToApi(appliedStatusFilter);
+      const trimmedSearch = appliedSearch.trim();
+      const hasApiFilters = Boolean(trimmedSearch || statusParam || appliedStartDate || appliedEndDate);
+      const data = hasApiFilters
+        ? await searchOperations({
+            page: targetPage,
+            size: normalizedSize,
+            sortBy: 'createdAt',
+            sortDirection: 'DESC',
+            status: statusParam,
+            ctv: trimmedSearch || undefined,
+            dataInicio: appliedStartDate || undefined,
+            dataFim: appliedEndDate || undefined,
+          })
+        : await listOperations({
+            page: targetPage,
+            size: normalizedSize,
+            sortBy: 'createdAt',
+            sortDirection: 'DESC',
+            status: statusParam,
+          });
       const mapped = (data?.content ?? []).map(mapOperation);
 
       const enriched = await Promise.all(
@@ -194,95 +191,101 @@ const Reports: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedEndDate, appliedSearch, appliedStartDate, appliedStatusFilter, pageSize]);
 
   useEffect(() => {
-    fetchOperations(page);
-  }, [page, pageSize, statusFilter]);
+    void fetchOperations(page);
+  }, [fetchOperations, page]);
 
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const start = parseInputDate(startDate);
-    const end = endOfDay(endDate);
+  const handleSearch = useCallback(() => {
+    const nextSearch = search.trim();
 
-    if (start !== null && end !== null && start > end) {
-      setRangeWarning('Data inicial maior que a final. Intervalo ignorado.');
-      return rows.filter((row) => {
-        const matchesSearch =
-          !q ||
-          row.id.toLowerCase().includes(q) ||
-          row.ctv.toLowerCase().includes(q) ||
-          row.reserva.toLowerCase().includes(q) ||
-          row.ship.toLowerCase().includes(q);
-
-        return matchesSearch;
-      });
+    if (startDate && endDate && startDate > endDate) {
+      setRangeWarning('A data inicial nao pode ser maior que a data final.');
+      return;
     }
+
     setRangeWarning(null);
 
-    return rows.filter((row) => {
-      const matchesSearch =
-        !q ||
-        row.id.toLowerCase().includes(q) ||
-        row.ctv.toLowerCase().includes(q) ||
-        row.reserva.toLowerCase().includes(q) ||
-          row.ship.toLowerCase().includes(q);
+    if (
+      page === 0 &&
+      nextSearch === appliedSearch &&
+      statusFilter === appliedStatusFilter &&
+      startDate === appliedStartDate &&
+      endDate === appliedEndDate
+    ) {
+      void fetchOperations(0);
+      return;
+    }
 
-      const matchesDate = (() => {
-        if (start === null && end === null) return true;
-        const ts = row.date ? new Date(row.date).getTime() : NaN;
-        if (Number.isNaN(ts)) return false;
-        if (start !== null && ts < start) return false;
-        if (end !== null && ts > end) return false;
-        return true;
-      })();
-
-      return matchesSearch && matchesDate;
-    });
-  }, [rows, search, statusFilter, startDate, endDate]);
+    setPage(0);
+    setAppliedSearch(nextSearch);
+    setAppliedStatusFilter(statusFilter);
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
+  }, [
+    appliedEndDate,
+    appliedSearch,
+    appliedStartDate,
+    appliedStatusFilter,
+    endDate,
+    fetchOperations,
+    page,
+    search,
+    startDate,
+    statusFilter,
+  ]);
 
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('todos');
     setStartDate('');
     setEndDate('');
+    setAppliedSearch('');
+    setAppliedStatusFilter('todos');
+    setAppliedStartDate('');
+    setAppliedEndDate('');
     setSelectedPreset(null);
+    setRangeWarning(null);
     setPage(0);
   };
 
   const applyPresetRange = (preset: PresetKey) => {
     const today = new Date();
     const toIso = (d: Date) => d.toISOString().slice(0, 10);
-    setSelectedPreset(preset);
-    setPage(0);
+    const nextSearch = search.trim();
+    let nextStatus = statusFilter;
+    let nextStart = '';
+    let nextEnd = '';
+
     if (preset === 'pendencias') {
-      setStatusFilter('aberta');
-      setStartDate('');
-      setEndDate('');
-      return;
-    }
-
-    if (preset === 'hoje') {
+      nextStatus = 'aberta';
+    } else if (preset === 'hoje') {
       const d = toIso(today);
-      setStartDate(d);
-      setEndDate(d);
-      return;
-    }
-
-    if (preset === '7d') {
+      nextStart = d;
+      nextEnd = d;
+    } else if (preset === '7d') {
       const start = new Date(today);
       start.setDate(today.getDate() - 6);
-      setStartDate(toIso(start));
-      setEndDate(toIso(today));
-      return;
-    }
-
-    if (preset === '30d') {
+      nextStart = toIso(start);
+      nextEnd = toIso(today);
+    } else if (preset === '30d') {
       const start = new Date(today);
       start.setDate(today.getDate() - 29);
-      setStartDate(toIso(start));
-      setEndDate(toIso(today));
+      nextStart = toIso(start);
+      nextEnd = toIso(today);
     }
+
+    setSelectedPreset(preset);
+    setPage(0);
+    setStatusFilter(nextStatus);
+    setStartDate(nextStart);
+    setEndDate(nextEnd);
+    setAppliedSearch(nextSearch);
+    setAppliedStatusFilter(nextStatus);
+    setAppliedStartDate(nextStart);
+    setAppliedEndDate(nextEnd);
+    setRangeWarning(null);
   };
 
   const presetButtonClass = (key: PresetKey) =>
@@ -530,7 +533,7 @@ const Reports: React.FC = () => {
     };
   };
 
-  const rowsForTable = filteredRows;
+  const rowsForTable = rows;
 
   return (
     <div className="flex h-screen bg-app">
@@ -586,84 +589,99 @@ const Reports: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => exportCsv(filteredRows)}
+                  onClick={() => exportCsv(rowsForTable)}
                   className="inline-flex items-center px-3 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90"
                 >
                   <Download className="w-4 h-4 mr-2" /> Exportar CSV
                 </button>
                 <button
                   type="button"
-                  onClick={() => exportPdf(filteredRows)}
+                  onClick={() => exportPdf(rowsForTable)}
                   className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
                 >
                   <FileText className="w-4 h-4 mr-2" /> Exportar PDF
                 </button>
-                <button
-                  type="button"
-                  onClick={() => fetchOperations(page)}
-                  disabled={loading}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-60"
-                >
-                  <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-                </button>
               </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por ID, CTV ou navio"
-                  className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
+            <div className="p-6 space-y-4">
+              <div className="flex flex-col xl:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearch();
+                      }
+                    }}
+                    placeholder="Buscar por CTV"
+                    className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative w-44">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value as StatusKey);
+                        setSelectedPreset(null);
+                        setRangeWarning(null);
+                      }}
+                      className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="todos">Todos os status</option>
+                      <option value="aberta">Abertas</option>
+                      <option value="fechada">Fechadas</option>
+                    </select>
+                  </div>
+
+                  <div className="relative w-44">
+                    <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setSelectedPreset(null);
+                        setRangeWarning(null);
+                      }}
+                      max={endDate || undefined}
+                      className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="relative w-44">
+                    <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setSelectedPreset(null);
+                        setRangeWarning(null);
+                      }}
+                      min={startDate || undefined}
+                      className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90 disabled:opacity-60"
+                  >
+                    {loading ? 'Buscando...' : 'Buscar'}
+                  </button>
+                </div>
               </div>
 
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value as StatusKey);
-                    setPage(0);
-                  }}
-                  className="w-full appearance-none pl-10 pr-8 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  <option value="todos">Todos os status</option>
-                  <option value="aberta">Abertas</option>
-                  <option value="fechada">Fechadas</option>
-                </select>
-              </div>
-
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setSelectedPreset(null);
-                  }}
-                  className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setSelectedPreset(null);
-                  }}
-                  className="w-full pl-10 pr-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-              </div>
-
-              <div className="col-span-1 md:col-span-2 lg:col-span-4 flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={() => applyPresetRange('hoje')}
@@ -708,14 +726,14 @@ const Reports: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text)]">Operações para relatório</h2>
                 <p className="text-sm text-[var(--muted)]">
-                  {filteredRows.length} encontradas nesta página (total: {totalElements})
+                  {rowsForTable.length} encontradas nesta página (total: {totalElements})
                 </p>
               </div>
-              {startDate || endDate ? (
+              {appliedStartDate || appliedEndDate ? (
                 <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
                   <CalendarDays className="w-4 h-4" />
                   <span>
-                    {startDate || 'inicio aberto'} - {endDate || 'fim aberto'}
+                    {appliedStartDate || 'inicio aberto'} - {appliedEndDate || 'fim aberto'}
                   </span>
                 </div>
               ) : null}
@@ -723,7 +741,7 @@ const Reports: React.FC = () => {
 
             {loading ? (
               <div className="p-6 text-sm text-[var(--muted)]">Carregando dados...</div>
-            ) : filteredRows.length === 0 ? (
+            ) : rowsForTable.length === 0 ? (
               <div className="p-10 text-center text-[var(--muted)] text-sm">
                 Nenhum resultado com os filtros aplicados.
               </div>
@@ -808,7 +826,7 @@ const Reports: React.FC = () => {
                 </table>
                 <div className="px-6 py-3 text-xs text-[var(--muted)] bg-[var(--hover)] border-t border-[var(--border)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span>
-                    Mostrando {filteredRows.length} de {rows.length} |  Total: {totalElements}
+                    Mostrando {rowsForTable.length} nesta página |  Total: {totalElements}
                   </span>
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2">

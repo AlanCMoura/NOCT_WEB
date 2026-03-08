@@ -1,10 +1,17 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Search, Edit, Download } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { getContainersByOperation, updateContainer, type ApiContainer, type ApiContainerStatus, type UpdateContainerPayload } from '../services/containers';
+import {
+  getAllContainersByOperation,
+  getContainersByOperation,
+  updateContainer,
+  type ApiContainer,
+  type ApiContainerStatus,
+  type UpdateContainerPayload,
+} from '../services/containers';
 import { getOperationById } from '../services/operations';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
@@ -73,6 +80,11 @@ const OperationOverview: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
+  const [statusKey, setStatusKey] = useState<StatusKey>('todos');
+  const [apiTotalPages, setApiTotalPages] = useState<number>(1);
+  const [apiTotalRows, setApiTotalRows] = useState<number>(0);
+  const allRowsRef = useRef<ContainerRow[] | null>(null);
+  const isFilteredMode = Boolean(search.trim()) || statusKey !== 'todos';
 
   // Atualiza quando navega para outra operacao
   useEffect(() => {
@@ -81,12 +93,23 @@ const OperationOverview: React.FC = () => {
     setPage(1);
     setOperationCtv('');
     setOperationLabelLoading(true);
+    setApiTotalPages(1);
+    setApiTotalRows(0);
+    allRowsRef.current = null;
+  }, [decodedOperationId]);
+
+  const loadAllRows = useCallback(async (): Promise<ContainerRow[]> => {
+    const items = await getAllContainersByOperation(decodedOperationId, {
+      size: 100,
+      sortBy: 'id',
+      sortDirection: 'ASC',
+    });
+    return items.map(mapApiContainer);
   }, [decodedOperationId]);
 
   useEffect(() => {
     const load = async () => {
       if (!decodedOperationId) return;
-      setLoading(true);
       setLoadError(null);
       try {
         try {
@@ -106,21 +129,53 @@ const OperationOverview: React.FC = () => {
           setOperationCtv(decodedOperationId);
         }
         setOperationLabelLoading(false);
-        const data = await getContainersByOperation(decodedOperationId, { page: 0, size: 500, sortBy: 'id', sortDirection: 'ASC' });
-        const mapped = (data?.content || []).map(mapApiContainer);
-        setRows(mapped);
-        setDraftRows(mapped);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Não foi possivel carregar os containers.';
         setLoadError(msg);
-      } finally {
-        setLoading(false);
       }
     };
     load();
   }, [decodedOperationId]);
 
-  const [statusKey, setStatusKey] = useState<StatusKey>('todos');
+  useEffect(() => {
+    const load = async () => {
+      if (!decodedOperationId) return;
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        if (isFilteredMode) {
+          const allRows = allRowsRef.current ?? await loadAllRows();
+          allRowsRef.current = allRows;
+          setRows(allRows);
+          setDraftRows(allRows);
+          setApiTotalRows(allRows.length);
+          setApiTotalPages(Math.max(1, Math.ceil(allRows.length / PAGE_SIZE)));
+          return;
+        }
+
+        const data = await getContainersByOperation(decodedOperationId, {
+          page: Math.max(page - 1, 0),
+          size: PAGE_SIZE,
+          sortBy: 'id',
+          sortDirection: 'ASC',
+        });
+        const mapped = (data?.content || []).map(mapApiContainer);
+        setRows(mapped);
+        setDraftRows(mapped);
+        setApiTotalRows(data?.totalElements ?? mapped.length);
+        setApiTotalPages(Math.max(data?.totalPages ?? 1, 1));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Nao foi possivel carregar os containers.';
+        setLoadError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [decodedOperationId, isFilteredMode, loadAllRows, page]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = q ? rows.filter((r) => r.id.toLowerCase().includes(q)) : rows;
@@ -130,15 +185,20 @@ const OperationOverview: React.FC = () => {
 
   const sorted = useMemo(() => filtered, [filtered]);
 
-  const totalFiltered = sorted.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const totalFiltered = isFilteredMode ? sorted.length : apiTotalRows;
+  const totalPages = isFilteredMode ? Math.max(1, Math.ceil(sorted.length / PAGE_SIZE)) : Math.max(apiTotalPages, 1);
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
   const startIdx = (page - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, totalFiltered);
-  const paginated = useMemo(() => sorted.slice(startIdx, endIdx), [sorted, startIdx, endIdx]);
+  const endIdx = isFilteredMode
+    ? Math.min(startIdx + PAGE_SIZE, sorted.length)
+    : Math.min(startIdx + rows.length, totalFiltered);
+  const paginated = useMemo(
+    () => (isFilteredMode ? sorted.slice(startIdx, endIdx) : sorted),
+    [endIdx, isFilteredMode, sorted, startIdx]
+  );
 
   const startEditAll = () => { setDraftRows(rows); setIsEditing(true); setSaveError(null); setSaveMessage(null); };
   const cancelEditAll = () => { setIsEditing(false); setDraftRows(rows); setSaveError(null); setSaveMessage(null); };
@@ -187,6 +247,7 @@ const OperationOverview: React.FC = () => {
         })
       );
       setRows(draftRows);
+      allRowsRef.current = isFilteredMode ? draftRows : null;
       setIsEditing(false);
       setSaveMessage('Containers atualizados com sucesso.');
     } catch (err) {
@@ -205,6 +266,13 @@ const OperationOverview: React.FC = () => {
     navigate(`/operations/${encodeURIComponent(decodedOperationId)}`);
   };
   const operationLabel = operationCtv || decodedOperationId;
+  const getExportRows = useCallback(async (): Promise<ContainerRow[]> => {
+    if (isFilteredMode) return sorted;
+    const allRows = allRowsRef.current ?? await loadAllRows();
+    allRowsRef.current = allRows;
+    return allRows;
+  }, [isFilteredMode, loadAllRows, sorted]);
+
   const exportCsv = (list: ContainerRow[]) => {
     if (!list.length) {
       window.alert('Nenhum container para exportar.');
@@ -337,6 +405,16 @@ const OperationOverview: React.FC = () => {
     };
   };
 
+  const handleExportCsv = async () => {
+    const exportRows = await getExportRows();
+    exportCsv(exportRows);
+  };
+
+  const handleExportPdf = async () => {
+    const exportRows = await getExportRows();
+    exportPdf(exportRows);
+  };
+
   return (
     <div className="flex h-screen bg-app">
       <Sidebar user={user} />
@@ -408,14 +486,14 @@ const OperationOverview: React.FC = () => {
             <div className="flex items-center">
               <button
                 type="button"
-                onClick={() => exportCsv(sorted)}
+                onClick={() => void handleExportCsv()}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors"
               >
                 <Download className="w-4 h-4" /> Exportar CSV
               </button>
               <button
                 type="button"
-                onClick={() => exportPdf(sorted)}
+                onClick={() => void handleExportPdf()}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors ml-3"
               >
                 <Download className="w-4 h-4" /> Exportar PDF

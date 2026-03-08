@@ -1,12 +1,17 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Upload, FileText, RefreshCcw, FileUp, X } from 'lucide-react';
+import { Search, Upload, FileText, FileUp, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { getOperationStatus, type OperationStatus } from '../services/operationStatus';
-import { createOperation, listOperations, type ApiOperation } from '../services/operations';
+import {
+  createOperation,
+  listOperations,
+  searchOperations,
+  type ApiOperation,
+} from '../services/operations';
 import { getContainersByOperation } from '../services/containers';
 
 interface OperationItem {
@@ -59,9 +64,6 @@ const parseDateValue = (value: unknown): string => {
   if (typeof value === 'string') return value;
   return '';
 };
-
-const normalizeSearchKey = (value: string): string =>
-  value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const mapStatusToApi = (value: 'todos' | 'aberta' | 'fechada'): string | undefined => {
   if (value === 'aberta') return 'OPEN';
@@ -317,6 +319,12 @@ const Operations: React.FC = () => {
   const [operations, setOperations] = useState<OperationItem[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'aberta' | 'fechada'>('todos');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState<'todos' | 'aberta' | 'fechada'>('todos');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
@@ -331,40 +339,56 @@ const Operations: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
 
+  const loadContainerCount = useCallback(async (op: OperationItem): Promise<OperationItem> => {
+    if (op.containerCount !== undefined && op.containerCount !== null) {
+      return op;
+    }
+
+    try {
+      const pageData = await getContainersByOperation(op.id, {
+        page: 0,
+        size: 1,
+        sortBy: 'id',
+        sortDirection: 'ASC',
+      });
+      const count = pageData?.totalElements ?? (Array.isArray(pageData?.content) ? pageData.content.length : 0);
+      return { ...op, containerCount: count };
+    } catch {
+      return { ...op, containerCount: 0 };
+    }
+  }, []);
+
   const fetchOperations = useCallback(
     async (targetPage = 0) => {
       setLoading(true);
       setListError(null);
       try {
-        const statusParam = mapStatusToApi(statusFilter);
-        const data = await listOperations({
-          page: targetPage,
-          size: pageSize,
-          sortBy: 'createdAt',
-          sortDirection: 'DESC',
-          status: statusParam,
-        });
-        const mapped = (data?.content ?? []).map(mapApiOperation);
-
-        const operationsWithCount = await Promise.all(
-          mapped.map(async (op) => {
-            if (op.containerCount !== undefined && op.containerCount !== null) {
-              return op;
-            }
-            try {
-              const pageData = await getContainersByOperation(op.id, {
-                page: 0,
-                size: 1,
-                sortBy: 'id',
-                sortDirection: 'ASC',
-              });
-              const count = pageData?.totalElements ?? (Array.isArray(pageData?.content) ? pageData.content.length : 0);
-              return { ...op, containerCount: count };
-            } catch {
-              return { ...op, containerCount: 0 };
-            }
-          })
+        const statusParam = mapStatusToApi(appliedStatusFilter);
+        const trimmedSearch = appliedSearch.trim();
+        const hasApiFilters = Boolean(
+          trimmedSearch || statusParam || appliedStartDate || appliedEndDate
         );
+        const data =
+          hasApiFilters
+            ? await searchOperations({
+                page: targetPage,
+                size: pageSize,
+                sortBy: 'createdAt',
+                sortDirection: 'DESC',
+                status: statusParam,
+                ctv: trimmedSearch || undefined,
+                dataInicio: appliedStartDate || undefined,
+                dataFim: appliedEndDate || undefined,
+              })
+            : await listOperations({
+                page: targetPage,
+                size: pageSize,
+                sortBy: 'createdAt',
+                sortDirection: 'DESC',
+                status: statusParam,
+              });
+        const mapped = (data?.content ?? []).map(mapApiOperation);
+        const operationsWithCount = await Promise.all(mapped.map(loadContainerCount));
 
         const sortedOperations = [...operationsWithCount].sort(
           (a, b) => getDatePriority(b.date) - getDatePriority(a.date)
@@ -381,8 +405,48 @@ const Operations: React.FC = () => {
         setLoading(false);
       }
     },
-    [pageSize, statusFilter]
+    [appliedEndDate, appliedSearch, appliedStartDate, appliedStatusFilter, loadContainerCount, pageSize]
   );
+
+  const handleOperationSearch = useCallback(() => {
+    const nextSearch = search.trim();
+    const nextStartDate = startDate;
+    const nextEndDate = endDate;
+
+    if (nextStartDate && nextEndDate && nextStartDate > nextEndDate) {
+      setListError('A data inicial nao pode ser maior que a data final.');
+      return;
+    }
+
+    if (
+      page === 0 &&
+      nextSearch === appliedSearch &&
+      statusFilter === appliedStatusFilter &&
+      nextStartDate === appliedStartDate &&
+      nextEndDate === appliedEndDate
+    ) {
+      void fetchOperations(0);
+      return;
+    }
+
+    setListError(null);
+    setPage(0);
+    setAppliedSearch(nextSearch);
+    setAppliedStatusFilter(statusFilter);
+    setAppliedStartDate(nextStartDate);
+    setAppliedEndDate(nextEndDate);
+  }, [
+    appliedEndDate,
+    appliedSearch,
+    appliedStartDate,
+    appliedStatusFilter,
+    endDate,
+    fetchOperations,
+    page,
+    search,
+    startDate,
+    statusFilter,
+  ]);
 
   const handleImportFile = useCallback(
     async (file: File) => {
@@ -516,26 +580,9 @@ const Operations: React.FC = () => {
 
   useEffect(() => {
     fetchOperations(page);
-  }, [fetchOperations, page, pageSize, statusFilter]);
+  }, [fetchOperations, page]);
 
-  const filtered = useMemo(() => {
-    const q = normalizeSearchKey(search.trim());
-    return operations.filter((op) => {
-      const matchesSearch =
-        !q ||
-        normalizeSearchKey(op.ctv).includes(q) ||
-        normalizeSearchKey(op.id).includes(q) ||
-        normalizeSearchKey(op.reserva).includes(q) ||
-        normalizeSearchKey(op.shipName).includes(q);
-
-      const matchesStatus =
-        statusFilter === 'todos' ||
-        (statusFilter === 'aberta' && op.status === 'Aberta') ||
-        (statusFilter === 'fechada' && op.status === 'Fechada');
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [operations, search, statusFilter]);
+  const filtered = operations;
 
   const handleNew = () => navigate('/operations/new');
   const handleView = (id: string) => navigate(`/operations/${encodeURIComponent(id)}`);
@@ -576,15 +623,24 @@ const Operations: React.FC = () => {
 
         <main className="flex-1 p-6 overflow-auto">
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-5 h-5" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-[var(--border)] rounded-lg text-sm placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-[var(--surface)] text-[var(--text)]"
-                placeholder="Pesquisar por CTV, reserva ou navio..."
-              />
+            <div className="flex-1">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-5 h-5" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleOperationSearch();
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2.5 border border-[var(--border)] rounded-lg text-sm placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-[var(--surface)] text-[var(--text)]"
+                  placeholder="Pesquisar por CTV..."
+                />
+              </div>
             </div>
             <div className="flex gap-3 items-center">
               <div className="w-40">
@@ -592,7 +648,6 @@ const Operations: React.FC = () => {
                   value={statusFilter}
                   onChange={(e) => {
                     setStatusFilter(e.target.value as typeof statusFilter);
-                    setPage(0);
                   }}
                   className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
                   aria-label="Filtrar por status"
@@ -602,6 +657,36 @@ const Operations: React.FC = () => {
                   <option value="fechada">Fechada</option>
                 </select>
               </div>
+              <div className="w-40">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  max={endDate || undefined}
+                  className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  aria-label="Data inicial"
+                  title="Data inicial"
+                />
+              </div>
+              <div className="w-40">
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || undefined}
+                  className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  aria-label="Data final"
+                  title="Data final"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleOperationSearch}
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 transition-colors disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Buscando...' : 'Buscar'}
+              </button>
               <button
                 type="button"
                 onClick={handleImportClick}
@@ -611,14 +696,6 @@ const Operations: React.FC = () => {
               >
                 <FileUp className="w-4 h-4 mr-2" />
                 {importing ? 'Importando...' : 'Importar'}
-              </button>
-              <button
-                type="button"
-                onClick={() => fetchOperations(page)}
-                className="inline-flex items-center px-4 py-2.5 border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors"
-                disabled={loading}
-              >
-                <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
               </button>
               <button onClick={handleNew} className="inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 transition-colors">
                 <Upload className="w-4 h-4 mr-2" /> Nova operação
