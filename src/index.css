@@ -54,6 +54,7 @@ html, body, #root {
 body {
   background: var(--bg);
   color: var(--text);
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Utility helpers to bridge Tailwind with variables */
@@ -71,12 +72,37 @@ body {
 
 /* Prevent sidebar from shrinking and removing unwanted transitions */
 .sidebar-wrapper {
-  flex: 0 0 4.5rem;
+  flex: 0 0 0;
   transition: none;
+}
+
+.mobile-nav-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mobile-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-wrapper + div {
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 @media (min-width: 768px) {
   .sidebar-wrapper {
     flex-basis: 16rem;
+  }
+
+  .sidebar-wrapper + div {
+    padding-bottom: 0;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Building2, CheckCircle, Eye, EyeOff, Lock, Shield, User } from 'lucide-react';
 import axios from 'axios';
 import { api } from '../services/api';
@@ -107,6 +107,7 @@ const LOGIN_HIGHLIGHTS = [
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login: persistSession, refreshUser } = useAuth();
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -144,7 +145,20 @@ const Login: React.FC = () => {
     } catch (error) {
       console.warn('Nao foi possivel atualizar o usuario autenticado', error);
     }
-    navigate('/dashboard');
+    const redirectTarget =
+      typeof location.state === 'object' &&
+      location.state !== null &&
+      'from' in location.state &&
+      typeof location.state.from === 'object' &&
+      location.state.from !== null &&
+      'pathname' in location.state.from &&
+      typeof location.state.from.pathname === 'string' &&
+      location.state.from.pathname !== '/login' &&
+      location.state.from.pathname !== '/'
+        ? `${location.state.from.pathname}${typeof location.state.from.search === 'string' ? location.state.from.search : ''}${typeof location.state.from.hash === 'string' ? location.state.from.hash : ''}`
+        : '/dashboard';
+
+    navigate(redirectTarget, { replace: true });
   };
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -290,8 +304,8 @@ const Login: React.FC = () => {
   const primaryLoadingLabel = isTwoFactorStep ? 'Validando...' : 'Entrando...';
 
   return (
-    <div className="min-h-screen bg-[var(--surface)] lg:grid lg:grid-cols-2">
-      <section className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 text-white">
+    <div className="min-h-screen bg-[var(--bg)] lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+      <section className="relative hidden overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 text-white lg:block">
         <div className="absolute inset-0">
           <div className="absolute inset-0 opacity-5">
             <div className="grid h-full w-full grid-cols-8 grid-rows-10 sm:grid-cols-12 sm:grid-rows-12">
@@ -341,10 +355,14 @@ const Login: React.FC = () => {
         </div>
       </section>
 
-      <section className="flex min-h-[48vh] items-center justify-center px-4 py-6 sm:px-6 sm:py-8 lg:min-h-screen lg:px-10 lg:py-10 xl:px-14">
+      <section className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-6 sm:py-8 lg:min-h-screen lg:bg-[var(--surface)] lg:px-10 lg:py-10 xl:px-14">
         <div className="w-full max-w-md lg:max-w-lg">
+          <div className="mb-10 flex flex-col items-center justify-center gap-3 text-center lg:hidden">
+            <img src="/assets/NOCT.png" alt="NOCT" className="h-40 w-auto max-w-[340px] object-contain" />
+          </div>
+
           <form
-            className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl sm:p-7 lg:p-8"
+            className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl sm:p-7 lg:rounded-[2rem] lg:p-8"
             onSubmit={(e) => {
               e.preventDefault();
               if (!primaryLoading) primaryAction();
@@ -353,11 +371,15 @@ const Login: React.FC = () => {
             <div className="absolute right-0 top-0 h-24 w-24 translate-x-12 -translate-y-12 rounded-full bg-[#49C5B6]/5" />
 
             <div className="relative z-10 mb-6 text-center sm:mb-8">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#49C5B6]">
+              <div className="mx-auto mb-4 hidden h-12 w-12 items-center justify-center rounded-xl bg-[#49C5B6] lg:flex">
                 <Lock className="h-6 w-6 text-white" />
               </div>
-              <h2 className="mb-2 text-2xl font-bold text-[var(--text)]">Acesso ao Sistema</h2>
-              <p className="text-sm text-[var(--muted)]">Entre com suas credenciais para acessar o sistema</p>
+              <h2 className="mb-2 text-2xl font-bold text-[var(--text)]">{isTwoFactorStep ? 'Validacao em duas etapas' : 'Acesso ao Sistema'}</h2>
+              <p className="text-sm text-[var(--muted)]">
+                {isTwoFactorStep
+                  ? 'Confirme o codigo do autenticador para concluir sua entrada.'
+                  : 'Entre com suas credenciais para acessar o sistema.'}
+              </p>
             </div>
 
             <div className="space-y-5 sm:space-y-6">

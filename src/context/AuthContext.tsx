@@ -6,7 +6,8 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { api, setAuthToken } from '../services/api';
+import axios from 'axios';
+import { api, AUTH_UNAUTHORIZED_EVENT, setAuthToken } from '../services/api';
 import { getUserById } from '../services/users';
 
 export interface AuthUser {
@@ -80,6 +81,13 @@ const extractUserIdFromToken = (token?: string | null): string | number | null =
   return null;
 };
 
+const isTokenExpired = (token?: string | null): boolean => {
+  const payload = decodeJwtPayload(token);
+  const exp = payload?.exp;
+  if (typeof exp !== 'number') return false;
+  return exp * 1000 <= Date.now();
+};
+
 const normalizeUserData = (data?: Partial<AuthUser> | null): AuthUser => {
   if (!data) {
     return { name: 'Usuário' };
@@ -123,6 +131,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(normalized));
   }, []);
 
+  const clearSession = useCallback(() => {
+    setAuthToken(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    persistUser(null);
+  }, [persistUser]);
+
   const fetchCurrentUser = useCallback(async () => {
     const storedToken = localStorage.getItem('authToken');
 
@@ -133,6 +148,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSession();
+        return;
+      }
       console.warn('Nao foi possivel recuperar o usuario autenticado', error);
     }
 
@@ -147,7 +166,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.warn('Nao foi possivel recuperar o usuario pelo endpoint /users', error);
     }
-  }, [persistUser]);
+  }, [clearSession, persistUser]);
 
   useEffect(() => {
     let mounted = true;
@@ -159,6 +178,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedUserRaw = localStorage.getItem('user');
 
       if (storedToken) {
+        if (isTokenExpired(storedToken)) {
+          clearSession();
+          if (mounted) setIsLoading(false);
+          return;
+        }
+
         setToken(storedToken);
         setAuthToken(storedToken);
       }
@@ -186,13 +211,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       mounted = false;
     };
-  }, [fetchCurrentUser, persistUser]);
+  }, [clearSession, fetchCurrentUser, persistUser]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleUnauthorized = () => {
+      clearSession();
+    };
+
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, [clearSession]);
 
   const refreshUser = useCallback(async () => {
     const storedToken = localStorage.getItem('authToken');
-    if (!storedToken) {
-      persistUser(null);
-      setToken(null);
+    if (!storedToken || isTokenExpired(storedToken)) {
+      clearSession();
       return;
     }
 
@@ -204,7 +241,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchCurrentUser, persistUser]);
+  }, [clearSession, fetchCurrentUser]);
 
   const login = useCallback(
     (newToken: string, userData?: Partial<AuthUser>) => {
@@ -221,11 +258,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 
   const logout = useCallback(() => {
-    setAuthToken(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    persistUser(null);
-  }, [persistUser]);
+    clearSession();
+  }, [clearSession]);
 
   const updateUser = useCallback(
     (userData: Partial<AuthUser>) => {

@@ -24,14 +24,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
   const { currentPage: ctxPage, changePage } = useSidebar();
   const activePage = currentPage ?? ctxPage;
   const isInspector = typeof user?.role === 'string' && user.role.toLowerCase() === 'inspetor';
-  const userInitials =
-    user?.name
-      ?.split(' ')
-      .filter(Boolean)
-      .map((part) => part[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'CV';
 
   const sidebarItems: SidebarItem[] = isInspector
     ? [{ id: 'operations', icon: <FileText className="h-5 w-5" />, label: 'Operacoes' }]
@@ -49,8 +41,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
 
   const systemItems: SidebarItem[] = [
     { id: 'perfil', icon: <UserIcon className="h-5 w-5" />, label: 'Meu Perfil' },
-    { id: 'logout', icon: <LogOut className="h-5 w-5" />, label: 'Logout' },
+    { id: 'logout', icon: <LogOut className="h-5 w-5" />, label: 'Sair' },
   ];
+
+  const mobileDockItems: SidebarItem[] = [...sidebarItems, ...managementItems, systemItems[1]];
 
   const handleItemClick = (itemId: string): void => {
     changePage(itemId);
@@ -75,49 +69,86 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
       </button>
     ));
 
+  const renderMobileNavItems = (items: SidebarItem[]): React.ReactNode =>
+    items.map((item) => (
+      <button
+        key={item.id}
+        type="button"
+        title={item.label}
+        onClick={() => handleItemClick(item.id)}
+        className={`flex min-w-[4.5rem] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium leading-tight transition-colors ${
+          activePage === item.id
+            ? 'bg-[var(--primary)] text-[var(--on-primary)]'
+            : 'text-[var(--sidebar-muted)] hover:bg-white/5 hover:text-[var(--sidebar-text)]'
+        }`}
+      >
+        {item.icon}
+        <span>{item.label}</span>
+      </button>
+    ));
+
   return (
-    <aside className="sidebar-wrapper sticky top-0 flex min-h-screen w-[4.5rem] flex-shrink-0 flex-col bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] md:h-screen md:w-64">
-      <div className="border-[var(--border)] p-3 md:p-4">
-        <div className="flex items-center justify-center gap-3 md:justify-start">
-          <div className="h-11 w-11 rounded-2xl bg-white p-2 shadow-lg ring-1 ring-black/5 md:h-12 md:w-12">
-            <img src="/assets/logo_.png" alt="ContainerView Logo" className="h-full w-full object-contain" />
+    <aside className="sidebar-wrapper flex-shrink-0">
+      <div className="hidden min-h-screen flex-col bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] md:sticky md:top-0 md:flex md:h-screen md:w-64">
+        <div className="border-[var(--border)] p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-white p-2 shadow-lg ring-1 ring-black/5">
+              <img src="/assets/logo_.png" alt="ContainerView Logo" className="h-full w-full object-contain" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">ContainerView</h1>
+            </div>
           </div>
-          <div className="hidden md:block">
-            <h1 className="text-xl font-bold">ContainerView</h1>
-          </div>
+        </div>
+
+        <div className="flex-1 px-4 py-6">
+          <section className="mb-6">
+            <div className="mb-3 text-xs uppercase tracking-wider text-[var(--sidebar-muted)]">Principal</div>
+            {renderNavItems(sidebarItems)}
+          </section>
+
+          {!isInspector && (
+            <section className="mb-6">
+              <div className="mb-3 text-xs uppercase tracking-wider text-[var(--sidebar-muted)]">Gestao</div>
+              {renderNavItems(managementItems)}
+            </section>
+          )}
+
+          <section>
+            <div className="mb-3 text-xs uppercase tracking-wider text-[var(--sidebar-muted)]">Sistema</div>
+            {renderNavItems(systemItems)}
+          </section>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] p-4">
+          <span className="text-xs text-[var(--sidebar-muted)]">Tema</span>
+          <ThemeContrastButton />
         </div>
       </div>
 
-      <div className="flex-1 px-2 py-4 md:px-4 md:py-6">
-        <section className="mb-4 md:mb-6">
-          <div className="mb-3 hidden text-xs uppercase tracking-wider text-[var(--sidebar-muted)] md:block">Principal</div>
-          {renderNavItems(sidebarItems)}
-        </section>
-
-        {!isInspector && (
-          <section className="mb-4 md:mb-6">
-            <div className="mb-3 hidden text-xs uppercase tracking-wider text-[var(--sidebar-muted)] md:block">Gestao</div>
-            {renderNavItems(managementItems)}
-          </section>
-        )}
-
-        <section>
-          <div className="mb-3 hidden text-xs uppercase tracking-wider text-[var(--sidebar-muted)] md:block">Sistema</div>
-          {renderNavItems(systemItems)}
-        </section>
-      </div>
-
-      <div className="flex flex-col items-center gap-3 border-t border-[var(--border)] p-3 md:flex-row md:justify-between md:p-4">
-        <button
-          type="button"
-          onClick={() => handleItemClick('perfil')}
-          aria-label="Abrir meu perfil"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-sm font-semibold text-white md:hidden"
-        >
-          {userInitials}
-        </button>
-        <span className="hidden text-xs text-[var(--sidebar-muted)] md:inline">Tema</span>
-        <ThemeContrastButton />
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--sidebar-bg)]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 text-[var(--sidebar-text)] shadow-[0_-12px_30px_rgba(15,23,42,0.18)] backdrop-blur md:hidden">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleItemClick('perfil')}
+            aria-label="Abrir meu perfil"
+            title="Meu Perfil"
+            className={`flex min-w-[4.5rem] flex-shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium leading-tight transition-colors ${
+              activePage === 'perfil'
+                ? 'bg-[var(--primary)] text-[var(--on-primary)]'
+                : 'text-[var(--sidebar-muted)] hover:bg-white/5 hover:text-[var(--sidebar-text)]'
+            }`}
+          >
+            <UserIcon className="h-5 w-5" />
+            <span>Perfil</span>
+          </button>
+          <div className="mobile-nav-scroll flex-1 overflow-x-auto">
+            <div className="flex min-w-max items-center gap-1">
+              {renderMobileNavItems(mobileDockItems)}
+            </div>
+          </div>
+          <ThemeContrastButton variant="dock" />
+        </div>
       </div>
     </aside>
   );

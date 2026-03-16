@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
+
 // Ambiente de dev/local (localhost/127.*): usa proxy do CRA (/ctapi) para evitar CORS.
 // Produção ou outros hosts: usa URL real ou REACT_APP_API_URL se fornecida.
 const isLocalhost =
@@ -33,6 +35,22 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url = error?.config?.url || '';
+    const skipAuthPaths = ['/auth/login', '/auth/verify'];
+    const skipUnauthorizedRedirect = skipAuthPaths.some((path) => url.includes(path));
+
+    if (status === 401 && !skipUnauthorizedRedirect && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export const setAuthToken = (token: string | null) => {
   if (token) {
