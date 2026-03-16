@@ -181,7 +181,7 @@ const DonutChart: React.FC<{ segments: ChartSegment[]; size?: number }> = ({ seg
   let offset = 0;
 
     return (
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {segments.map((seg) => {
           const dash = (seg.value / safeTotal) * circumference;
@@ -220,7 +220,7 @@ const DonutChart: React.FC<{ segments: ChartSegment[]; size?: number }> = ({ seg
           {totalValue}
         </text>
       </svg>
-      <div className="space-y-2">
+      <div className="w-full space-y-2 sm:w-auto">
         {segments.map((seg) => (
           <div key={seg.label} className="flex items-center gap-2 text-sm text-[var(--text)]">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: seg.color }} />
@@ -991,23 +991,24 @@ const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex min-h-screen bg-app md:h-screen">
       <Sidebar user={user} />
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
-          <div className="flex items-center justify-between h-full px-6">
-            <div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)]">
+          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:px-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[var(--text)]">Dashboard</h1>
-              <p className="text-sm text-[var(--muted)]">
+              <p className="max-w-2xl text-sm text-[var(--muted)]">
                 Visão geral das operações, containers e terminais.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 xl:items-end">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:justify-end">
               <button
                 type="button"
                 onClick={fetchData}
-                className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-50 sm:w-auto"
                 disabled={isLoading}
               >
                 <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -1016,7 +1017,7 @@ const Dashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={exportDashboardCsv}
-                className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-50 sm:w-auto"
                 disabled={!canExport}
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -1025,7 +1026,7 @@ const Dashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={exportDashboardPdf}
-                className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--hover)] transition-colors disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-50 sm:w-auto"
                 disabled={!canExport}
               >
                 <FileText className="w-4 h-4 mr-2" />
@@ -1034,15 +1035,16 @@ const Dashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/operations')}
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-semibold hover:opacity-90 transition-colors"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--on-primary)] transition-colors hover:opacity-90 sm:w-auto"
               >
                 Ver operações
               </button>
+              </div>
               <div
                 onClick={() => changePage('perfil')}
-                className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors"
+                className="hidden self-start items-center gap-3 cursor-pointer rounded-lg px-2 py-2 transition-colors hover:bg-[var(--hover)] md:flex md:px-4 xl:self-auto"
               >
-                <div className="text-right">
+                <div className="hidden text-right sm:block">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>
                 </div>
@@ -1058,9 +1060,9 @@ const Dashboard: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto space-y-6">
+        <main className="flex-1 overflow-auto space-y-6 p-4 sm:p-6">
           {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 flex items-center justify-between">
+            <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold">Não foi possível carregar o dashboard</p>
                 <p className="text-sm mt-1">{error}</p>
@@ -1128,7 +1130,7 @@ const Dashboard: React.FC = () => {
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm xl:col-span-2">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-[var(--muted)]">Volume (operações x containers)</p>
                       <p className="text-lg font-semibold text-[var(--text)]">Tendência</p>
@@ -1156,15 +1158,15 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-[var(--muted)]">Distribuição por status</p>
                       <p className="text-lg font-semibold text-[var(--text)]">Acompanhamento das operações</p>
                     </div>
                     <Ship className="w-5 h-5 text-[var(--accent-green)]" />
                   </div>
-                  <div className="flex p-10">
-                    <DonutChart segments={statusSegments} size={240} />
+                  <div className="flex justify-center overflow-x-auto px-2 py-4 sm:p-8">
+                    <DonutChart segments={statusSegments} size={200} />
                   </div>
                 </div>
               </div>
@@ -1182,7 +1184,7 @@ const Dashboard: React.FC = () => {
                       <div className="py-6 text-sm text-[var(--muted)]">Sem dados para exibir.</div>
                     ) : (
                       recentOperations.map((op) => (
-                        <div key={op.id} className="py-3 flex items-center justify-between">
+                        <div key={op.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                               <p className="text-sm font-semibold text-[var(--text)] flex items-center gap-2">
                                 <span className="inline-flex items-center gap-1 rounded-full bg-[var(--hover)] px-2 py-1 text-xs text-[var(--muted)]">
@@ -1193,7 +1195,7 @@ const Dashboard: React.FC = () => {
                                 {op.reservation ? `Reserva: ${op.reservation}` : 'Sem reserva'} • {timelineText(op)}
                               </p>
                             </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-wrap items-center gap-3">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                 op.status === 'Fechada'

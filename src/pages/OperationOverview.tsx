@@ -416,7 +416,7 @@ const OperationOverview: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex min-h-screen bg-app md:h-screen">
       <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col">
@@ -434,7 +434,7 @@ const OperationOverview: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
+              <div onClick={() => changePage('perfil')} className="hidden items-center gap-3 cursor-pointer rounded-lg px-4 py-2 transition-colors hover:bg-[var(--hover)] md:flex">
                 <div className="text-right">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>
                   <div className="text-xs text-[var(--muted)]">{user.role}</div>

@@ -500,27 +500,25 @@ const Users: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex min-h-screen bg-app md:h-screen">
       <Sidebar user={currentUser} />
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
-          <div className="flex items-center justify-between h-full px-6">
-            <div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)]">
+          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:px-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[var(--text)]">Usuários</h1>
               <p className="text-sm text-[var(--muted)]">Gerenciamento de usuários do sistema</p>
             </div>
 
-            {formError && (
-              <div className="px-6">
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <div className="flex flex-col gap-3 xl:items-end">
+              {formError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {formError}
                 </div>
-              </div>
-            )}
-            <div className="flex items-center gap-4">
-              <div onClick={() => changePage('perfil')} className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
-                <div className="text-right">
+              ) : null}
+              <div onClick={() => changePage('perfil')} className="hidden self-start items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[var(--hover)] md:flex md:px-4 xl:self-auto">
+                <div className="hidden text-right sm:block">
                   <div className="text-sm font-medium text-[var(--text)]">{currentUser.name}</div>
                   <div className="text-xs text-[var(--muted)]">{currentUser.role}</div>
                 </div>
@@ -532,10 +530,10 @@ const Users: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto space-y-6">
+        <main className="flex-1 overflow-auto space-y-6 p-4 sm:p-6">
           {pageAlert && (
             <div
-              className={`flex items-start justify-between rounded-lg px-4 py-3 border text-sm mb-2 ${
+              className={`mb-2 flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between ${
                 pageAlert.type === 'success'
                   ? 'bg-green-50 border-green-200 text-green-800'
                   : 'bg-red-50 border-red-200 text-red-700'
@@ -558,7 +556,7 @@ const Users: React.FC = () => {
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex-1 relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
               <input
@@ -570,14 +568,14 @@ const Users: React.FC = () => {
                 disabled={isLoadingUsers}
               />
             </div>
-            <div className="flex flex-wrap items-stretch gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-stretch">
               <select
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value as 'active' | 'inactive');
                   setPage(0);
                 }}
-                className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full min-w-0 px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent sm:min-w-[150px] sm:w-auto"
                 disabled={isLoadingUsers}
               >
                 <option value="active">Ativos</option>
@@ -586,7 +584,7 @@ const Users: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value as 'all' | Role)}
-                className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full min-w-0 px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent sm:min-w-[150px] sm:w-auto"
                 disabled={isLoadingUsers}
               >
                 <option value="all">Todos os perfis</option>
@@ -597,7 +595,7 @@ const Users: React.FC = () => {
               <select
                 value={twoFactorFilter}
                 onChange={(e) => setTwoFactorFilter(e.target.value as 'all' | 'enabled' | 'disabled')}
-                className="min-w-[150px] px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full min-w-0 px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent sm:min-w-[150px] sm:w-auto"
                 disabled={isLoadingUsers}
               >
                 <option value="all">2FA (Todos)</option>
@@ -607,7 +605,7 @@ const Users: React.FC = () => {
               <button
                 type="button"
                 onClick={() => fetchUsers(page)}
-                className="inline-flex items-center gap-1 text-[var(--text)] border border-[var(--border)] rounded-md px-3 py-2 hover:bg-[var(--hover)]"
+                className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-[var(--border)] px-3 py-2 text-[var(--text)] hover:bg-[var(--hover)] sm:w-auto"
                 disabled={isLoadingUsers}
               >
                 <RefreshCcw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
@@ -615,7 +613,7 @@ const Users: React.FC = () => {
               </button>
               <button
                 onClick={startCreate}
-                className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] transition-colors hover:opacity-90 disabled:opacity-60 sm:w-auto"
                 disabled={isLoadingUsers}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -641,7 +639,97 @@ const Users: React.FC = () => {
               </div>
             ) : (
               <>
-            <div className="overflow-x-auto">
+            <div className="divide-y divide-[var(--border)] md:hidden">
+              {listError ? (
+                <div className="space-y-3 px-4 py-6 text-sm text-red-700">
+                  <p>{listError}</p>
+                  <button
+                    type="button"
+                    onClick={() => fetchUsers(page)}
+                    className="w-full rounded-md border border-[var(--border)] px-3 py-2 text-[var(--text)] hover:bg-[var(--hover)]"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="px-4 py-6 text-sm text-[var(--muted)]">Nenhum usuario encontrado.</div>
+              ) : (
+                filtered.map((u) => (
+                  <article key={`mobile-${u.id}`} className="space-y-4 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold text-[var(--text)]">{u.firstName} {u.lastName}</p>
+                        <p className="truncate text-sm text-[var(--muted)]">{u.email}</p>
+                      </div>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(u.role)}`}>{u.role}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-[var(--muted)]">CPF</p>
+                        <p className="text-[var(--text)]">{u.cpf}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Status</p>
+                        {u.active ? (
+                          <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">Ativo</span>
+                        ) : (
+                          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">Inativo</span>
+                        )}
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-xs uppercase tracking-wider text-[var(--muted)]">2FA</p>
+                        {u.twoFactor ? (
+                          <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">Ativo</span>
+                        ) : (
+                          <span className="rounded-full bg-app px-2 py-1 text-xs font-semibold text-[var(--text)]">Desativado</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        onClick={() => startEdit(u)}
+                        className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-[var(--text)] hover:bg-[var(--hover)]"
+                        title="Editar"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Editar
+                      </button>
+                      {u.active ? (
+                        <button
+                          onClick={() => deactivateUser(u)}
+                          className="inline-flex items-center justify-center gap-2 rounded-md border border-amber-200 px-3 py-2 text-amber-700 hover:bg-amber-50"
+                          title="Desativar"
+                        >
+                          <UserX className="w-4 h-4" />
+                          Desativar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => reactivateUser(u)}
+                          className="inline-flex items-center justify-center gap-2 rounded-md border border-emerald-200 px-3 py-2 text-emerald-700 hover:bg-emerald-50"
+                          title="Reativar"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                          Reativar
+                        </button>
+                      )}
+                      <button
+                        onClick={() => permanentDeleteUser(u)}
+                        className="inline-flex items-center justify-center gap-2 rounded-md border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50"
+                        title="Excluir permanentemente"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Excluir
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
               <table className="min-w-full divide-y divide-[var(--border)]">
                 <thead className="bg-[var(--hover)]">
                   <tr>
@@ -745,11 +833,12 @@ const Users: React.FC = () => {
               </table>
             </div>
 
-            <div className="px-6 py-4 border-t border-[var(--border)] flex items-center justify-between text-sm text-[var(--muted)]">
+            <div className="border-t border-[var(--border)] px-4 py-4 text-sm text-[var(--muted)] sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 Pagina {totalPages === 0 ? 0 : page + 1} de {totalPages} | Total: {totalUsers}
               </div>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
                 <button
                   onClick={goToPreviousPage}
                   disabled={page === 0 || isLoadingUsers}
@@ -766,6 +855,7 @@ const Users: React.FC = () => {
                 </button>
               </div>
             </div>
+            </div>
               </>
             )}
           </section>
@@ -774,18 +864,18 @@ const Users: React.FC = () => {
 
       {/* Modal de Cadastro */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setIsOpen(false)} />
-          <div className="relative bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
+          <div className="relative max-h-[90vh] w-full overflow-auto rounded-t-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:mx-4 sm:max-w-2xl sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:px-6 sm:py-5">
               <h3 className="text-lg font-semibold text-[var(--text)]">{editingUser ? 'Editar Usuario' : 'Cadastrar Novo Usuario'}</h3>
               <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-[var(--muted)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-[var(--text)] mb-1">Nome <span className="text-red-500">*</span></label>
                   <input
@@ -844,7 +934,7 @@ const Users: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="relative">
                   <label className="block text-sm font-medium text-[var(--text)] mb-1">Senha <span className="text-red-500">*</span></label>
                   <input
@@ -873,26 +963,28 @@ const Users: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] p-4 flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-semibold text-[var(--text)]">Autenticacao de Dois Fatores (2FA)</h4>
-                  <p className="text-xs text-[var(--muted)]">Habilitar autenticacao por aplicativo autenticador (TOTP) para maior seguranca</p>
+              <div className="rounded-xl border border-[var(--border)] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[var(--text)]">Autenticacao de Dois Fatores (2FA)</h4>
+                    <p className="text-xs text-[var(--muted)]">Habilitar autenticacao por aplicativo autenticador (TOTP) para maior seguranca</p>
+                  </div>
+                  <Toggle checked={twoFactor} onChange={handleTwoFactorToggle} />
                 </div>
-                <Toggle checked={twoFactor} onChange={handleTwoFactorToggle} />
               </div>
             </div>
 
-            <div className="px-6 py-5 border-t border-[var(--border)] flex items-center justify-between">
+            <div className="flex flex-col gap-3 border-t border-[var(--border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
               <button
                 onClick={() => { setIsOpen(false); setEditingUser(null); resetForm(); }}
-                className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] sm:w-auto"
               >
                 Cancelar
               </button>
               <button
                 disabled={submitDisabled}
                 onClick={handleSave}
-                className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${submitDisabled ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`w-full rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors sm:w-auto ${submitDisabled ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 {submitLabel}
               </button>
@@ -901,9 +993,9 @@ const Users: React.FC = () => {
         </div>
       )}
       {isTwoFactorModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeTwoFactorModal} />
-          <div className="relative bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+          <div className="relative max-h-[90vh] w-full overflow-auto rounded-t-2xl bg-[var(--surface)] shadow-2xl sm:mx-4 sm:max-w-lg sm:rounded-2xl">
             <div className="flex items-start justify-between px-6 py-5 border-b border-[var(--border)]">
               <div>
                 <h3 className="text-lg font-semibold text-[var(--text)]">Configurar autenticacao em 2 fatores</h3>
@@ -958,10 +1050,10 @@ const Users: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-[var(--border)] flex justify-end">
+            <div className="flex justify-end border-t border-[var(--border)] px-6 py-4">
               <button
                 onClick={closeTwoFactorModal}
-                className="px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
+                className="w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] transition-colors hover:opacity-90 sm:w-auto"
               >
                 Concluir
               </button>

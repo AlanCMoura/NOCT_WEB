@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Lock, Building2, Shield, CheckCircle } from 'lucide-react';
+import { Building2, CheckCircle, Eye, EyeOff, Lock, Shield, User } from 'lucide-react';
 import axios from 'axios';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -82,6 +82,29 @@ const toBoolean = (value: unknown): boolean => {
   return false;
 };
 
+const LOGIN_HIGHLIGHTS = [
+  {
+    title: 'Seguranca empresarial',
+    description: 'Autenticacao robusta e controle de acesso avancado.',
+    icon: Shield,
+  },
+  {
+    title: 'Gestao centralizada',
+    description: 'Controle total de operacoes e relatorios detalhados.',
+    icon: Building2,
+  },
+  {
+    title: 'Auditoria completa',
+    description: 'Rastreabilidade total e conformidade garantida.',
+    icon: CheckCircle,
+  },
+  {
+    title: 'Relatorios avancados',
+    description: 'Analytics detalhados e insights estrategicos.',
+    icon: Building2,
+  },
+] as const;
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login: persistSession, refreshUser } = useAuth();
@@ -102,11 +125,10 @@ const Login: React.FC = () => {
     const digits = value.replace(/\D/g, '').slice(0, 11);
     if (digits.length <= 3) return digits;
     if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-    if (digits.length <= 9)
+    if (digits.length <= 9) {
       return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(
-      9
-    )}`;
+    }
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   };
 
   const resetTwoFactorState = () => {
@@ -120,7 +142,7 @@ const Login: React.FC = () => {
     try {
       await refreshUser();
     } catch (error) {
-      console.warn('Não foi possível atualizar o usuário autenticado', error);
+      console.warn('Nao foi possivel atualizar o usuario autenticado', error);
     }
     navigate('/dashboard');
   };
@@ -131,6 +153,7 @@ const Login: React.FC = () => {
       setLoginData((prev) => ({ ...prev, cpf: formatCPF(value) }));
       return;
     }
+
     setLoginData((prev) => ({
       ...prev,
       [name]: value,
@@ -150,14 +173,15 @@ const Login: React.FC = () => {
     const password = loginData.password.trim();
 
     if (sanitizedCpf.length !== 11 || !password) {
-      setLoginError('Informe um CPF válido (11 dígitos) e a senha.');
+      setLoginError('Informe um CPF valido (11 digitos) e a senha.');
       return;
     }
 
     setIsLoading(true);
+
     try {
       const { data } = await api.post<LoginResponse>('/auth/login', {
-        cpf: loginData.cpf.trim(), // backend espera CPF mascarado
+        cpf: loginData.cpf.trim(),
         password,
       });
 
@@ -191,11 +215,11 @@ const Login: React.FC = () => {
 
       setLoginError('Nao foi possivel autenticar. Verifique seu CPF e senha.');
     } catch (error) {
-      console.error('Erro ao autenticar usuário', error);
+      console.error('Erro ao autenticar usuario', error);
 
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
-          setLoginError('Credenciais inválidas. Verifique seu CPF e senha.');
+          setLoginError('Credenciais invalidas. Verifique seu CPF e senha.');
         } else if (typeof error.response?.data === 'string' && error.response.data.trim()) {
           setLoginError(error.response.data);
         } else {
@@ -211,12 +235,12 @@ const Login: React.FC = () => {
 
   const handleTwoFactorSubmit = async (): Promise<void> => {
     if (!twoFactorToken) {
-      setLoginError('Token temporário ausente. Faça login novamente.');
+      setLoginError('Token temporario ausente. Faca login novamente.');
       return;
     }
 
     if (twoFactorCode.length < 6) {
-      setLoginError('Informe o código de 6 dígitos do autenticador.');
+      setLoginError('Informe o codigo de 6 digitos do autenticador.');
       return;
     }
 
@@ -241,18 +265,18 @@ const Login: React.FC = () => {
       }
 
       if (data?.status === 'invalid_code') {
-        setLoginError('Código 2FA inválido. Tente novamente.');
+        setLoginError('Codigo 2FA invalido. Tente novamente.');
         return;
       }
 
-      setLoginError('Não foi possível concluir a verificação. Tente novamente.');
+      setLoginError('Nao foi possivel concluir a verificacao. Tente novamente.');
     } catch (error) {
-      console.error('Erro ao verificar código 2FA', error);
+      console.error('Erro ao verificar codigo 2FA', error);
 
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setLoginError('Código 2FA inválido. Tente novamente.');
+        setLoginError('Codigo 2FA invalido. Tente novamente.');
       } else {
-        setLoginError('Não foi possível concluir a verificação. Tente novamente.');
+        setLoginError('Nao foi possivel concluir a verificacao. Tente novamente.');
       }
     } finally {
       setIsVerifying(false);
@@ -266,123 +290,81 @@ const Login: React.FC = () => {
   const primaryLoadingLabel = isTwoFactorStep ? 'Validando...' : 'Entrando...';
 
   return (
-    <div className="min-h-screen flex bg-[var(--surface)]">
-      {/* Painel lateral esquerdo */}
-      <div className="w-1/2 bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 relative overflow-hidden">
-        {/* Elementos decorativos profissionais */}
+    <div className="min-h-screen bg-[var(--surface)] lg:grid lg:grid-cols-2">
+      <section className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 text-white">
         <div className="absolute inset-0">
-          {/* Grid sutil */}
           <div className="absolute inset-0 opacity-5">
-            <div className="grid grid-cols-12 grid-rows-12 h-full w-full">
+            <div className="grid h-full w-full grid-cols-8 grid-rows-10 sm:grid-cols-12 sm:grid-rows-12">
               {Array.from({ length: 144 }).map((_, i) => (
-                <div key={i} className="border border-white/20"></div>
+                <div key={i} className="border border-white/20" />
               ))}
             </div>
           </div>
-
-          {/* Formas geométricas elegantes */}
-          <div className="absolute top-32 right-32 w-40 h-40 border border-[#49C5B6]/30 rounded-2xl transform rotate-12"></div>
-          <div className="absolute bottom-40 left-20 w-32 h-32 bg-[#49C5B6]/10 rounded-full"></div>
-          <div className="absolute top-1/2 right-16 w-24 h-24 border border-white/20 rounded-lg transform -rotate-6"></div>
+          <div className="absolute -right-8 top-10 h-24 w-24 rotate-12 rounded-2xl border border-[#49C5B6]/30 sm:right-20 sm:top-24 sm:h-40 sm:w-40" />
+          <div className="absolute bottom-12 left-4 h-20 w-20 rounded-full bg-[#49C5B6]/10 sm:bottom-28 sm:left-16 sm:h-32 sm:w-32" />
+          <div className="absolute right-10 top-1/2 hidden h-24 w-24 -rotate-6 rounded-lg border border-white/20 lg:block" />
         </div>
 
-        {/* Conteúdo do painel */}
-        <div className="relative z-10 flex flex-col justify-center items-start w-full p-16 text-white">
-          {/* Logo e branding */}
-          <div className="mb-16">
-            <div className="flex items-center space-x-6 mb-8">
-              <div className="w-24 h-24 bg-white backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg border border-white/20 p-3">
-                <img src="/assets/logo_.png" alt="ContainerView Logo" className="w-full h-full object-contain" />
+        <div className="relative z-10 flex h-full flex-col px-5 py-8 sm:px-8 sm:py-10 lg:justify-center lg:px-12 xl:px-16">
+          <div className="mb-8 lg:mb-14">
+            <div className="mb-6 flex items-center gap-4 sm:gap-5 lg:mb-8 lg:gap-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white p-2 shadow-lg sm:h-20 sm:w-20 lg:h-24 lg:w-24 lg:p-3">
+                <img src="/assets/logo_.png" alt="ContainerView Logo" className="h-full w-full object-contain" />
               </div>
-              <div>
-                <h1 className="text-5xl font-bold tracking-tight">ContainerView</h1>
-                <p className="text-[var(--muted)] font-medium mt-1">Sistema de Gestão Empresarial</p>
+              <div className="min-w-0">
+                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">ContainerView</h1>
+                <p className="mt-1 text-sm font-medium text-slate-300 sm:text-base">Sistema de Gestao Empresarial</p>
               </div>
             </div>
 
-            <div className="max-w-md">
-              <h2 className="text-2xl font-semibold mb-4 text-[#49C5B6]">Bem-vindo de volta</h2>
-              <p className="text-[var(--muted)] text-lg leading-relaxed">
-                Acesse sua conta para gerenciar operações de contêineres com máxima eficiência e segurança.
+            <div className="max-w-xl">
+              <h2 className="mb-3 text-xl font-semibold text-[#49C5B6] sm:text-2xl">Bem-vindo de volta</h2>
+              <p className="text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
+                Acesse sua conta para gerenciar operacoes de conteineres com eficiencia, rastreabilidade e seguranca.
               </p>
             </div>
           </div>
 
-          {/* Benefícios corporativos */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-6 mb-12">
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Shield className="w-5 h-5 text-[#49C5B6]" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 lg:gap-x-8 lg:gap-y-6">
+            {LOGIN_HIGHLIGHTS.map(({ title, description, icon: Icon }) => (
+              <div key={title} className="flex items-start gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#49C5B6]/20">
+                  <Icon className="h-5 w-5 text-[#49C5B6]" />
+                </div>
+                <div>
+                  <h4 className="mb-1 font-semibold">{title}</h4>
+                  <p className="text-sm text-slate-300">{description}</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-semibold mb-1">Segurança empresarial</h4>
-                <p className="text-sm text-[var(--muted)]">Autenticação robusta e controle de acesso avançado.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-[#49C5B6]" />
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Gestão centralizada</h4>
-                <p className="text-sm text-[var(--muted)]">Controle total de operações e relatórios detalhados.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-5 h-5 text-[#49C5B6]" />
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Auditoria completa</h4>
-                <p className="text-sm text-[var(--muted)]">Rastreabilidade total e conformidade garantida.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-[#49C5B6]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-[#49C5B6]" />
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Relatórios avançados</h4>
-                <p className="text-sm text-[var(--muted)]">Analytics detalhados e insights estratégicos.</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Painel direito - Formulário */}
-      <div className="w-1/2 flex items-center justify-center p-16">
-        <div className="max-w-md w-full">
-          {/* Card do formulário */}
+      <section className="flex min-h-[48vh] items-center justify-center px-4 py-6 sm:px-6 sm:py-8 lg:min-h-screen lg:px-10 lg:py-10 xl:px-14">
+        <div className="w-full max-w-md lg:max-w-lg">
           <form
-            className="bg-[var(--surface)] rounded-2xl shadow-xl border border-[var(--border)] p-8 relative overflow-hidden"
+            className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl sm:p-7 lg:p-8"
             onSubmit={(e) => {
               e.preventDefault();
               if (!primaryLoading) primaryAction();
             }}
           >
-            {/* Elemento decorativo */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#49C5B6]/5 rounded-full transform translate-x-12 -translate-y-12"></div>
+            <div className="absolute right-0 top-0 h-24 w-24 translate-x-12 -translate-y-12 rounded-full bg-[#49C5B6]/5" />
 
-            {/* Título do formulário */}
-            <div className="text-center mb-8 relative z-10">
-              <div className="w-12 h-12 bg-[#49C5B6] rounded-xl flex items-center justify-center mb-4 mx-auto">
-                <Lock className="w-6 h-6 text-white" />
+            <div className="relative z-10 mb-6 text-center sm:mb-8">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#49C5B6]">
+                <Lock className="h-6 w-6 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-[var(--text)] mb-2">Acesso ao Sistema</h2>
-              <p className="text-[var(--muted)] text-sm">Entre com suas credenciais para acessar o sistema</p>
+              <h2 className="mb-2 text-2xl font-bold text-[var(--text)]">Acesso ao Sistema</h2>
+              <p className="text-sm text-[var(--muted)]">Entre com suas credenciais para acessar o sistema</p>
             </div>
 
-            {/* Formulário de Login */}
-            <div className="space-y-6">
-              {/* CPF */}
+            <div className="space-y-5 sm:space-y-6">
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">CPF</label>
+                <label className="mb-2 block text-sm font-medium text-[var(--text)]">CPF</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <User className="h-5 w-5 text-[var(--muted)]" />
                   </div>
                   <input
@@ -393,17 +375,16 @@ const Login: React.FC = () => {
                     required
                     value={loginData.cpf}
                     onChange={handleLoginChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-[var(--border)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-[var(--text)]"
+                    className="block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] py-3 pl-10 pr-3 text-[var(--text)] transition-colors focus:border-[#49C5B6] focus:outline-none focus:ring-2 focus:ring-[#49C5B6]"
                     placeholder="Digite seu CPF"
                   />
                 </div>
               </div>
 
-              {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Senha</label>
+                <label className="mb-2 block text-sm font-medium text-[var(--text)]">Senha</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <Lock className="h-5 w-5 text-[var(--muted)]" />
                   </div>
                   <input
@@ -412,12 +393,12 @@ const Login: React.FC = () => {
                     required
                     value={loginData.password}
                     onChange={handleLoginChange}
-                    className="block w-full pl-10 pr-10 py-3 border border-[var(--border)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] transition-colors text-[var(--text)]"
+                    className="block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] py-3 pl-10 pr-10 text-[var(--text)] transition-colors focus:border-[#49C5B6] focus:outline-none focus:ring-2 focus:ring-[#49C5B6]"
                     placeholder="Digite sua senha"
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
@@ -432,15 +413,13 @@ const Login: React.FC = () => {
               {isTwoFactorStep && (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-[#49C5B6]/30 bg-[#49C5B6]/10 px-4 py-3 text-sm text-[var(--text)]">
-                    <p className="font-semibold">Validação em duas etapas habilitada</p>
-                    <p className="text-xs text-[var(--muted)] mt-1">
-                      Digite o código de 6 dígitos do seu aplicativo autenticador para finalizar o acesso.
+                    <p className="font-semibold">Validacao em duas etapas habilitada</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Digite o codigo de 6 digitos do seu aplicativo autenticador para finalizar o acesso.
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-2">
-                      Código do autenticador
-                    </label>
+                    <label className="mb-2 block text-sm font-medium text-[var(--text)]">Codigo do autenticador</label>
                     <div className="relative">
                       <input
                         name="twoFactorCode"
@@ -450,7 +429,7 @@ const Login: React.FC = () => {
                         autoComplete="one-time-code"
                         value={twoFactorCode}
                         onChange={handleTwoFactorCodeChange}
-                        className="block w-full px-4 py-3 border border-[var(--border)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] focus:border-[#49C5B6] tracking-[0.35em] text-lg text-center text-[var(--text)]"
+                        className="block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-center text-lg tracking-[0.28em] text-[var(--text)] focus:border-[#49C5B6] focus:outline-none focus:ring-2 focus:ring-[#49C5B6] sm:tracking-[0.35em]"
                         placeholder="000000"
                       />
                     </div>
@@ -461,25 +440,25 @@ const Login: React.FC = () => {
                       resetTwoFactorState();
                       setLoginError(null);
                     }}
-                    className="text-xs font-medium text-[#49C5B6] hover:text-[#3ba394] transition-colors"
+                    className="text-xs font-medium text-[#49C5B6] transition-colors hover:text-[#3ba394]"
                   >
-                    Trocar usuário
+                    Trocar usuario
                   </button>
                 </div>
               )}
 
               {!isTwoFactorStep && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 text-[#49C5B6] bg-[var(--surface)] border-[var(--border)] rounded focus:ring-[#49C5B6]"
+                      className="h-4 w-4 rounded border-[var(--border)] bg-[var(--surface)] text-[#49C5B6] focus:ring-[#49C5B6]"
                     />
                     <span className="ml-2 text-sm text-[var(--muted)]">Lembrar-me</span>
                   </label>
                   <button
                     type="button"
-                    className="text-sm text-[#49C5B6] hover:text-[#3ba394] transition-colors font-medium"
+                    className="text-left text-sm font-medium text-[#49C5B6] transition-colors hover:text-[#3ba394] sm:text-right"
                   >
                     Esqueceu a senha?
                   </button>
@@ -492,15 +471,14 @@ const Login: React.FC = () => {
                 </div>
               )}
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={primaryLoading}
-                className="w-full bg-[#49C5B6] hover:bg-[#3ba394] text-white py-3 px-6 rounded-lg font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                className="w-full rounded-lg bg-[#49C5B6] px-6 py-3 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#3ba394] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {primaryLoading ? (
                   <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    <div className="mr-2 h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
                     {primaryLoadingLabel}
                   </div>
                 ) : (
@@ -510,15 +488,13 @@ const Login: React.FC = () => {
             </div>
           </form>
 
-          {/* Footer */}
-          <div className="text-center mt-6">
+          <div className="mt-5 text-center sm:mt-6">
             <p className="text-xs text-[var(--muted)]">© 2025 ContainerView. Todos os direitos reservados.</p>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
 
 export default Login;
-

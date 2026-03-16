@@ -71,6 +71,12 @@ body {
 
 /* Prevent sidebar from shrinking and removing unwanted transitions */
 .sidebar-wrapper {
-  flex: 0 0 16rem; /* 256px */
+  flex: 0 0 4.5rem;
   transition: none;
+}
+
+@media (min-width: 768px) {
+  .sidebar-wrapper {
+    flex-basis: 16rem;
+  }
 }

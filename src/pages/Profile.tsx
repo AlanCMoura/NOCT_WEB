@@ -98,19 +98,19 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-app">
+    <div className="flex min-h-screen bg-app md:h-screen">
       <Sidebar user={sidebarUser} />
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
-          <div className="flex items-center justify-between h-full px-6">
-            <div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)]">
+          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:px-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[var(--text)]">Meu Perfil</h1>
               <p className="text-sm text-[var(--muted)]">Visualize suas informações pessoais e de acesso</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3 cursor-pointer hover:bg-[var(--hover)] rounded-lg px-4 py-2 transition-colors">
-                <div className="text-right">
+            <div className="flex flex-col gap-3 xl:items-end">
+              <div className="hidden self-start items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[var(--hover)] md:flex md:px-4 xl:self-auto">
+                <div className="hidden text-right sm:block">
                   <div className="text-sm font-medium text-[var(--text)]">{sidebarUser.name}</div>
                   <div className="text-xs text-[var(--muted)]">{sidebarUser.role}</div>
                 </div>
@@ -122,15 +122,15 @@ const Profile: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto space-y-6">
+        <main className="flex-1 overflow-auto space-y-6 p-4 sm:p-6">
           {/* Resumo */}
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 flex items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center text-2xl font-semibold">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-2xl font-semibold text-white">
                 {getInitials(`${userProfile.firstName} ${userProfile.lastName}`)}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <h2 className="text-xl font-semibold text-[var(--text)]">{userProfile.firstName} {userProfile.lastName}</h2>
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleBadgeClass(userProfile.role)}`}>
                     {userProfile.role}
