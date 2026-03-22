@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Trash2, Plus, FileUp, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ImportProgress from '../components/ImportProgress';
 import Sidebar from '../components/Sidebar';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
@@ -38,6 +39,14 @@ interface Container {
   terminal?: string;
   data?: string; // yyyy-mm-dd
   apiStatus?: ApiContainerStatus;
+}
+
+interface ImportProgressState {
+  phase: string;
+  processed: number;
+  total: number;
+  created: number;
+  errors: number;
 }
 
 const coalesceText = (...values: unknown[]): string => {
@@ -350,6 +359,7 @@ const OperationDetails: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [isDragOverImport, setIsDragOverImport] = useState<boolean>(false);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgressState | null>(null);
   const [exportingPdf, setExportingPdf] = useState<boolean>(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const sectionsLoading = (loadingOp || containersLoading) && !loadError;
@@ -801,6 +811,13 @@ const OperationDetails: React.FC = () => {
       setImportingContainers(true);
       setImportMessage(null);
       setImportErrors([]);
+      setImportProgress({
+        phase: 'Lendo planilha...',
+        processed: 0,
+        total: 0,
+        created: 0,
+        errors: 0,
+      });
 
       try {
         const buffer = await file.arrayBuffer();
@@ -813,6 +830,13 @@ const OperationDetails: React.FC = () => {
         if (!rows.length) throw new Error('Nenhuma linha encontrada na planilha.');
 
         const results = { created: 0, errors: [] as string[] };
+        setImportProgress({
+          phase: 'Processando containers...',
+          processed: 0,
+          total: rows.length,
+          created: 0,
+          errors: 0,
+        });
 
         for (let i = 0; i < rows.length; i += 1) {
           const payload = buildContainerPayloadFromRow(rows[i]);
@@ -822,6 +846,13 @@ const OperationDetails: React.FC = () => {
           });
           if (missing.length) {
             results.errors.push(`Linha ${i + 2}: faltam ${missing.join(', ')}`);
+            setImportProgress({
+              phase: 'Processando containers...',
+              processed: i + 1,
+              total: rows.length,
+              created: results.created,
+              errors: results.errors.length,
+            });
             continue;
           }
 
@@ -832,7 +863,23 @@ const OperationDetails: React.FC = () => {
             const message = formatApiError(err);
             results.errors.push(`Linha ${i + 2}: ${message}`);
           }
+
+          setImportProgress({
+            phase: 'Processando containers...',
+            processed: i + 1,
+            total: rows.length,
+            created: results.created,
+            errors: results.errors.length,
+          });
         }
+
+        setImportProgress({
+          phase: 'Importacao concluida',
+          processed: rows.length,
+          total: rows.length,
+          created: results.created,
+          errors: results.errors.length,
+        });
 
         if (results.created > 0) {
           setImportMessage(`Importação concluída: ${results.created} containers criados.`);
@@ -847,6 +894,17 @@ const OperationDetails: React.FC = () => {
       } catch (err) {
         const message = formatApiError(err) || 'Não foi possível importar o arquivo.';
         setImportErrors([message]);
+        setImportProgress((current) =>
+          current
+            ? { ...current, phase: 'Falha na importacao' }
+            : {
+                phase: 'Falha na importacao',
+                processed: 0,
+                total: 0,
+                created: 0,
+                errors: 1,
+              }
+        );
       } finally {
         setImportingContainers(false);
         setSelectedImportFile(null);
@@ -886,6 +944,7 @@ const OperationDetails: React.FC = () => {
     setImportMessage(null);
     setImportErrors([]);
     setSelectedImportFile(null);
+    setImportProgress(null);
     setShowImportModal(true);
   };
 
@@ -893,6 +952,7 @@ const OperationDetails: React.FC = () => {
     setShowImportModal(false);
     setIsDragOverImport(false);
     setSelectedImportFile(null);
+    setImportProgress(null);
   };
 
   const triggerImportPicker = () => importInputRef.current?.click();
@@ -1719,6 +1779,16 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                     {importingContainers ? 'Importando...' : 'Importar arquivo'}
                   </button>
                 </div>
+                {importProgress ? (
+                  <ImportProgress
+                    phase={importProgress.phase}
+                    processed={importProgress.processed}
+                    total={importProgress.total}
+                    created={importProgress.created}
+                    errors={importProgress.errors}
+                    active={importingContainers}
+                  />
+                ) : null}
               </div>
             </div>
           )}

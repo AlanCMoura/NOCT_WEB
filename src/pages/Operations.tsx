@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Upload, FileText, FileUp, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ImportProgress from '../components/ImportProgress';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
@@ -38,6 +39,14 @@ interface ImportOperationPayload {
   deadlineDraft: string | null;
   refClient: string;
   loadDeadline: string;
+}
+
+interface ImportProgressState {
+  phase: string;
+  processed: number;
+  total: number;
+  created: number;
+  errors: number;
 }
 
 const formatDate = (iso: string) => {
@@ -338,6 +347,7 @@ const Operations: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgressState | null>(null);
 
   const loadContainerCount = useCallback(async (op: OperationItem): Promise<OperationItem> => {
     if (op.containerCount !== undefined && op.containerCount !== null) {
@@ -453,6 +463,13 @@ const Operations: React.FC = () => {
       setImporting(true);
       setImportMessage(null);
       setImportErrors([]);
+      setImportProgress({
+        phase: 'Lendo planilha...',
+        processed: 0,
+        total: 0,
+        created: 0,
+        errors: 0,
+      });
 
       try {
         const buffer = await file.arrayBuffer();
@@ -476,6 +493,13 @@ const Operations: React.FC = () => {
         }
 
         const results = { created: 0, errors: [] as string[] };
+        setImportProgress({
+          phase: 'Processando operacoes...',
+          processed: 0,
+          total: rows.length,
+          created: 0,
+          errors: 0,
+        });
 
         for (let i = 0; i < rows.length; i += 1) {
           const payload = buildPayloadFromRow(rows[i]);
@@ -490,6 +514,13 @@ const Operations: React.FC = () => {
 
           if (missing.length) {
             results.errors.push(`Linha ${i + 2}: faltam ${missing.join(', ')}`);
+            setImportProgress({
+              phase: 'Processando operacoes...',
+              processed: i + 1,
+              total: rows.length,
+              created: results.created,
+              errors: results.errors.length,
+            });
             continue;
           }
 
@@ -500,7 +531,23 @@ const Operations: React.FC = () => {
             const message = error instanceof Error ? error.message : 'Erro ao criar operacao';
             results.errors.push(`Linha ${i + 2}: ${message}`);
           }
+
+          setImportProgress({
+            phase: 'Processando operacoes...',
+            processed: i + 1,
+            total: rows.length,
+            created: results.created,
+            errors: results.errors.length,
+          });
         }
+
+        setImportProgress({
+          phase: 'Importacao concluida',
+          processed: rows.length,
+          total: rows.length,
+          created: results.created,
+          errors: results.errors.length,
+        });
 
         if (results.created > 0) {
           setImportMessage(`Importacao concluida: ${results.created} operacoes criadas.`);
@@ -515,6 +562,17 @@ const Operations: React.FC = () => {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Nao foi possivel importar o arquivo.';
         setImportErrors([message]);
+        setImportProgress((current) =>
+          current
+            ? { ...current, phase: 'Falha na importacao' }
+            : {
+                phase: 'Falha na importacao',
+                processed: 0,
+                total: 0,
+                created: 0,
+                errors: 1,
+              }
+        );
       } finally {
         setImporting(false);
         setSelectedImportFile(null);
@@ -538,6 +596,7 @@ const Operations: React.FC = () => {
     setImportMessage(null);
     setImportErrors([]);
     setSelectedImportFile(null);
+    setImportProgress(null);
     setShowImportModal(true);
   };
 
@@ -545,6 +604,7 @@ const Operations: React.FC = () => {
     setShowImportModal(false);
     setIsDragOver(false);
     setSelectedImportFile(null);
+    setImportProgress(null);
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -951,6 +1011,16 @@ const Operations: React.FC = () => {
                 onChange={handleImportChange}
                 className="hidden"
               />
+              {importProgress ? (
+                <ImportProgress
+                  phase={importProgress.phase}
+                  processed={importProgress.processed}
+                  total={importProgress.total}
+                  created={importProgress.created}
+                  errors={importProgress.errors}
+                  active={importing}
+                />
+              ) : null}
               <div className="flex justify-end">
                 <button
                   type="button"
