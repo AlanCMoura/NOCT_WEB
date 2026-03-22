@@ -5,11 +5,83 @@ import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import ContainerImageSection, { ImageItem as SectionImageItem } from '../components/ContainerImageSection';
-import { deleteSackImage, getSackImages, uploadSackImages, getOperationById } from '../services/operations';
+import {
+  deleteSackImage,
+  getSackImages,
+  uploadSackImages,
+  getOperationById,
+  updateOperation,
+  type ApiOperation,
+  type UpdateOperationPayload,
+} from '../services/operations';
 
 type SackImageItem = SectionImageItem & { id?: string | number };
 
 const IMAGES_PER_VIEW = 3;
+
+const coalesceText = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    if (typeof value === 'string') return value;
+    if (value !== undefined && value !== null) return String(value);
+  }
+  return undefined;
+};
+
+const getOperationLabel = (op: ApiOperation, fallback: string): string =>
+  String(
+    op.ctv ??
+      op.amv ??
+      op.code ??
+      op.booking ??
+      op.bookingCode ??
+      op.reserva ??
+      op.reservation ??
+      fallback
+  );
+
+const getSackDescription = (op: ApiOperation): string => (typeof op.sackDescription === 'string' ? op.sackDescription : '');
+
+const getPrimaryVehiclePayload = (op: ApiOperation): NonNullable<UpdateOperationPayload['vehicles']>[number] | null => {
+  const firstVehicle = Array.isArray(op.vehicles) ? op.vehicles[0] : undefined;
+  const plate = coalesceText(firstVehicle?.plate, op.plate)?.trim();
+  const invoice = coalesceText(firstVehicle?.invoice, op.invoice)?.trim();
+  const sacksQuantityRaw = firstVehicle?.sacksQuantity ?? firstVehicle?.sacks_quantity ?? op.sacksQuantity ?? op.sacks_quantity;
+  const sacksQuantity =
+    typeof sacksQuantityRaw === 'number'
+      ? Math.trunc(sacksQuantityRaw)
+      : sacksQuantityRaw !== undefined && sacksQuantityRaw !== null && String(sacksQuantityRaw).trim() !== ''
+        ? Math.trunc(Number(sacksQuantityRaw))
+        : undefined;
+
+  if (!plate && !invoice && sacksQuantity === undefined) return null;
+
+  return {
+    plate: plate || undefined,
+    invoice: invoice || undefined,
+    sacksQuantity: Number.isFinite(sacksQuantity as number) ? sacksQuantity : undefined,
+  };
+};
+
+const buildOperationUpdatePayload = (op: ApiOperation, sackDescription: string): UpdateOperationPayload => {
+  const vehicle = getPrimaryVehiclePayload(op);
+  return {
+    ctv: coalesceText(op.ctv),
+    ship: coalesceText(op.ship, op.shipName, op.vesselName, op.vessel, op.navio),
+    terminal: coalesceText(op.terminal),
+    deadlineDraft: coalesceText(op.deadlineDraft, op.deadline),
+    destination: coalesceText(op.destination),
+    arrivalDate: coalesceText(op.arrivalDate, op.data),
+    reservation: coalesceText(op.reservation, op.reserva, op.booking, op.bookingCode),
+    refClient: coalesceText(op.refClient, op.cliente),
+    loadDeadline: coalesceText(op.loadDeadline, op.entrega),
+    exporter: coalesceText(op.exporter),
+    plate: vehicle?.plate,
+    invoice: vehicle?.invoice,
+    sacksQuantity: vehicle?.sacksQuantity,
+    vehicles: vehicle ? [vehicle] : undefined,
+    sackDescription,
+  };
+};
 
 const Sacaria: React.FC = () => {
   const { operationId } = useParams();
@@ -27,6 +99,9 @@ const Sacaria: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [operationCtv, setOperationCtv] = useState<string>('');
+  const [sackDescription, setSackDescription] = useState<string>('');
+  const [savedSackDescription, setSavedSackDescription] = useState<string>('');
+  const [operationUpdateBase, setOperationUpdateBase] = useState<UpdateOperationPayload | null>(null);
   const [operationLabelLoading, setOperationLabelLoading] = useState<boolean>(true);
   const operationLabel = operationCtv || decodedOperationId;
 
@@ -64,6 +139,9 @@ const Sacaria: React.FC = () => {
     const loadOperation = async () => {
       if (!operationId) {
         setOperationCtv('');
+        setSackDescription('');
+        setSavedSackDescription('');
+        setOperationUpdateBase(null);
         setOperationLabelLoading(false);
         return;
       }
@@ -71,19 +149,19 @@ const Sacaria: React.FC = () => {
       try {
         const op = await getOperationById(operationId);
         if (!active) return;
-        const ctv = String(
-          op.ctv ??
-            op.amv ??
-            op.code ??
-            op.booking ??
-            op.bookingCode ??
-            op.reserva ??
-            op.reservation ??
-            operationId
-        );
+        const ctv = getOperationLabel(op, operationId);
+        const nextSackDescription = getSackDescription(op);
         setOperationCtv(ctv);
+        setSackDescription(nextSackDescription);
+        setSavedSackDescription(nextSackDescription);
+        setOperationUpdateBase(buildOperationUpdatePayload(op, nextSackDescription));
       } catch {
-        if (active) setOperationCtv(operationId);
+        if (active) {
+          setOperationCtv(operationId);
+          setSackDescription('');
+          setSavedSackDescription('');
+          setOperationUpdateBase(null);
+        }
       } finally {
         if (active) setOperationLabelLoading(false);
       }
@@ -158,13 +236,28 @@ const Sacaria: React.FC = () => {
 
   const saveEdit = async () => {
     if (!operationId) return;
-    if (!pendingFiles.length && !pendingDeletes.length) {
+    const hasDescriptionChanged = sackDescription !== savedSackDescription;
+    if (!pendingFiles.length && !pendingDeletes.length && !hasDescriptionChanged) {
       setIsEditing(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
+      if (hasDescriptionChanged) {
+        const basePayload =
+          operationUpdateBase ??
+          buildOperationUpdatePayload(await getOperationById(operationId), savedSackDescription);
+        const updatedOperation = await updateOperation(operationId, {
+          ...basePayload,
+          sackDescription,
+        });
+        const nextSackDescription = getSackDescription(updatedOperation);
+        setOperationCtv(getOperationLabel(updatedOperation, operationId));
+        setSackDescription(nextSackDescription);
+        setSavedSackDescription(nextSackDescription);
+        setOperationUpdateBase(buildOperationUpdatePayload(updatedOperation, nextSackDescription));
+      }
       // processa deleções pendentes primeiro
       for (const id of pendingDeletes) {
         await deleteSackImage(operationId, id);
@@ -188,6 +281,7 @@ const Sacaria: React.FC = () => {
     setIsEditing(false);
     setPendingFiles([]);
     setPendingDeletes([]);
+    setSackDescription(savedSackDescription);
     loadImages();
   };
 
@@ -340,6 +434,38 @@ const Sacaria: React.FC = () => {
               </>
             }
           />
+
+          <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+            <div className="border-b border-[var(--border)] px-6 py-4">
+              <h2 className="text-lg font-semibold text-[var(--text)]">Marcacao da sacaria</h2>
+            </div>
+            <div className="px-6 py-5">
+              {operationLabelLoading ? (
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-4 w-full rounded bg-[var(--hover)]" />
+                  <div className="h-4 w-4/5 rounded bg-[var(--hover)]" />
+                </div>
+              ) : isEditing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={sackDescription}
+                    onChange={(e) => setSackDescription(e.target.value)}
+                    rows={4}
+                    disabled={loading}
+                    placeholder="Informe a marcacao da sacaria"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--text)] outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                  <p className="text-xs text-[var(--muted)]">
+                    Esse texto sera salvo junto com as alteracoes da sacaria.
+                  </p>
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text)]">
+                  {sackDescription || 'Nenhuma marcacao de sacaria cadastrada.'}
+                </p>
+              )}
+            </div>
+          </section>
 
           {/* input oculto para upload */}
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />

@@ -20,6 +20,7 @@ import {
   type MonthlyTrendDTO,
   type RecentOperationDTO,
 } from '../services/dashboard';
+import { getOperationById, type ApiOperation, type ApiOperationVehicle } from '../services/operations';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 type OperationStatus = 'Aberta' | 'Fechada';
@@ -34,6 +35,13 @@ interface RecentOperation {
   ctv?: string;
 }
 
+interface RecentOperationExportRow extends RecentOperation {
+  sackDescription: string;
+  vehiclePlate: string;
+  vehicleInvoice: string;
+  vehicleSacksQuantity: string;
+}
+
 interface ChartSegment {
   label: string;
   value: number;
@@ -45,6 +53,23 @@ interface TrendPoint {
   operations: number;
   containers: number;
 }
+
+const coalesceText = (...values: unknown[]): string => {
+  const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+  return found === undefined || found === null ? '' : String(found);
+};
+
+const parseDateValue = (value: unknown): string => {
+  if (!value) return '';
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'string') return value;
+  return '';
+};
+
+const normalizeVehicles = (vehicles: unknown): ApiOperationVehicle[] =>
+  Array.isArray(vehicles)
+    ? vehicles.filter((vehicle): vehicle is ApiOperationVehicle => Boolean(vehicle) && typeof vehicle === 'object')
+    : [];
 
 const normalizeStatus = (value: unknown): OperationStatus => {
   const text = String(value ?? '').toUpperCase();
@@ -133,6 +158,40 @@ const mapRecentOperation = (op: RecentOperationDTO): RecentOperation => {
     status: normalizeStatus(op.status),
     createdAt: op.createdAt ? String(op.createdAt) : '',
     containerCount: typeof op.containerCount === 'number' ? op.containerCount : 0,
+  };
+};
+
+const mapOperationDetailForExport = (op: ApiOperation): RecentOperationExportRow => {
+  const [vehicle] = normalizeVehicles(op.vehicles);
+  const idValue = op.id ?? op.ctv ?? op.reservation ?? op.reserva ?? op.code ?? op.booking ?? '---';
+  const createdAt =
+    parseDateValue(op.createdAt) ||
+    parseDateValue(op.updatedAt) ||
+    parseDateValue(op.arrivalDate) ||
+    parseDateValue(op.deadlineDraft) ||
+    parseDateValue(op.loadDeadline);
+  const containerCount =
+    typeof op.containerCount === 'number'
+      ? op.containerCount
+      : typeof op.totalContainers === 'number'
+        ? op.totalContainers
+        : Array.isArray(op.containers)
+          ? op.containers.length
+          : Array.isArray(op.containerList)
+            ? op.containerList.length
+            : 0;
+
+  return {
+    id: String(idValue),
+    ctv: coalesceText(op.ctv, op.amv, op.code, op.booking, op.bookingCode, idValue) || undefined,
+    reservation: coalesceText(op.reservation, op.reserva, op.booking, op.bookingCode) || undefined,
+    status: normalizeStatus(op.status),
+    createdAt,
+    containerCount,
+    sackDescription: coalesceText(op.sackDescription),
+    vehiclePlate: coalesceText(vehicle?.plate, op.plate),
+    vehicleInvoice: coalesceText(vehicle?.invoice, op.invoice),
+    vehicleSacksQuantity: coalesceText(vehicle?.sacksQuantity, vehicle?.sacks_quantity, op.sacksQuantity, op.sacks_quantity),
   };
 };
 
@@ -533,6 +592,35 @@ const Dashboard: React.FC = () => {
       .slice(0, 6);
   }, [metrics?.recentOperations]);
 
+  const enrichRecentOperationsForExport = useCallback(async (): Promise<RecentOperationExportRow[]> => {
+    const detailedRows = await Promise.all(
+      recentOperations.map(async (operation) => {
+        try {
+          const detail = await getOperationById(operation.id);
+          const mapped = mapOperationDetailForExport(detail);
+          return {
+            ...operation,
+            ...mapped,
+            ctv: mapped.ctv || operation.ctv,
+            reservation: mapped.reservation || operation.reservation,
+            createdAt: mapped.createdAt || operation.createdAt,
+            containerCount: mapped.containerCount ?? operation.containerCount,
+          };
+        } catch {
+          return {
+            ...operation,
+            sackDescription: '',
+            vehiclePlate: '',
+            vehicleInvoice: '',
+            vehicleSacksQuantity: '',
+          };
+        }
+      })
+    );
+
+    return detailedRows;
+  }, [recentOperations]);
+
   const avgContainers = useMemo(() => {
     const raw = metrics?.averageContainersPerOperation;
     if (typeof raw === 'number' && !Number.isNaN(raw)) return +raw.toFixed(1);
@@ -563,13 +651,15 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
-  const exportDashboardCsv = () => {
+  const exportDashboardCsv = async () => {
     if (!metrics) {
       window.alert('Carregue o dashboard antes de exportar.');
       return;
     }
 
+    try {
     const now = new Date();
+    const exportRows = await enrichRecentOperationsForExport();
     const lines: string[] = [];
 
     lines.push(toCsvLine(['Dashboard']));
@@ -604,11 +694,11 @@ const Dashboard: React.FC = () => {
     lines.push('');
 
     lines.push(toCsvLine(['Operações recentes']));
-    lines.push(toCsvLine(['CTV/ID', 'Reserva', 'Status', 'Data', 'Containers']));
-    if (!recentOperations.length) {
-      lines.push(toCsvLine(['Sem dados', '', '', '', '']));
+    lines.push(toCsvLine(['CTV/ID', 'Reserva', 'Status', 'Data', 'Containers', 'Marcacao da sacaria', 'Placa', 'Nota fiscal', 'Quantidade de sacas']));
+    if (!exportRows.length) {
+      lines.push(toCsvLine(['Sem dados', '', '', '', '', '', '', '', '']));
     } else {
-      recentOperations.forEach((op) => {
+      exportRows.forEach((op) => {
         lines.push(
           toCsvLine([
             op.ctv || op.id,
@@ -616,6 +706,10 @@ const Dashboard: React.FC = () => {
             op.status,
             formatDate(op.createdAt),
             op.containerCount,
+            op.sackDescription || '-',
+            op.vehiclePlate || '-',
+            op.vehicleInvoice || '-',
+            op.vehicleSacksQuantity || '-',
           ])
         );
       });
@@ -630,6 +724,10 @@ const Dashboard: React.FC = () => {
     link.download = `dashboard-${now.toISOString().replace(/[:T]/g, '-').slice(0, 19)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel exportar o CSV do dashboard.';
+      window.alert(msg);
+    }
   };
 
   const buildStatusChartHtml = () => {
@@ -779,12 +877,14 @@ const Dashboard: React.FC = () => {
     `;
   };
 
-  const exportDashboardPdf = () => {
+  const exportDashboardPdf = async () => {
     if (!metrics) {
       window.alert('Carregue o dashboard antes de exportar.');
       return;
     }
 
+    try {
+      const exportRows = await enrichRecentOperationsForExport();
     const generatedAt = new Date().toLocaleString();
     const docTitle = `Dashboard ${trendSemesterLabel} ${trendYear}`;
 
@@ -837,8 +937,8 @@ const Dashboard: React.FC = () => {
         </tr>
       `;
 
-    const recentRowsHtml = recentOperations.length
-      ? recentOperations
+    const recentRowsHtml = exportRows.length
+      ? exportRows
           .map(
             (op) => `
               <tr>
@@ -847,6 +947,10 @@ const Dashboard: React.FC = () => {
                 <td>${escapeHtml(op.status)}</td>
                 <td>${escapeHtml(formatDate(op.createdAt))}</td>
                 <td style="text-align:center">${escapeHtml(op.containerCount)}</td>
+                <td>${escapeHtml(op.sackDescription || '-')}</td>
+                <td>${escapeHtml(op.vehiclePlate || '-')}</td>
+                <td>${escapeHtml(op.vehicleInvoice || '-')}</td>
+                <td style="text-align:center">${escapeHtml(op.vehicleSacksQuantity || '-')}</td>
               </tr>
             `
           )
@@ -865,15 +969,17 @@ const Dashboard: React.FC = () => {
         <head>
           <title>${escapeHtml(docTitle)}</title>
           <style>
+            @page { size: landscape; margin: 12mm; }
             body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
             .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
             h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
             h3 { margin: 16px 0 6px; font-size: 14px; color: #111827; }
             h4 { margin: 12px 0 6px; font-size: 12px; color: #111827; font-weight: 600; }
             p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
-            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+            table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 8px; table-layout: fixed; }
+            th, td { border: 1px solid #e5e7eb; padding: 5px 6px; vertical-align: top; word-break: break-word; }
             th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
+            table td:nth-child(5), table td:nth-child(9) { text-align: center; }
             .chart-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
             .chart { display: inline-flex; flex-direction: column; gap: 8px; }
             .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #111827; }
@@ -936,6 +1042,10 @@ const Dashboard: React.FC = () => {
                 <th>Status</th>
                 <th>Data</th>
                 <th style="text-align:center">Containers</th>
+                <th>Marcacao da sacaria</th>
+                <th>Placa</th>
+                <th>Nota fiscal</th>
+                <th style="text-align:center">Qtd. de sacas</th>
               </tr>
             </thead>
             <tbody>${recentRowsHtml}</tbody>
@@ -977,6 +1087,10 @@ const Dashboard: React.FC = () => {
         }, 300);
       }
     };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel exportar o PDF do dashboard.';
+      window.alert(msg);
+    }
   };
 
   const timelineText = useCallback(
@@ -1016,7 +1130,7 @@ const Dashboard: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={exportDashboardCsv}
+                onClick={() => { void exportDashboardCsv(); }}
                 className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-50 sm:w-auto"
                 disabled={!canExport}
               >
@@ -1025,7 +1139,7 @@ const Dashboard: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={exportDashboardPdf}
+                onClick={() => { void exportDashboardPdf(); }}
                 className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-50 sm:w-auto"
                 disabled={!canExport}
               >

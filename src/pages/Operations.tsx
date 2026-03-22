@@ -11,6 +11,7 @@ import {
   createOperation,
   listOperations,
   searchOperations,
+  updateOperation,
   type ApiOperation,
 } from '../services/operations';
 import { getContainersByOperation } from '../services/containers';
@@ -39,6 +40,14 @@ interface ImportOperationPayload {
   deadlineDraft: string | null;
   refClient: string;
   loadDeadline: string;
+  plate?: string;
+  invoice?: string;
+  sacksQuantity?: number;
+  vehicles?: Array<{
+    plate?: string;
+    invoice?: string;
+    sacksQuantity?: number;
+  }>;
 }
 
 interface ImportProgressState {
@@ -201,6 +210,19 @@ const convertToDateString = (value: unknown): string => {
   return isoDate.slice(0, 10); // "2025-01-15T12:00:00.000Z" -> "2025-01-15"
 };
 
+const convertToOptionalInteger = (value: unknown): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+
+  const text = String(value).trim();
+  if (!text) return undefined;
+
+  const normalized = text.replace(',', '.');
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return undefined;
+
+  return Math.trunc(parsed);
+};
+
 const buildPayloadFromRow = (row: Record<string, any>): ImportOperationPayload => {
   const normalizedRow = normalizeRowKeys(row);
 
@@ -208,6 +230,18 @@ const buildPayloadFromRow = (row: Record<string, any>): ImportOperationPayload =
   const arrivalDateRaw = pickCellValue(normalizedRow, ['arrivaldate', 'datadechegada', 'eta']);
   const deadlineDraftRaw = pickCellValue(normalizedRow, ['deadlinedraft', 'draft', 'cutoffdraft']);
   const loadDeadlineRaw = pickCellValue(normalizedRow, ['loaddeadline', 'deadline', 'deadlinedeembarque', 'deadlinecarregamento', 'cutoff']);
+  const vehiclePlate = pickCellText(normalizedRow, ['vehicleplate', 'plate', 'placa']);
+  const vehicleInvoice = pickCellText(normalizedRow, ['vehicleinvoice', 'invoice', 'notafiscal', 'nf']);
+  const vehicleSacksQuantity = convertToOptionalInteger(
+    pickCellValue(normalizedRow, [
+      'vehiclesacksquantity',
+      'sacksquantity',
+      'sacks_quantity',
+      'quantidadedesacas',
+      'quantidadesacas',
+    ])
+  );
+  const hasVehicleData = Boolean(vehiclePlate || vehicleInvoice || vehicleSacksQuantity !== undefined);
 
   const payload = {
     ctv: pickCellText(normalizedRow, ['ctv']),
@@ -222,6 +256,18 @@ const buildPayloadFromRow = (row: Record<string, any>): ImportOperationPayload =
     refClient: pickCellText(normalizedRow, ['refclient', 'ref', 'cliente', 'referencia']),
     // loadDeadline é String no backend - formato YYYY-MM-DD
     loadDeadline: convertToDateString(loadDeadlineRaw),
+    plate: vehiclePlate || undefined,
+    invoice: vehicleInvoice || undefined,
+    sacksQuantity: vehicleSacksQuantity,
+    vehicles: hasVehicleData
+      ? [
+          {
+            plate: vehiclePlate || undefined,
+            invoice: vehicleInvoice || undefined,
+            sacksQuantity: vehicleSacksQuantity,
+          },
+        ]
+      : undefined,
   };
 
   // Debug log
@@ -525,7 +571,11 @@ const Operations: React.FC = () => {
           }
 
           try {
-            await createOperation(payload as any);
+            const created = await createOperation(payload as any);
+            if (payload.plate || payload.invoice || payload.sacksQuantity !== undefined) {
+              const updateId = created?.id ?? created?.ctv ?? payload.ctv;
+              await updateOperation(updateId, payload as any);
+            }
             results.created += 1;
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Erro ao criar operacao';
@@ -947,7 +997,7 @@ const Operations: React.FC = () => {
 
         {showImportModal && (
           <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeImportModal} />
+            <div className="absolute inset-0 bg-black/30" onClick={closeImportModal} />
             <div className="relative max-h-[90vh] w-full overflow-auto rounded-t-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl space-y-4 sm:mx-4 sm:max-w-2xl sm:rounded-2xl sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div>

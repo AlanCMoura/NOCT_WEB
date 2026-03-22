@@ -9,7 +9,7 @@ import ToggleSwitch from '../components/ToggleSwitch';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
 import { computeStatus, getProgress, ContainerStatus } from '../services/containerProgress';
-import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, getSackImages, type ApiOperation, type UpdateOperationPayload } from '../services/operations';
+import { deleteOperation, getOperationById, updateOperation, completeOperationStatus, getSackImages, type ApiOperation, type ApiOperationVehicle, type UpdateOperationPayload } from '../services/operations';
 import { createContainer, deleteContainer, getAllContainerImages, getAllContainersByOperation, getContainerById, getContainersByOperation, CONTAINER_IMAGE_SECTIONS, mapApiCategoryToSectionKey, type ApiContainer, type ApiContainerStatus, type ContainerImageCategoryKey, type CreateContainerPayload } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
@@ -25,6 +25,10 @@ interface OperationInfo {
   ship: string;
   data: string;
   entrega: string;
+  sackDescription: string;
+  vehiclePlate: string;
+  vehicleInvoice: string;
+  vehicleSacksQuantity: string;
 }
 
 interface Container {
@@ -166,6 +170,65 @@ const toOptionalNumber = (value: unknown): number | undefined => {
   return Number.isFinite(num) ? num : undefined;
 };
 
+const normalizeVehicles = (vehicles: unknown): ApiOperationVehicle[] =>
+  Array.isArray(vehicles)
+    ? vehicles.filter((vehicle): vehicle is ApiOperationVehicle => Boolean(vehicle) && typeof vehicle === 'object')
+    : [];
+
+const mapApiVehicleToPayload = (
+  vehicle?: ApiOperationVehicle
+): NonNullable<UpdateOperationPayload['vehicles']>[number] | null => {
+  if (!vehicle) return null;
+  const plate = coalesceText(vehicle.plate).trim();
+  const invoice = coalesceText(vehicle.invoice).trim();
+  const sacksQuantity = toOptionalNumber(vehicle.sacksQuantity ?? vehicle.sacks_quantity);
+
+  if (!plate && !invoice && sacksQuantity === undefined) return null;
+
+  return {
+    plate: plate || undefined,
+    invoice: invoice || undefined,
+    sacksQuantity: sacksQuantity === undefined ? undefined : Math.trunc(sacksQuantity),
+  };
+};
+
+const buildPrimaryVehiclePayload = (
+  data: OperationInfo
+): NonNullable<UpdateOperationPayload['vehicles']>[number] | null => {
+  const plate = data.vehiclePlate.trim();
+  const invoice = data.vehicleInvoice.trim();
+  const sacksQuantity = toOptionalNumber(data.vehicleSacksQuantity);
+
+  if (!plate && !invoice && sacksQuantity === undefined) return null;
+
+  return {
+    plate: plate || undefined,
+    invoice: invoice || undefined,
+    sacksQuantity: sacksQuantity === undefined ? undefined : Math.trunc(sacksQuantity),
+  };
+};
+
+const buildVehiclesPayload = (
+  data: OperationInfo,
+  baseVehicles: ApiOperationVehicle[] = []
+): NonNullable<UpdateOperationPayload['vehicles']> => {
+  const primaryVehicle = buildPrimaryVehiclePayload(data);
+  const extraVehicles = normalizeVehicles(baseVehicles)
+    .slice(1)
+    .map((vehicle) => mapApiVehicleToPayload(vehicle))
+    .filter((vehicle): vehicle is NonNullable<UpdateOperationPayload['vehicles']>[number] => Boolean(vehicle));
+
+  if (primaryVehicle) {
+    return [primaryVehicle, ...extraVehicles];
+  }
+
+  if (extraVehicles.length) {
+    return [{ plate: '', invoice: '', sacksQuantity: undefined }, ...extraVehicles];
+  }
+
+  return [];
+};
+
 const formatApiError = (err: unknown): string => {
   if (axios.isAxiosError(err)) {
     const status = err.response?.status;
@@ -202,6 +265,10 @@ const mapApiContainerStatusToDisplay = (status?: ApiContainerStatus): ContainerS
 };
 
 const mapOperation = (op: ApiOperation): OperationInfo => {
+  const [vehicle] = normalizeVehicles(op.vehicles);
+  const fallbackPlate = coalesceText(op.plate);
+  const fallbackInvoice = coalesceText(op.invoice);
+  const fallbackSacksQuantity = coalesceText(op.sacksQuantity, op.sacks_quantity);
   const idValue = coalesceText(
     op.id,
     op.code,
@@ -226,6 +293,10 @@ const mapOperation = (op: ApiOperation): OperationInfo => {
     data: coalesceDate(op.data, op.arrivalDate),
     entrega: coalesceDate(op.entrega, op.loadDeadline),
     deadline: coalesceDate(op.deadlineDraft, op.loadDeadline, op.deadline),
+    sackDescription: coalesceText(op.sackDescription),
+    vehiclePlate: coalesceText(vehicle?.plate, fallbackPlate),
+    vehicleInvoice: coalesceText(vehicle?.invoice, fallbackInvoice),
+    vehicleSacksQuantity: coalesceText(vehicle?.sacksQuantity, vehicle?.sacks_quantity, fallbackSacksQuantity),
   };
 };
 
@@ -290,7 +361,11 @@ const emptyOperation: OperationInfo = {
   destination: '',
   ship: '',
   data: '',
-  entrega: ''
+  entrega: '',
+  sackDescription: '',
+  vehiclePlate: '',
+  vehicleInvoice: '',
+  vehicleSacksQuantity: '',
 };
 
 const formatDatePt = (value?: string): string => {
@@ -342,6 +417,7 @@ const OperationDetails: React.FC = () => {
   const [containersLoading, setContainersLoading] = useState<boolean>(true);
   const [containerSearch, setContainerSearch] = useState<string>('');
   const opBackupRef = useRef<OperationInfo>(emptyOperation);
+  const operationVehiclesRef = useRef<ApiOperationVehicle[]>([]);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
   const isOperationClosed = operationStatus === 'Fechada';
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
@@ -528,6 +604,10 @@ const OperationDetails: React.FC = () => {
         { label: 'Ref. Cliente', value: opInfo.cliente },
         { label: 'Data de Chegada', value: formatDatePt(opInfo.data) },
         { label: 'Deadline de Carregamento', value: formatDatePt(opInfo.entrega) },
+        { label: 'Marcacao da sacaria', value: opInfo.sackDescription },
+        { label: 'Veículo - Placa', value: opInfo.vehiclePlate },
+        { label: 'Veículo - Nota fiscal', value: opInfo.vehicleInvoice },
+        { label: 'Veículo - Quantidade de sacas', value: opInfo.vehicleSacksQuantity },
         { label: 'Status', value: operationStatus },
       ];
 
@@ -628,6 +708,7 @@ const OperationDetails: React.FC = () => {
             <h3>Sacaria</h3>
             <span class="badge">Operação</span>
           </div>
+          <p class="sack-description"><strong>Marcacao da sacaria:</strong> ${safe(fmt(opInfo.sackDescription))}</p>
           <div class="img-grid">
             ${
               sacariaImages.length
@@ -660,6 +741,7 @@ const OperationDetails: React.FC = () => {
               .container-block { page-break-inside: avoid; margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
               .container-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
               .badge { background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+              .sack-description { margin: 0 0 8px; font-size: 12px; color: #374151; }
               .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
               .img-box { border: 1px dashed #e5e7eb; padding: 6px; border-radius: 6px; background: #fafafa; }
               .img-box img { width: 100%; height: auto; display: block; border-radius: 4px; }
@@ -978,11 +1060,13 @@ const OperationDetails: React.FC = () => {
       setApiTotalPages(1);
       setApiTotalContainers(0);
       allContainersRef.current = null;
+      operationVehiclesRef.current = [];
 
       try {
         const data = await getOperationById(decodedOperationId);
         if (!active) return;
 
+        operationVehiclesRef.current = normalizeVehicles(data.vehicles);
         dispatch({ type: 'hydrate', opInfo: mapOperation(data) });
         setOperationStatus(normalizeStatus(data.status));
 
@@ -1083,6 +1167,14 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
   refClient: data.cliente,
   loadDeadline: toDateOnly(data.entrega),
   exporter: data.exporter,
+  sackDescription: data.sackDescription.trim() || undefined,
+  plate: data.vehiclePlate.trim() || undefined,
+  invoice: data.vehicleInvoice.trim() || undefined,
+  sacksQuantity: (() => {
+    const value = toOptionalNumber(data.vehicleSacksQuantity);
+    return value === undefined ? undefined : Math.trunc(value);
+  })(),
+  vehicles: buildVehiclesPayload(data, operationVehiclesRef.current),
 });
 
   const startIdx = (page - 1) * PAGE_SIZE;
@@ -1136,6 +1228,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
       setSavingOp(true);
       const payload = buildUpdatePayload(opInfo);
       const updated = await updateOperation(decodedOperationId, payload);
+      operationVehiclesRef.current = normalizeVehicles(updated.vehicles);
       dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
       setOperationStatus(normalizeStatus(updated.status));
       setSaveMessage('Operação atualizada com sucesso.');
@@ -1172,6 +1265,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
     try {
       setStatusLoading(true);
       const updated = await completeOperationStatus(numericId);
+      operationVehiclesRef.current = normalizeVehicles(updated.vehicles);
       dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
       setOperationStatus(normalizeStatus(updated.status));
     } catch (err) {
@@ -1277,6 +1371,21 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                       </div>
                     ))}
                 </div>
+                </div>
+              </section>
+              <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mt-6">
+                <div className="p-6 border-b border-[var(--border)]">
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Veículo</h2>
+                </div>
+                <div className="p-6 animate-pulse">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <div className="h-3 w-28 bg-[var(--hover)] rounded"></div>
+                        <div className="h-10 w-full bg-[var(--hover)] rounded"></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </section>
               <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] mt-6">
@@ -1437,10 +1546,6 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
-                <span className="text-[var(--muted)] block">ID</span>
-                <span className="text-[var(--text)] font-medium">{opInfo.id}</span>
-              </div>
-              <div>
                 <span className="text-[var(--muted)] block">CTV</span>
                 {isEditing ? (<>
                   <input value={opInfo.ctv} onChange={e=>dispatch({ type: 'update', field: 'ctv', value: e.target.value })} aria-invalid={!!errors.ctv} aria-describedby={errors.ctv ? 'ctv-error' : undefined} className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
@@ -1546,6 +1651,53 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                   />
                 ) : (
                   <span className="text-[var(--text)] font-medium">{formatDatePt(opInfo.entrega)}</span>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
+            <div className="p-6 border-b border-[var(--border)]">
+              <h2 className="text-lg font-semibold text-[var(--text)]">Veículo</h2>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+              <div>
+                <span className="text-[var(--muted)] block">Placa</span>
+                {isEditing ? (
+                  <input
+                    value={opInfo.vehiclePlate}
+                    onChange={(e) => dispatch({ type: 'update', field: 'vehiclePlate', value: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <span className="text-[var(--text)] font-medium">{opInfo.vehiclePlate || '-'}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-[var(--muted)] block">Nota fiscal</span>
+                {isEditing ? (
+                  <input
+                    value={opInfo.vehicleInvoice}
+                    onChange={(e) => dispatch({ type: 'update', field: 'vehicleInvoice', value: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <span className="text-[var(--text)] font-medium">{opInfo.vehicleInvoice || '-'}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-[var(--muted)] block">Quantidade de sacas</span>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={opInfo.vehicleSacksQuantity}
+                    onChange={(e) => dispatch({ type: 'update', field: 'vehicleSacksQuantity', value: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                ) : (
+                  <span className="text-[var(--text)] font-medium">{opInfo.vehicleSacksQuantity || '-'}</span>
                 )}
               </div>
             </div>

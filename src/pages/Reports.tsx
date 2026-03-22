@@ -15,7 +15,7 @@ import {
   FileText,
   Clock,
 } from 'lucide-react';
-import { listOperations, searchOperations, type ApiOperation } from '../services/operations';
+import { getOperationById, listOperations, searchOperations, type ApiOperation, type ApiOperationVehicle } from '../services/operations';
 import { getContainersByOperation, type ApiContainer, type ApiContainerStatus } from '../services/containers';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
@@ -30,7 +30,21 @@ interface ReportRow {
   status: 'Aberta' | 'Fechada';
   date: string;
   containers?: number;
+  sackDescription: string;
+  vehiclePlate: string;
+  vehicleInvoice: string;
+  vehicleSacksQuantity: string;
 }
+
+const coalesceText = (...values: unknown[]): string => {
+  const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+  return found === undefined || found === null ? '' : String(found);
+};
+
+const normalizeVehicles = (vehicles: unknown): ApiOperationVehicle[] =>
+  Array.isArray(vehicles)
+    ? vehicles.filter((vehicle): vehicle is ApiOperationVehicle => Boolean(vehicle) && typeof vehicle === 'object')
+    : [];
 
 const normalizeStatus = (value: unknown): 'Aberta' | 'Fechada' => {
   const text = String(value ?? '').toUpperCase();
@@ -64,6 +78,7 @@ const formatDate = (value: string): string => {
 };
 
 const mapOperation = (op: ApiOperation): ReportRow => {
+  const [vehicle] = normalizeVehicles(op.vehicles);
   const id = String(
     op.id ??
       op.code ??
@@ -100,11 +115,17 @@ const mapOperation = (op: ApiOperation): ReportRow => {
   const containers =
     typeof op.containerCount === 'number'
       ? op.containerCount
+      : typeof op.totalContainers === 'number'
+        ? op.totalContainers
       : Array.isArray(op.containers)
         ? op.containers.length
         : Array.isArray(op.containerList)
           ? op.containerList.length
           : undefined;
+
+  const fallbackPlate = coalesceText(op.plate);
+  const fallbackInvoice = coalesceText(op.invoice);
+  const fallbackSacksQuantity = coalesceText(op.sacksQuantity, op.sacks_quantity);
 
   return {
     id,
@@ -114,6 +135,10 @@ const mapOperation = (op: ApiOperation): ReportRow => {
     status: normalizeStatus(op.status),
     date: dateSource,
     containers,
+    sackDescription: coalesceText(op.sackDescription),
+    vehiclePlate: coalesceText(vehicle?.plate, fallbackPlate),
+    vehicleInvoice: coalesceText(vehicle?.invoice, fallbackInvoice),
+    vehicleSacksQuantity: coalesceText(vehicle?.sacksQuantity, vehicle?.sacks_quantity, fallbackSacksQuantity),
   };
 };
 
@@ -196,6 +221,26 @@ const Reports: React.FC = () => {
   useEffect(() => {
     void fetchOperations(page);
   }, [fetchOperations, page]);
+
+  const enrichRowsForExport = useCallback(async (list: ReportRow[]): Promise<ReportRow[]> => {
+    const detailedRows = await Promise.all(
+      list.map(async (row) => {
+        try {
+          const detail = await getOperationById(row.id);
+          const mapped = mapOperation(detail);
+          return {
+            ...row,
+            ...mapped,
+            containers: mapped.containers ?? row.containers,
+          };
+        } catch {
+          return row;
+        }
+      })
+    );
+
+    return detailedRows;
+  }, []);
 
   const handleSearch = useCallback(() => {
     const nextSearch = search.trim();
@@ -304,14 +349,54 @@ const Reports: React.FC = () => {
 
   const exportOverviewPdf = async (operation: ReportRow) => {
     try {
-      const resp = await getContainersByOperation(operation.id, { page: 0, size: 500, sortBy: 'id', sortDirection: 'ASC' });
+      const [resp, operationDetail] = await Promise.all([
+        getContainersByOperation(operation.id, { page: 0, size: 500, sortBy: 'id', sortDirection: 'ASC' }),
+        getOperationById(operation.id).catch(() => null),
+      ]);
       const list: ApiContainer[] = resp?.content || [];
+      const detailRow = operationDetail
+        ? (() => {
+            const mapped = mapOperation(operationDetail);
+            return {
+              ...operation,
+              ...mapped,
+              containers: mapped.containers ?? operation.containers ?? list.length,
+            };
+          })()
+        : {
+            ...operation,
+            containers: operation.containers ?? list.length,
+          };
 
       const safe = (val: string | number) =>
         String(val ?? '')
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;');
+
+      const operationRows = [
+        ['CTV', detailRow.ctv || detailRow.id],
+        ['Reserva', detailRow.reserva || '-'],
+        ['Navio', detailRow.ship || '-'],
+        ['Data', formatDate(detailRow.date)],
+        ['Status', detailRow.status],
+        ['Containers', detailRow.containers ?? list.length],
+        ['Marcacao da sacaria', detailRow.sackDescription || '-'],
+        ['Veiculo - Placa', detailRow.vehiclePlate || '-'],
+        ['Veiculo - Nota fiscal', detailRow.vehicleInvoice || '-'],
+        ['Veiculo - Quantidade de sacas', detailRow.vehicleSacksQuantity || '-'],
+      ];
+
+      const operationRowsHtml = operationRows
+        .map(
+          ([label, value]) => `
+            <tr>
+              <th>${safe(label)}</th>
+              <td>${safe(value)}</td>
+            </tr>
+          `
+        )
+        .join('');
 
       const rowsHtml = list
         .map((c, index) => {
@@ -338,7 +423,7 @@ const Reports: React.FC = () => {
         })
         .join('');
 
-      const pdfTitle = `Overview ${operation.ctv || operation.id}`;
+      const pdfTitle = `Overview ${detailRow.ctv || detailRow.id}`;
       const html = `
         <html>
           <head>
@@ -347,11 +432,13 @@ const Reports: React.FC = () => {
               body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
               .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
               h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+              h3 { margin: 16px 0 8px; font-size: 14px; color: #111827; }
               p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
-              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
               th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
               th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
               td:nth-last-child(-n+3) { text-align: center; }
+              .operation-table th { width: 35%; text-transform: none; }
             </style>
           </head>
           <body>
@@ -361,6 +448,11 @@ const Reports: React.FC = () => {
             </div>
             <p>Operação: ${safe(operation.ctv || operation.id)}</p>
             <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+            <h3>Dados da operacao</h3>
+            <table class="operation-table">
+              <tbody>${operationRowsHtml}</tbody>
+            </table>
+            <h3>Containers</h3>
             <table>
               <thead>
                 <tr>
@@ -411,15 +503,17 @@ const Reports: React.FC = () => {
     }
   };
 
-  const exportCsv = (list: ReportRow[]) => {
+  const exportCsv = async (list: ReportRow[]) => {
     if (!list.length) {
       window.alert('Nenhum dado para exportar com os filtros atuais.');
       return;
     }
-    const header = ['ID', 'CTV', 'Reserva', 'Navio', 'Status', 'Data', 'Containers'];
+    try {
+      const exportRows = await enrichRowsForExport(list);
+    const header = ['ID', 'CTV', 'Reserva', 'Navio', 'Status', 'Data', 'Containers', 'Marcacao da sacaria', 'Placa', 'Nota fiscal', 'Quantidade de sacas'];
     const lines = [
       header,
-      ...list.map((row) => [
+      ...exportRows.map((row) => [
         row.id,
         row.ctv,
         row.reserva || '-',
@@ -427,6 +521,10 @@ const Reports: React.FC = () => {
         row.status,
         formatDate(row.date),
         row.containers ?? '-',
+        row.sackDescription || '-',
+        row.vehiclePlate || '-',
+        row.vehicleInvoice || '-',
+        row.vehicleSacksQuantity || '-',
       ]),
     ];
     const csv = lines.map((line) => line.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -438,14 +536,20 @@ const Reports: React.FC = () => {
     link.download = `Relatório de operações-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel exportar o CSV.';
+      window.alert(msg);
+    }
   };
 
-  const exportPdf = (list: ReportRow[]) => {
+  const exportPdf = async (list: ReportRow[]) => {
     if (!list.length) {
       window.alert('Nenhum dado para exportar com os filtros atuais.');
       return;
     }
 
+    try {
+      const exportRows = await enrichRowsForExport(list);
     const safe = (val: string | number) =>
       String(val ?? '')
         .replace(/&/g, '&amp;')
@@ -453,7 +557,7 @@ const Reports: React.FC = () => {
         .replace(/>/g, '&gt;');
     const docTitle = 'Relatório de Operações';
 
-    const rowsHtml = list
+    const rowsHtml = exportRows
       .map(
         (row) => `
           <tr>
@@ -463,6 +567,10 @@ const Reports: React.FC = () => {
             <td>${safe(formatDate(row.date))}</td>
             <td>${safe(row.status)}</td>
             <td style="text-align:center">${safe(row.containers ?? '-')}</td>
+            <td>${safe(row.sackDescription || '-')}</td>
+            <td>${safe(row.vehiclePlate || '-')}</td>
+            <td>${safe(row.vehicleInvoice || '-')}</td>
+            <td style="text-align:center">${safe(row.vehicleSacksQuantity || '-')}</td>
           </tr>
         `
       )
@@ -470,19 +578,20 @@ const Reports: React.FC = () => {
 
     const html = `
       <html>
-        <head>
-          <title>${safe(docTitle)}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
-            .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
-            h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
-            p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
-            th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
-            td:last-child { text-align: center; }
-          </style>
-        </head>
+          <head>
+            <title>${safe(docTitle)}</title>
+            <style>
+              @page { size: landscape; margin: 12mm; }
+              body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+              .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+              h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+              p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
+              table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+              th, td { border: 1px solid #e5e7eb; padding: 5px 6px; vertical-align: top; word-break: break-word; }
+              th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
+              td:nth-child(6), td:nth-child(10) { text-align: center; }
+            </style>
+          </head>
         <body>
           <div class="header">
             <h2>${safe(docTitle)}</h2>
@@ -498,6 +607,10 @@ const Reports: React.FC = () => {
                 <th>Data</th>
                 <th>Status</th>
                 <th>Containers</th>
+                <th>Marcacao da sacaria</th>
+                <th>Placa</th>
+                <th>Nota fiscal</th>
+                <th>Qtd. de sacas</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -531,6 +644,10 @@ const Reports: React.FC = () => {
         }, 300);
       }
     };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Nao foi possivel exportar o PDF.';
+      window.alert(msg);
+    }
   };
 
   const rowsForTable = rows;
@@ -589,14 +706,14 @@ const Reports: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => exportCsv(rowsForTable)}
+                  onClick={() => { void exportCsv(rowsForTable); }}
                   className="inline-flex items-center px-3 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90"
                 >
                   <Download className="w-4 h-4 mr-2" /> Exportar CSV
                 </button>
                 <button
                   type="button"
-                  onClick={() => exportPdf(rowsForTable)}
+                  onClick={() => { void exportPdf(rowsForTable); }}
                   className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
                 >
                   <FileText className="w-4 h-4 mr-2" /> Exportar PDF
@@ -813,7 +930,7 @@ const Reports: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => exportOverviewPdf(row)}
+                              onClick={() => { void exportOverviewPdf(row); }}
                               className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:opacity-90"
                             >
                               <Download className="w-4 h-4 mr-1.5" /> Exportar

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
-import { createOperation } from '../services/operations';
+import { createOperation, updateOperation } from '../services/operations';
 
 interface NewOperationForm {
   ctv: string;
@@ -16,7 +16,20 @@ interface NewOperationForm {
   deadlineDraft: string; // yyyy-mm-dd
   refClient: string;
   loadDeadline: string; // yyyy-mm-dd
+  vehiclePlate: string;
+  vehicleInvoice: string;
+  vehicleSacksQuantity: string;
 }
+
+const toOptionalInteger = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return undefined;
+
+  return Math.trunc(parsed);
+};
 
 const NewOperation: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +47,9 @@ const NewOperation: React.FC = () => {
     deadlineDraft: '',
     refClient: '',
     loadDeadline: '',
+    vehiclePlate: '',
+    vehicleInvoice: '',
+    vehicleSacksQuantity: '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -54,6 +70,11 @@ const NewOperation: React.FC = () => {
     setSubmitError(null);
     setSaving(true);
 
+    const vehiclePlate = form.vehiclePlate.trim();
+    const vehicleInvoice = form.vehicleInvoice.trim();
+    const vehicleSacksQuantity = toOptionalInteger(form.vehicleSacksQuantity);
+    const hasVehicleData = Boolean(vehiclePlate || vehicleInvoice || vehicleSacksQuantity !== undefined);
+
     const payload = {
       ctv: form.ctv.trim(),
       reservation: form.reservation.trim(),
@@ -65,10 +86,26 @@ const NewOperation: React.FC = () => {
       deadlineDraft: form.deadlineDraft || undefined,
       refClient: form.refClient.trim(),
       loadDeadline: form.loadDeadline || undefined,
+      plate: vehiclePlate || undefined,
+      invoice: vehicleInvoice || undefined,
+      sacksQuantity: vehicleSacksQuantity,
+      vehicles: hasVehicleData
+        ? [
+            {
+              plate: vehiclePlate || undefined,
+              invoice: vehicleInvoice || undefined,
+              sacksQuantity: vehicleSacksQuantity,
+            },
+          ]
+        : undefined,
     };
 
     try {
       const created = await createOperation(payload);
+      if (hasVehicleData) {
+        const updateId = created.id ?? created.ctv ?? form.ctv;
+        await updateOperation(updateId, payload);
+      }
       const newId =
         (created.id ?? created.ctv ?? created.code ?? created.shipName ?? form.ctv) || 'nova-operacao';
       navigate(`/operations/${encodeURIComponent(String(newId))}`);
@@ -136,8 +173,9 @@ const NewOperation: React.FC = () => {
           <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 space-y-6 overflow-auto"
+            className="space-y-6 overflow-auto"
           >
+            <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text)]">Informações da Operação</h2>
@@ -167,115 +205,161 @@ const NewOperation: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">CTV</label>
-                <input
-                  type="text"
-                  value={form.ctv}
-                  onChange={(e) => setField('ctv', e.target.value)}
-                  placeholder="CTV-12345/25"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
+                <h3 className="text-base font-semibold text-[var(--text)]">Dados da Operação</h3>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Reserva</label>
-                <input
-                  type="text"
-                  value={form.reservation}
-                  onChange={(e) => setField('reservation', e.target.value)}
-                  placeholder="RES123"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Terminal</label>
-                <input
-                  type="text"
-                  value={form.terminal}
-                  onChange={(e) => setField('terminal', e.target.value)}
-                  placeholder="Terminal Portuario"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Exportador</label>
-                <input
-                  type="text"
-                  value={form.exporter}
-                  onChange={(e) => setField('exporter', e.target.value)}
-                  placeholder="Empresa Exportadora S.A."
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Destino</label>
-                <input
-                  type="text"
-                  value={form.destination}
-                  onChange={(e) => setField('destination', e.target.value)}
-                  placeholder="Porto / Pais"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Navio</label>
-                <input
-                  type="text"
-                  value={form.ship}
-                  onChange={(e) => setField('ship', e.target.value)}
-                  placeholder="MSC Fantasia"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Data de Chegada</label>
-                <input
-                  type="date"
-                  value={form.arrivalDate}
-                  onChange={(e) => setField('arrivalDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline Draft</label>
-                <input
-                  type="date"
-                  value={form.deadlineDraft}
-                  onChange={(e) => setField('deadlineDraft', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Ref. Cliente</label>
-                <input
-                  type="text"
-                  value={form.refClient}
-                  onChange={(e) => setField('refClient', e.target.value)}
-                  placeholder="Referencia interna"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline de Carregamento</label>
-                <input
-                  type="date"
-                  value={form.loadDeadline}
-                  onChange={(e) => setField('loadDeadline', e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">CTV</label>
+                  <input
+                    type="text"
+                    value={form.ctv}
+                    onChange={(e) => setField('ctv', e.target.value)}
+                    placeholder="CTV-12345/25"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Reserva</label>
+                  <input
+                    type="text"
+                    value={form.reservation}
+                    onChange={(e) => setField('reservation', e.target.value)}
+                    placeholder="RES123"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Terminal</label>
+                  <input
+                    type="text"
+                    value={form.terminal}
+                    onChange={(e) => setField('terminal', e.target.value)}
+                    placeholder="Terminal Portuario"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Exportador</label>
+                  <input
+                    type="text"
+                    value={form.exporter}
+                    onChange={(e) => setField('exporter', e.target.value)}
+                    placeholder="Empresa Exportadora S.A."
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Destino</label>
+                  <input
+                    type="text"
+                    value={form.destination}
+                    onChange={(e) => setField('destination', e.target.value)}
+                    placeholder="Porto / Pais"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Navio</label>
+                  <input
+                    type="text"
+                    value={form.ship}
+                    onChange={(e) => setField('ship', e.target.value)}
+                    placeholder="MSC Fantasia"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Data de Chegada</label>
+                  <input
+                    type="date"
+                    value={form.arrivalDate}
+                    onChange={(e) => setField('arrivalDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline Draft</label>
+                  <input
+                    type="date"
+                    value={form.deadlineDraft}
+                    onChange={(e) => setField('deadlineDraft', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Ref. Cliente</label>
+                  <input
+                    type="text"
+                    value={form.refClient}
+                    onChange={(e) => setField('refClient', e.target.value)}
+                    placeholder="Referencia interna"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Deadline de Carregamento</label>
+                  <input
+                    type="date"
+                    value={form.loadDeadline}
+                    onChange={(e) => setField('loadDeadline', e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
               </div>
             </div>
+            </section>
+
+            <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+              <div className="border-b border-[var(--border)] px-5 py-4">
+                <h3 className="text-base font-semibold text-[var(--text)]">Veículo</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-5 px-5 py-5 md:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Placa</label>
+                  <input
+                    type="text"
+                    value={form.vehiclePlate}
+                    onChange={(e) => setField('vehiclePlate', e.target.value)}
+                    placeholder="ABC1D23"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Nota fiscal</label>
+                  <input
+                    type="text"
+                    value={form.vehicleInvoice}
+                    onChange={(e) => setField('vehicleInvoice', e.target.value)}
+                    placeholder="NF-123456"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text)] mb-2">Quantidade de sacas</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.vehicleSacksQuantity}
+                    onChange={(e) => setField('vehicleSacksQuantity', e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </section>
           </form>
         </main>
       </div>

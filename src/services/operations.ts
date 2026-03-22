@@ -4,6 +4,20 @@ import { api } from './api';
 export type OperationStatusApi = string;
 export type SortDirection = 'ASC' | 'DESC';
 
+export interface ApiOperationVehicle {
+  plate?: string;
+  invoice?: string;
+  sacksQuantity?: number;
+  sacks_quantity?: number;
+  [key: string]: unknown;
+}
+
+export interface OperationVehiclePayload {
+  plate?: string;
+  invoice?: string;
+  sacksQuantity?: number;
+}
+
 export interface ApiOperation {
   id?: string | number;
   ctv?: string;
@@ -22,6 +36,7 @@ export interface ApiOperation {
   destination?: string;
   terminal?: string;
   refClient?: string;
+  sackDescription?: string;
   arrivalDate?: string;
   loadDeadline?: string;
   deadlineDraft?: string;
@@ -33,6 +48,12 @@ export interface ApiOperation {
   entrega?: string;
   ship?: string;
   containerCount?: number;
+  totalContainers?: number;
+  plate?: string;
+  invoice?: string;
+  sacksQuantity?: number;
+  sacks_quantity?: number;
+  vehicles?: ApiOperationVehicle[];
   containers?: unknown[];
   containerList?: unknown[];
   [key: string]: unknown;
@@ -82,6 +103,11 @@ export interface CreateOperationPayload {
   refClient?: string;
   loadDeadline?: string;
   exporter?: string;
+  sackDescription?: string;
+  plate?: string;
+  invoice?: string;
+  sacksQuantity?: number;
+  vehicles?: OperationVehiclePayload[];
   [key: string]: unknown;
 }
 
@@ -96,6 +122,11 @@ export interface UpdateOperationPayload {
   refClient?: string;
   loadDeadline?: string;
   exporter?: string;
+  sackDescription?: string;
+  plate?: string;
+  invoice?: string;
+  sacksQuantity?: number;
+  vehicles?: OperationVehiclePayload[];
   [key: string]: unknown;
 }
 

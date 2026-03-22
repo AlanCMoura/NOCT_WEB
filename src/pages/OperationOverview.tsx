@@ -12,7 +12,7 @@ import {
   type ApiContainerStatus,
   type UpdateContainerPayload,
 } from '../services/containers';
-import { getOperationById } from '../services/operations';
+import { getOperationById, type ApiOperation, type ApiOperationVehicle } from '../services/operations';
 import { LOGO_DATA_URI } from '../utils/logoDataUri';
 
 interface ContainerRow {
@@ -25,6 +25,17 @@ interface ContainerRow {
   qtdSacarias?: number;
   pesoBruto?: number;
   pesoLiquido?: number;
+}
+
+interface OperationExportMeta {
+  id: string;
+  ctv: string;
+  reservation: string;
+  ship: string;
+  sackDescription: string;
+  vehiclePlate: string;
+  vehicleInvoice: string;
+  vehicleSacksQuantity: string;
 }
 
 const mapApiContainer = (c: ApiContainer, index: number): ContainerRow => {
@@ -57,6 +68,32 @@ const statusDisplay = (status?: ApiContainerStatus) => {
   if (key === 'completo') return { label: 'Finalizado', className: 'bg-green-100 text-green-800' };
   if (key === 'parcial') return { label: 'Parcial', className: 'bg-yellow-100 text-yellow-800' };
   return { label: 'Não inicializado', className: 'bg-gray-200 text-gray-700' };
+};
+
+const coalesceText = (...values: unknown[]): string => {
+  const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+  return found === undefined || found === null ? '' : String(found);
+};
+
+const normalizeVehicles = (vehicles: unknown): ApiOperationVehicle[] =>
+  Array.isArray(vehicles)
+    ? vehicles.filter((vehicle): vehicle is ApiOperationVehicle => Boolean(vehicle) && typeof vehicle === 'object')
+    : [];
+
+const mapOperationExportMeta = (op: ApiOperation, fallbackId: string): OperationExportMeta => {
+  const [vehicle] = normalizeVehicles(op.vehicles);
+  const id = String(op.id ?? fallbackId);
+
+  return {
+    id,
+    ctv: coalesceText(op.ctv, op.amv, op.code, op.booking, op.bookingCode, fallbackId),
+    reservation: coalesceText(op.reservation, op.reserva, op.booking, op.bookingCode),
+    ship: coalesceText(op.shipName, op.ship, op.vesselName, op.vessel, op.navio),
+    sackDescription: coalesceText(op.sackDescription),
+    vehiclePlate: coalesceText(vehicle?.plate, op.plate),
+    vehicleInvoice: coalesceText(vehicle?.invoice, op.invoice),
+    vehicleSacksQuantity: coalesceText(vehicle?.sacksQuantity, vehicle?.sacks_quantity, op.sacksQuantity, op.sacks_quantity),
+  };
 };
 
 const OperationOverview: React.FC = () => {
@@ -273,11 +310,39 @@ const OperationOverview: React.FC = () => {
     return allRows;
   }, [isFilteredMode, loadAllRows, sorted]);
 
-  const exportCsv = (list: ContainerRow[]) => {
+  const loadOperationExportMeta = useCallback(async (): Promise<OperationExportMeta> => {
+    try {
+      const operation = await getOperationById(decodedOperationId);
+      return mapOperationExportMeta(operation, decodedOperationId);
+    } catch {
+      return {
+        id: decodedOperationId,
+        ctv: operationLabel,
+        reservation: '',
+        ship: '',
+        sackDescription: '',
+        vehiclePlate: '',
+        vehicleInvoice: '',
+        vehicleSacksQuantity: '',
+      };
+    }
+  }, [decodedOperationId, operationLabel]);
+
+  const exportCsv = (list: ContainerRow[], operationMeta: OperationExportMeta) => {
     if (!list.length) {
       window.alert('Nenhum container para exportar.');
       return;
     }
+    const metadata = [
+      ['Operacao', operationMeta.ctv || operationMeta.id],
+      ['Reserva', operationMeta.reservation || '-'],
+      ['Navio', operationMeta.ship || '-'],
+      ['Marcacao da sacaria', operationMeta.sackDescription || '-'],
+      ['Placa', operationMeta.vehiclePlate || '-'],
+      ['Nota fiscal', operationMeta.vehicleInvoice || '-'],
+      ['Quantidade de sacas', operationMeta.vehicleSacksQuantity || '-'],
+      [],
+    ];
     const header = ['Container', 'Status', 'Lacre Agencia', 'Lacre Principal', 'Lacre Outros', 'Qtd. Sacarias', 'Peso Bruto', 'Peso Liquido'];
     const rowsCsv = list.map((row) => {
       const { label } = statusDisplay(row.status);
@@ -293,7 +358,8 @@ const OperationOverview: React.FC = () => {
       ];
       return values.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';');
     });
-    const csv = [header.join(';'), ...rowsCsv].join('\n');
+    const metadataCsv = metadata.map((line) => line.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';'));
+    const csv = [...metadataCsv, header.join(';'), ...rowsCsv].join('\n');
     const csvWithBom = `\uFEFF${csv}`;
     const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -304,7 +370,7 @@ const OperationOverview: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const exportPdf = (list: ContainerRow[]) => {
+  const exportPdf = (list: ContainerRow[], operationMeta: OperationExportMeta) => {
     if (!list.length) {
       window.alert('Nenhum container para exportar.');
       return;
@@ -315,6 +381,27 @@ const OperationOverview: React.FC = () => {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+
+    const operationRows = [
+      ['Operacao', operationMeta.ctv || operationMeta.id],
+      ['Reserva', operationMeta.reservation || '-'],
+      ['Navio', operationMeta.ship || '-'],
+      ['Marcacao da sacaria', operationMeta.sackDescription || '-'],
+      ['Veiculo - Placa', operationMeta.vehiclePlate || '-'],
+      ['Veiculo - Nota fiscal', operationMeta.vehicleInvoice || '-'],
+      ['Veiculo - Quantidade de sacas', operationMeta.vehicleSacksQuantity || '-'],
+    ];
+
+    const operationRowsHtml = operationRows
+      .map(
+        ([label, value]) => `
+          <tr>
+            <th>${safe(label)}</th>
+            <td>${safe(value)}</td>
+          </tr>
+        `
+      )
+      .join('');
 
     const rowsHtml = list
       .map((row) => {
@@ -343,11 +430,13 @@ const OperationOverview: React.FC = () => {
             body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
             .header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
             h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+            h3 { margin: 16px 0 8px; font-size: 14px; color: #111827; }
             p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
             th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
             th { background: #f3f4f6; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; }
             td:nth-last-child(-n+3) { text-align: center; }
+            .operation-table th { width: 35%; text-transform: none; }
           </style>
         </head>
         <body>
@@ -358,7 +447,12 @@ const OperationOverview: React.FC = () => {
             <img src="${LOGO_DATA_URI}" alt="logo" style="height:50px; width:auto;" />
           </div>
             <p>Operação: ${safe(operationLabel)}</p>
-          <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+            <p>Gerado em ${safe(new Date().toLocaleString())}</p>
+            <h3>Dados da operacao</h3>
+            <table class="operation-table">
+              <tbody>${operationRowsHtml}</tbody>
+            </table>
+            <h3>Containers</h3>
           <table>
             <thead>
               <tr>
@@ -406,13 +500,13 @@ const OperationOverview: React.FC = () => {
   };
 
   const handleExportCsv = async () => {
-    const exportRows = await getExportRows();
-    exportCsv(exportRows);
+    const [exportRows, operationMeta] = await Promise.all([getExportRows(), loadOperationExportMeta()]);
+    exportCsv(exportRows, operationMeta);
   };
 
   const handleExportPdf = async () => {
-    const exportRows = await getExportRows();
-    exportPdf(exportRows);
+    const [exportRows, operationMeta] = await Promise.all([getExportRows(), loadOperationExportMeta()]);
+    exportPdf(exportRows, operationMeta);
   };
 
   return (
