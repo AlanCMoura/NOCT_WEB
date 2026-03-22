@@ -26,17 +26,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
   const isInspector = typeof user?.role === 'string' && user.role.toLowerCase() === 'inspetor';
 
   const sidebarItems: SidebarItem[] = isInspector
-    ? [{ id: 'operations', icon: <FileText className="h-5 w-5" />, label: 'Operacoes' }]
+    ? [{ id: 'operations', icon: <FileText className="h-5 w-5" />, label: 'Operações' }]
     : [
         { id: 'dashboard', icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard' },
-        { id: 'operations', icon: <FileText className="h-5 w-5" />, label: 'Operacoes' },
+        { id: 'operations', icon: <FileText className="h-5 w-5" />, label: 'Operações' },
       ];
 
   const managementItems: SidebarItem[] = isInspector
     ? []
     : [
-        { id: 'usuarios', icon: <Users className="h-5 w-5" />, label: 'Usuarios' },
-        { id: 'relatorios', icon: <FileBarChart className="h-5 w-5" />, label: 'Relatorios' },
+        { id: 'usuarios', icon: <Users className="h-5 w-5" />, label: 'Usuários' },
+        { id: 'relatorios', icon: <FileBarChart className="h-5 w-5" />, label: 'Relatórios' },
       ];
 
   const systemItems: SidebarItem[] = [

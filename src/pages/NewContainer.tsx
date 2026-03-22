@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { Plus, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../context/SidebarContext";
@@ -50,7 +51,7 @@ interface NewContainerForm {
   pesoBruto: string;
   pesoLiquido: string;
   lacreAgencia: string;
-  lacreOutros: string;
+  lacreOutros: string[];
 }
 
 const emptyImages = (): Record<ImageSectionKey, SectionImageItem[]> =>
@@ -75,7 +76,7 @@ const NewContainer: React.FC = () => {
     pesoBruto: "",
     pesoLiquido: "",
     lacreAgencia: "",
-    lacreOutros: "",
+    lacreOutros: [""],
   });
 
   const [saving, setSaving] = useState(false);
@@ -85,7 +86,7 @@ const NewContainer: React.FC = () => {
 
   const [imageSections, setImageSections] = useState<Record<ImageSectionKey, SectionImageItem[]>>(emptyImages);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const isRequiredMissing = !form.container.trim() || !form.descricao.trim();
+  const isRequiredMissing = !form.container.trim();
   const [carouselIndex, setCarouselIndex] = useState<Record<ImageSectionKey, number>>(() =>
     IMAGE_SECTIONS.reduce((acc, { key }) => {
       acc[key] = 0;
@@ -93,8 +94,32 @@ const NewContainer: React.FC = () => {
     }, {} as Record<ImageSectionKey, number>)
   );
 
-  const setField = (key: keyof NewContainerForm, value: string) =>
+  const setField = <K extends keyof NewContainerForm>(key: K, value: NewContainerForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const setOtherSealField = (index: number, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      lacreOutros: prev.lacreOutros.map((item, itemIndex) => (itemIndex === index ? value : item)),
+    }));
+  };
+
+  const addOtherSealField = () => {
+    setForm((prev) => ({
+      ...prev,
+      lacreOutros: [...prev.lacreOutros, ""],
+    }));
+  };
+
+  const removeOtherSealField = (index: number) => {
+    setForm((prev) => {
+      const next = prev.lacreOutros.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...prev,
+        lacreOutros: next.length ? next : [""],
+      };
+    });
+  };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, section: ImageSectionKey): void => {
     e.preventDefault();
@@ -256,13 +281,7 @@ const NewContainer: React.FC = () => {
       return;
     }
 
-    if (!form.descricao.trim()) {
-      setError("Informe a descricao do container.");
-      return;
-    }
-
     const otherSeals = form.lacreOutros
-      .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
 
@@ -271,7 +290,7 @@ const NewContainer: React.FC = () => {
     const payload = {
       containerId: form.container.trim(),
       ctvId: form.container.trim(),
-      description: form.descricao.trim(),
+      description: form.descricao.trim() || undefined,
       operationId: numericOperation,
       sacksCount: parseNumber(form.quantidade) ?? 0,
       tareTons: (() => {
@@ -281,7 +300,7 @@ const NewContainer: React.FC = () => {
       liquidWeight: parseNumber(form.pesoLiquido) ?? 0,
       grossWeight: parseNumber(form.pesoBruto) ?? 0,
       agencySeal: form.lacreAgencia || '',
-      otherSeals: otherSeals.length ? otherSeals : [],
+      otherSeals: otherSeals.length ? otherSeals.join(", ") : undefined,
       images: imagesPayload,
     };
 
@@ -379,8 +398,6 @@ const NewContainer: React.FC = () => {
                   value={form.descricao}
                   onChange={(e) => setField("descricao", e.target.value)}
                   placeholder="Estufagem de acucar VHP"
-                  aria-required
-                  aria-invalid={isRequiredMissing && !form.descricao.trim()}
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -438,15 +455,52 @@ const NewContainer: React.FC = () => {
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
+              {form.lacreOutros.map((lacre, index) => (
+                <div key={`lacre-outro-${index}`}>
+                  {index === 0 ? (
+                    <div className="mb-2 flex h-5 items-end">
+                      <label htmlFor="otherSeal-0" className="block text-sm font-medium leading-5 text-[var(--text)]">
+                        Outros Lacres
+                      </label>
+                    </div>
+                  ) : index === 1 ? (
+                    <div className="mb-2 hidden h-5 lg:block" aria-hidden="true" />
+                  ) : null}
+                  <div className="relative">
+                    <input
+                      id={index === 0 ? "otherSeal-0" : undefined}
+                      type="text"
+                      value={lacre}
+                      onChange={(e) => setOtherSealField(index, e.target.value)}
+                      placeholder={`Lacre ${index + 1}`}
+                      aria-label={`Lacre ${index + 1}`}
+                      className="w-full px-3 py-2 pr-10 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                    {form.lacreOutros.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeOtherSealField(index)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[var(--muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text)]"
+                        aria-label={`Remover lacre ${index + 1}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-2">Outros Lacres (separados por virgula)</label>
-                <input
-                  type="text"
-                  value={form.lacreOutros}
-                  onChange={(e) => setField("lacreOutros", e.target.value)}
-                  placeholder="SEAL-001, SEAL-002"
-                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
+                {form.lacreOutros.length === 1 ? (
+                  <div className="mb-2 hidden h-5 lg:block" aria-hidden="true" />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={addOtherSealField}
+                  className="inline-flex h-10 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--border)] text-sm font-medium text-[var(--muted)] transition-colors hover:border-[var(--primary)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar lacre
+                </button>
               </div>
             </div>
           </form>

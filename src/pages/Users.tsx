@@ -556,8 +556,8 @@ const Users: React.FC = () => {
             </div>
           )}
 
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="flex-1 relative w-full">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="relative w-full xl:min-w-[320px] xl:flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
               <input
                 type="text"
@@ -568,7 +568,7 @@ const Users: React.FC = () => {
                 disabled={isLoadingUsers}
               />
             </div>
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-stretch">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:flex xl:flex-wrap xl:items-stretch xl:justify-end">
               <select
                 value={statusFilter}
                 onChange={(e) => {

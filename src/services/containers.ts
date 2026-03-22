@@ -90,14 +90,14 @@ const REQUIRED_IMAGE_CATEGORIES: ContainerImageCategoryKey[] = [
 export interface CreateContainerPayload {
   containerId: string;
   ctvId?: string;
-  description: string;
+  description?: string;
   operationId: number;
   sacksCount?: number;
   tareTons?: number;
   liquidWeight?: number;
   grossWeight?: number;
   agencySeal?: string;
-  otherSeals?: string[];
+  otherSeals?: string[] | string;
   dataRetirada?: string;
   dataEstufagem?: string;
   images?: ContainerImagesPayload;
@@ -110,7 +110,7 @@ export interface UpdateContainerPayload {
   liquidWeight?: number;
   grossWeight?: number;
   agencySeal?: string;
-  otherSeals?: string[];
+  otherSeals?: string[] | string;
   dataRetirada?: string;
   dataEstufagem?: string;
   status?: ApiContainerStatus;
@@ -134,6 +134,31 @@ const appendImages = (form: FormData, images?: ContainerImagesPayload): boolean 
     files.forEach((file) => form.append(formKey, file));
   });
   return hasImages;
+};
+
+const normalizeOtherSeals = (otherSeals?: string[] | string): string[] => {
+  if (Array.isArray(otherSeals)) {
+    return otherSeals.map((seal) => seal.trim()).filter(Boolean);
+  }
+  if (typeof otherSeals === 'string') {
+    return otherSeals
+      .split(',')
+      .map((seal) => seal.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const buildOtherSealsPayload = (otherSeals?: string[] | string): string[] => normalizeOtherSeals(otherSeals);
+
+const appendOtherSeals = (form: FormData, otherSeals?: string[] | string): void => {
+  const seals = buildOtherSealsPayload(otherSeals);
+  if (seals.length) {
+    seals.forEach((seal) => form.append('otherSeals', seal));
+    return;
+  }
+
+  form.append('otherSeals', '');
 };
 
 const buildContainerJsonPayload = (payload: CreateContainerPayload) => {
@@ -161,7 +186,7 @@ const buildContainerJsonPayload = (payload: CreateContainerPayload) => {
     liquidWeight: liquidWeight ?? 0,
     grossWeight: grossWeight ?? 0,
     agencySeal: agencySeal ?? '',
-    otherSeals: otherSeals && otherSeals.length ? otherSeals : [],
+    otherSeals: buildOtherSealsPayload(otherSeals),
     dataRetirada: dataRetirada || undefined,
     dataEstufagem: dataEstufagem || undefined,
   };
@@ -196,7 +221,7 @@ export const createContainer = async (payload: CreateContainerPayload): Promise<
 
   const form = new FormData();
   form.append('ctvId', payload.ctvId ?? payload.containerId);
-  form.append('description', payload.description);
+  form.append('description', payload.description ?? '');
   form.append('operationId', String(payload.operationId));
   form.append('sacksCount', String(payload.sacksCount ?? 0));
   form.append('tareTons', String(payload.tareTons ?? 0));
@@ -211,8 +236,7 @@ export const createContainer = async (payload: CreateContainerPayload): Promise<
     form.append('dataEstufagem', payload.dataEstufagem);
   }
 
-  const seals = payload.otherSeals && payload.otherSeals.length ? payload.otherSeals : [''];
-  seals.forEach((seal) => form.append('otherSeals', seal));
+  appendOtherSeals(form, payload.otherSeals);
 
   appendImages(form, images);
 
@@ -256,7 +280,7 @@ export const updateContainer = async (
     liquidWeight: liquidWeight ?? 0,
     grossWeight: grossWeight ?? 0,
     agencySeal: agencySeal ?? '',
-    otherSeals: otherSeals && otherSeals.length ? otherSeals : [],
+    otherSeals: buildOtherSealsPayload(otherSeals),
   };
 
   if (dataRetirada !== undefined) {

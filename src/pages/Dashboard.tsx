@@ -996,15 +996,15 @@ const Dashboard: React.FC = () => {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="bg-[var(--surface)] border-b border-[var(--border)]">
-          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:px-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[var(--text)]">Dashboard</h1>
               <p className="max-w-2xl text-sm text-[var(--muted)]">
                 Visão geral das operações, containers e terminais.
               </p>
             </div>
-            <div className="flex flex-col gap-3 xl:items-end">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:justify-end">
+            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
               <button
                 type="button"
                 onClick={fetchData}
@@ -1042,7 +1042,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div
                 onClick={() => changePage('perfil')}
-                className="hidden self-start items-center gap-3 cursor-pointer rounded-lg px-2 py-2 transition-colors hover:bg-[var(--hover)] md:flex md:px-4 xl:self-auto"
+                className="hidden shrink-0 items-center gap-3 self-start cursor-pointer rounded-lg px-2 py-2 transition-colors hover:bg-[var(--hover)] md:flex md:self-auto md:px-4"
               >
                 <div className="hidden text-right sm:block">
                   <div className="text-sm font-medium text-[var(--text)]">{user.name}</div>

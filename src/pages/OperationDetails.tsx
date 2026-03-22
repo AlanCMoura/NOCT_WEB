@@ -783,7 +783,7 @@ const OperationDetails: React.FC = () => {
   );
 
   const REQUIRED_CONTAINER_FIELDS = useMemo<Array<keyof CreateContainerPayload>>(
-    () => ['containerId', 'description', 'operationId'],
+    () => ['containerId'],
     []
   );
 

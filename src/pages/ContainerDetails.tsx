@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import { Trash2, Download } from "lucide-react";
+import { Trash2, Download, Plus, X } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import ContainerImageSection, { ImageItem as SectionImageItem } from "../components/ContainerImageSection";
 import ToggleSwitch from "../components/ToggleSwitch";
@@ -36,7 +36,7 @@ interface EditForm {
   liquidWeight: string;
   grossWeight: string;
   agencySeal: string;
-  otherSeals: string;
+  otherSeals: string[];
   dataRetirada: string;
   dataEstufagem: string;
 }
@@ -107,21 +107,24 @@ const revokeTempUrls = (sections: Record<ImageSectionKey, SectionImageWithId[]>)
   });
 };
 
-const mapContainerToForm = (container: ApiContainer): EditForm => ({
-  containerId: container.ctvId || container.containerId || "",
-  description: container.description ?? "",
-  sacksCount: container.sacksCount !== undefined ? String(container.sacksCount) : "",
-  tareKg:
-    container.tareTons !== undefined && container.tareTons !== null
-      ? String(Math.round(container.tareTons * 1000))
-      : "",
-  liquidWeight: container.liquidWeight !== undefined ? String(container.liquidWeight) : "",
-  grossWeight: container.grossWeight !== undefined ? String(container.grossWeight) : "",
-  agencySeal: container.agencySeal ?? "",
-  otherSeals: (container.otherSeals || []).filter(Boolean).join(", "),
-  dataRetirada: toDateInput(container.dataRetirada),
-  dataEstufagem: toDateInput(container.dataEstufagem),
-});
+const mapContainerToForm = (container: ApiContainer): EditForm => {
+  const otherSeals = (container.otherSeals || []).filter(Boolean);
+  return {
+    containerId: container.ctvId || container.containerId || "",
+    description: container.description ?? "",
+    sacksCount: container.sacksCount !== undefined ? String(container.sacksCount) : "",
+    tareKg:
+      container.tareTons !== undefined && container.tareTons !== null
+        ? String(Math.round(container.tareTons * 1000))
+        : "",
+    liquidWeight: container.liquidWeight !== undefined ? String(container.liquidWeight) : "",
+    grossWeight: container.grossWeight !== undefined ? String(container.grossWeight) : "",
+    agencySeal: container.agencySeal ?? "",
+    otherSeals: otherSeals.length ? otherSeals : [""],
+    dataRetirada: toDateInput(container.dataRetirada),
+    dataEstufagem: toDateInput(container.dataEstufagem),
+  };
+};
 
 const mapContainerImages = (container: ApiContainer): Record<ImageSectionKey, SectionImageWithId[]> => {
   const sections = emptyImages();
@@ -197,7 +200,7 @@ const ContainerDetails: React.FC = () => {
     liquidWeight: "",
     grossWeight: "",
     agencySeal: "",
-    otherSeals: "",
+    otherSeals: [""],
     dataRetirada: "",
     dataEstufagem: "",
   });
@@ -360,8 +363,32 @@ const ContainerDetails: React.FC = () => {
     };
   }, [decodedContainerId, decodedOperationId]);
 
-  const handleChange = useCallback((key: keyof EditForm, value: string) => {
+  const handleChange = useCallback((key: Exclude<keyof EditForm, "otherSeals">, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const setOtherSealField = useCallback((index: number, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      otherSeals: prev.otherSeals.map((item, itemIndex) => (itemIndex === index ? value : item)),
+    }));
+  }, []);
+
+  const addOtherSealField = useCallback(() => {
+    setForm((prev) => ({
+      ...prev,
+      otherSeals: [...prev.otherSeals, ""],
+    }));
+  }, []);
+
+  const removeOtherSealField = useCallback((index: number) => {
+    setForm((prev) => {
+      const next = prev.otherSeals.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...prev,
+        otherSeals: next.length ? next : [""],
+      };
+    });
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>, section: ImageSectionKey): void => {
@@ -509,7 +536,6 @@ const ContainerDetails: React.FC = () => {
     }
 
     const otherSeals = form.otherSeals
-      .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
 
@@ -527,7 +553,7 @@ const ContainerDetails: React.FC = () => {
       liquidWeight: parseNumber(form.liquidWeight) ?? 0,
       grossWeight: parseNumber(form.grossWeight) ?? 0,
       agencySeal: form.agencySeal.trim(),
-      otherSeals: otherSeals.length ? otherSeals : [],
+      otherSeals: otherSeals.length ? otherSeals.join(", ") : undefined,
       dataRetirada: form.dataRetirada || undefined,
       dataEstufagem: form.dataEstufagem || undefined,
     };
@@ -1242,33 +1268,72 @@ const ContainerDetails: React.FC = () => {
                   </div>
 
                   {/* Campo: Outros Lacres */}
-                  <div>
-                    <label 
-                      htmlFor="otherSeals"
-                      className="block text-sm font-medium text-[var(--text)] mb-1"
-                    >
-                      Outros Lacres
-                    </label>
-                    {isEditing ? (
-                      <input
-                        id="otherSeals"
-                        type="text"
-                        value={form.otherSeals}
-                        onChange={(e) => handleChange("otherSeals", e.target.value)}
-                        disabled={!isEditing || loading}
-                        placeholder="Separados por vÃ­rgula"
-                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
-                        aria-describedby="otherSeals-help"
-                      />
-                    ) : (
-                      <div className="text-[var(--text)] font-medium">{form.otherSeals || "-"}</div>
-                    )}
-                    {isEditing && (
-                      <p id="otherSeals-help" className="sr-only">
-                        Insira os lacres separados por vÃ­rgula
-                      </p>
-                    )}
-                  </div>
+                  {isEditing ? (
+                    <>
+                      {form.otherSeals.map((seal, index) => (
+                        <div key={`edit-other-seal-${index}`}>
+                          {index === 0 ? (
+                            <div className="mb-1 flex h-5 items-end">
+                              <label 
+                                htmlFor="otherSeal-0"
+                                className="block text-sm font-medium leading-5 text-[var(--text)]"
+                              >
+                                Outros Lacres
+                              </label>
+                            </div>
+                          ) : index === 1 ? (
+                            <div className="mb-1 hidden h-5 lg:block" aria-hidden="true" />
+                          ) : null}
+                          <div className="relative">
+                            <input
+                              id={index === 0 ? "otherSeal-0" : undefined}
+                              type="text"
+                              value={seal}
+                              onChange={(e) => setOtherSealField(index, e.target.value)}
+                              disabled={!isEditing || loading}
+                              placeholder={`Lacre ${index + 1}`}
+                              aria-label={`Lacre ${index + 1}`}
+                              className="w-full px-3 py-2 pr-10 border border-[var(--border)] rounded-lg text-sm bg-[var(--surface)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-[var(--hover)]"
+                            />
+                            {form.otherSeals.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => removeOtherSealField(index)}
+                                disabled={!isEditing || loading}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[var(--muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-label={`Remover lacre ${index + 1}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                      <div>
+                        {form.otherSeals.length === 1 ? (
+                          <div className="mb-1 hidden h-5 lg:block" aria-hidden="true" />
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={addOtherSealField}
+                          disabled={!isEditing || loading}
+                          className="inline-flex h-10 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--border)] text-sm font-medium text-[var(--muted)] transition-colors hover:border-[var(--primary)] hover:bg-[var(--hover)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Adicionar lacre
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label 
+                        className="block text-sm font-medium text-[var(--text)] mb-1"
+                      >
+                        Outros Lacres
+                      </label>
+                      <div className="text-[var(--text)] font-medium">{form.otherSeals.filter(Boolean).join(", ") || "-"}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
