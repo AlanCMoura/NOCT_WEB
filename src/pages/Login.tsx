@@ -62,7 +62,7 @@ const extractAuthToken = (payload: Record<string, unknown>): string | null => {
 };
 
 const extractServerMessage = (payload: Record<string, unknown>): string | null => {
-  const keys = ['message', 'error', 'detail'];
+  const keys = ['message', 'error', 'detail', 'description', 'title'];
   for (const key of keys) {
     const value = payload[key];
     if (typeof value === 'string' && value.trim()) {
@@ -70,6 +70,76 @@ const extractServerMessage = (payload: Record<string, unknown>): string | null =
     }
   }
   return null;
+};
+
+const extractErrorMessage = (raw: unknown): string | null => {
+  const parsed = parsePossibleJson(raw);
+
+  if (typeof parsed === 'string') {
+    return parsed.trim() || null;
+  }
+
+  const directMessage = extractServerMessage(parsed);
+  if (directMessage) return directMessage;
+
+  const errors = parsed.errors;
+  if (Array.isArray(errors)) {
+    const firstError = errors.find((item) => typeof item === 'string' && item.trim());
+    if (typeof firstError === 'string') return firstError.trim();
+  }
+
+  if (errors && typeof errors === 'object') {
+    for (const value of Object.values(errors as Record<string, unknown>)) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (Array.isArray(value)) {
+        const firstValue = value.find((item) => typeof item === 'string' && item.trim());
+        if (typeof firstValue === 'string') return firstValue.trim();
+      }
+    }
+  }
+
+  return null;
+};
+
+const getLoginErrorMessage = (error: unknown): string => {
+  if (!axios.isAxiosError(error)) {
+    return 'Erro ao autenticar. Tente novamente.';
+  }
+
+  const serverMessage = extractErrorMessage(error.response?.data);
+  if (serverMessage) return serverMessage;
+
+  switch (error.response?.status) {
+    case 400:
+      return 'CPF ou senha informados em formato invalido.';
+    case 401:
+      return 'Senha invalida.';
+    case 403:
+      return 'Usuario sem permissao para acessar ou conta inativa.';
+    case 404:
+      return 'Usuario nao encontrado.';
+    case 423:
+      return 'Usuario bloqueado. Entre em contato com o administrador.';
+    case 429:
+      return 'Muitas tentativas de login. Aguarde e tente novamente.';
+    default:
+      return 'Erro ao autenticar. Tente novamente.';
+  }
+};
+
+const getTwoFactorErrorMessage = (error: unknown): string => {
+  if (!axios.isAxiosError(error)) {
+    return 'Nao foi possivel concluir a verificacao. Tente novamente.';
+  }
+
+  const serverMessage = extractErrorMessage(error.response?.data);
+  if (serverMessage) return serverMessage;
+
+  if (error.response?.status === 401 || error.response?.status === 400) {
+    return 'Codigo 2FA invalido. Tente novamente.';
+  }
+
+  return 'Nao foi possivel concluir a verificacao. Tente novamente.';
 };
 
 const toBoolean = (value: unknown): boolean => {
@@ -227,21 +297,10 @@ const Login: React.FC = () => {
         return;
       }
 
-      setLoginError('Nao foi possivel autenticar. Verifique seu CPF e senha.');
+      setLoginError(extractErrorMessage(dataObject) || 'Nao foi possivel autenticar. Verifique seu CPF e senha.');
     } catch (error) {
       console.error('Erro ao autenticar usuario', error);
-
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          setLoginError('Credenciais invalidas. Verifique seu CPF e senha.');
-        } else if (typeof error.response?.data === 'string' && error.response.data.trim()) {
-          setLoginError(error.response.data);
-        } else {
-          setLoginError('Erro ao autenticar. Tente novamente.');
-        }
-      } else {
-        setLoginError('Erro ao autenticar. Tente novamente.');
-      }
+      setLoginError(getLoginErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -286,12 +345,7 @@ const Login: React.FC = () => {
       setLoginError('Nao foi possivel concluir a verificacao. Tente novamente.');
     } catch (error) {
       console.error('Erro ao verificar codigo 2FA', error);
-
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setLoginError('Codigo 2FA invalido. Tente novamente.');
-      } else {
-        setLoginError('Nao foi possivel concluir a verificacao. Tente novamente.');
-      }
+      setLoginError(getTwoFactorErrorMessage(error));
     } finally {
       setIsVerifying(false);
     }

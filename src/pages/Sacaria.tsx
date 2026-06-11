@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useSidebar } from '../context/SidebarContext';
 import { useSessionUser } from '../context/AuthContext';
@@ -86,6 +86,7 @@ const buildOperationUpdatePayload = (op: ApiOperation, sackDescription: string):
 const Sacaria: React.FC = () => {
   const { operationId } = useParams();
   const decodedOperationId = operationId ? decodeURIComponent(operationId) : '';
+  const navigate = useNavigate();
   const { changePage } = useSidebar();
   const user = useSessionUser({ role: 'Supervisor' });
 
@@ -310,8 +311,17 @@ const Sacaria: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
-          <div className="flex items-center justify-between h-full px-6">
-            <div>
+          <div className="flex items-center justify-between h-full px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}`)}
+                className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)] md:hidden"
+                aria-label="Voltar para detalhes da operação"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[var(--text)]">
                 Sacaria - Operação{' '}
                 {operationLabelLoading ? (
@@ -321,6 +331,7 @@ const Sacaria: React.FC = () => {
                 )}
               </h1>
               <p className="text-sm text-[var(--muted)]">Carrossel de imagens</p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div

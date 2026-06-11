@@ -71,6 +71,24 @@ const formatCpf = (value: string): string => {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 };
 
+const normalizeCpf = (value: string): string => value.replace(/\D/g, '');
+
+const isCpfValid = (value: string): boolean => {
+  const digits = normalizeCpf(value);
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+
+  const calculateDigit = (factor: number) => {
+    let total = 0;
+    for (let index = 0; index < factor - 1; index += 1) {
+      total += Number(digits[index]) * (factor - index);
+    }
+    const remainder = (total * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  return calculateDigit(10) === Number(digits[9]) && calculateDigit(11) === Number(digits[10]);
+};
+
 const mapApiUserToManaged = (user: ApiUser, options?: { forceActive?: boolean }): ManagedUser => {
   const roleFromApi = user.role ? API_ROLE_TO_UI[user.role] ?? 'Inspetor' : 'Inspetor';
   const nameParts = (user.name ?? '').trim().split(' ').filter(Boolean);
@@ -164,7 +182,11 @@ const Users: React.FC = () => {
     setIsTwoFactorLoading(false);
   };
 
-  const cpfDigits = cpf.replace(/\D/g, '');
+  const cpfDigits = normalizeCpf(cpf);
+  const editingUserCpfDigits = editingUser ? normalizeCpf(editingUser.cpf) : '';
+  const isEditingExistingInvalidCpf =
+    Boolean(editingUser) && !isCpfValid(editingUser?.cpf ?? '') && cpfDigits === editingUserCpfDigits;
+  const isCpfAcceptable = isCpfValid(cpf) || isEditingExistingInvalidCpf;
 
   const fetchUsers = useCallback(
     async (targetPage = 0) => {
@@ -262,7 +284,18 @@ const Users: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!isValid || isSubmitting) return;
+    if (isSubmitting) return;
+
+    if (!isCpfAcceptable) {
+      setFormError(
+        editingUser
+          ? 'Informe um CPF valido. Usuarios existentes com CPF invalido so podem ser salvos sem alterar esse CPF.'
+          : 'Informe um CPF valido.'
+      );
+      return;
+    }
+
+    if (!isValid) return;
 
     setFormError(null);
 
@@ -405,8 +438,8 @@ const Users: React.FC = () => {
   }, [users, search, roleFilter, twoFactorFilter, statusFilter]);
 
   const isValid = editingUser
-    ? Boolean(firstName && lastName && cpfDigits.length === 11 && email && role)
-    : Boolean(firstName && lastName && cpfDigits.length === 11 && email && role && password && confirm && password === confirm);
+    ? Boolean(firstName && lastName && isCpfAcceptable && email && role)
+    : Boolean(firstName && lastName && isCpfAcceptable && email && role && password && confirm && password === confirm);
 
   const submitDisabled = !isValid || isSubmitting;
   const submitLabel = editingUser
@@ -902,6 +935,13 @@ const Users: React.FC = () => {
                     value={cpf}
                     onChange={(e) => setCpf(formatCpf(e.target.value))}
                   />
+                  {cpf && !isCpfValid(cpf) && (
+                    <p className={`mt-1 text-xs ${isEditingExistingInvalidCpf ? 'text-[var(--muted)]' : 'text-red-500'}`}>
+                      {isEditingExistingInvalidCpf
+                        ? 'CPF invalido legado: permitido somente sem alterar.'
+                        : 'Informe um CPF valido.'}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[var(--text)] mb-1">Email <span className="text-red-500">*</span></label>
@@ -962,6 +1002,18 @@ const Users: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {!editingUser && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--hover)] px-4 py-3 text-xs text-[var(--muted)]">
+                  <p className="mb-2 font-medium text-[var(--text)]">Os criterios para criacao de senha sao:</p>
+                  <ul className="list-disc space-y-1 pl-5">
+                    <li>Minimo de 8 caracteres, maximo de 100</li>
+                    <li>Pelo menos 1 letra, maiuscula ou minuscula</li>
+                    <li>Pelo menos 1 numero</li>
+                    <li>Caracteres permitidos: letras, numeros e @ $ ! % * # ? &</li>
+                  </ul>
+                </div>
+              )}
 
               <div className="rounded-xl border border-[var(--border)] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileBarChart, FileText, LogOut, User as UserIcon, Users } from 'lucide-react';
+import { History, LayoutDashboard, FileBarChart, FileText, LogOut, User as UserIcon, Users } from 'lucide-react';
 import ThemeContrastButton from './ThemeContrastButton';
 import { useSidebar } from '../context/SidebarContext';
 
@@ -36,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
     ? []
     : [
         { id: 'usuarios', icon: <Users className="h-5 w-5" />, label: 'Usuários' },
+        { id: 'auditoria', icon: <History className="h-5 w-5" />, label: 'Auditoria' },
         { id: 'relatorios', icon: <FileBarChart className="h-5 w-5" />, label: 'Relatórios' },
       ];
 
@@ -44,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
     { id: 'logout', icon: <LogOut className="h-5 w-5" />, label: 'Sair' },
   ];
 
-  const mobileDockItems: SidebarItem[] = [...sidebarItems, ...managementItems, systemItems[1]];
+  const mobileDockItems: SidebarItem[] = [...sidebarItems, ...managementItems];
 
   const handleItemClick = (itemId: string): void => {
     changePage(itemId);
@@ -126,28 +127,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, user }) =>
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--sidebar-bg)]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 text-[var(--sidebar-text)] shadow-[0_-12px_30px_rgba(15,23,42,0.18)] backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-white px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 text-[var(--sidebar-text)] shadow-[0_-12px_30px_rgba(15,23,42,0.18)] md:hidden">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleItemClick('perfil')}
-            aria-label="Abrir meu perfil"
-            title="Meu Perfil"
-            className={`flex min-w-[4.5rem] flex-shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium leading-tight transition-colors ${
-              activePage === 'perfil'
-                ? 'bg-[var(--primary)] text-[var(--on-primary)]'
-                : 'text-[var(--sidebar-muted)] hover:bg-white/5 hover:text-[var(--sidebar-text)]'
-            }`}
-          >
-            <UserIcon className="h-5 w-5" />
-            <span>Perfil</span>
-          </button>
           <div className="mobile-nav-scroll flex-1 overflow-x-auto">
             <div className="flex min-w-max items-center gap-1">
               {renderMobileNavItems(mobileDockItems)}
             </div>
           </div>
-          <ThemeContrastButton variant="dock" />
         </div>
       </div>
     </aside>

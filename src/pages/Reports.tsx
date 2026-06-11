@@ -656,10 +656,10 @@ const Reports: React.FC = () => {
     <div className="flex min-h-screen bg-app md:h-screen">
       <Sidebar user={currentUser} />
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-[var(--surface)] border-b border-[var(--border)] h-20">
-          <div className="flex items-center justify-between h-full px-6">
-            <div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="bg-[var(--surface)] border-b border-[var(--border)]">
+          <div className="flex min-h-20 items-center justify-between px-4 py-4 sm:px-6">
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[var(--text)]">Relatórios</h1>
               <p className="text-sm text-[var(--muted)]">Gere, filtre e exporte informações da operação</p>
             </div>
@@ -684,7 +684,7 @@ const Reports: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto space-y-6">
+        <main className="flex-1 overflow-auto space-y-6 p-4 pb-28 sm:p-6 md:pb-6">
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
@@ -693,7 +693,7 @@ const Reports: React.FC = () => {
           )}
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)] flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-col gap-4 border-b border-[var(--border)] p-4 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text)]">Filtros e ações</h2>
                 <p className="text-sm text-[var(--muted)]">Refine o recorte antes de exportar</p>
@@ -703,25 +703,25 @@ const Reports: React.FC = () => {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:items-center">
                 <button
                   type="button"
                   onClick={() => { void exportCsv(rowsForTable); }}
-                  className="inline-flex items-center px-3 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90"
+                  className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--on-primary)] hover:opacity-90 lg:w-auto"
                 >
                   <Download className="w-4 h-4 mr-2" /> Exportar CSV
                 </button>
                 <button
                   type="button"
                   onClick={() => { void exportPdf(rowsForTable); }}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] lg:w-auto"
                 >
                   <FileText className="w-4 h-4 mr-2" /> Exportar PDF
                 </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-4 sm:p-6">
               <div className="flex flex-col xl:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
@@ -739,8 +739,8 @@ const Reports: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative w-44">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
+                  <div className="relative w-full xl:w-44">
                     <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
                     <select
                       value={statusFilter}
@@ -757,7 +757,7 @@ const Reports: React.FC = () => {
                     </select>
                   </div>
 
-                  <div className="relative w-44">
+                  <div className="relative w-full xl:w-44">
                     <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
                     <input
                       type="date"
@@ -772,7 +772,7 @@ const Reports: React.FC = () => {
                     />
                   </div>
 
-                  <div className="relative w-44">
+                  <div className="relative w-full xl:w-44">
                     <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
                     <input
                       type="date"
@@ -791,46 +791,46 @@ const Reports: React.FC = () => {
                     type="button"
                     onClick={handleSearch}
                     disabled={loading}
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90 disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] hover:opacity-90 disabled:opacity-60 xl:w-auto"
                   >
                     {loading ? 'Buscando...' : 'Buscar'}
                   </button>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
                 <button
                   type="button"
                   onClick={() => applyPresetRange('hoje')}
-                  className={presetButtonClass('hoje')}
+                  className={`${presetButtonClass('hoje')} justify-center`}
                 >
                   <Clock className="w-4 h-4 mr-2" /> Hoje
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetRange('7d')}
-                  className={presetButtonClass('7d')}
+                  className={`${presetButtonClass('7d')} justify-center`}
                 >
                   <BarChart3 className="w-4 h-4 mr-2" /> Ultimos 7 dias
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetRange('30d')}
-                  className={presetButtonClass('30d')}
+                  className={`${presetButtonClass('30d')} justify-center`}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" /> Ultimos 30 dias
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetRange('pendencias')}
-                  className={presetButtonClass('pendencias')}
+                  className={`${presetButtonClass('pendencias')} justify-center`}
                 >
                   <Timer className="w-4 h-4 mr-2" /> Pendências
                 </button>
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex items-center px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                  className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
                 >
                   Limpar filtros
                 </button>
@@ -863,7 +863,62 @@ const Reports: React.FC = () => {
                 Nenhum resultado com os filtros aplicados.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="divide-y divide-[var(--border)] md:hidden">
+                {rowsForTable.map((row) => (
+                  <article key={`mobile-${row.id}`} className="space-y-4 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-[var(--text)]">{row.ctv || row.id}</p>
+                        <p className="text-xs text-[var(--muted)]">Reserva {row.reserva || '---'}</p>
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 px-2 py-1 text-xs font-semibold rounded-full ${
+                          row.status === 'Aberta'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Navio</p>
+                        <p className="truncate text-[var(--text)]">{row.ship}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Data</p>
+                        <p className="text-[var(--text)]">{formatDate(row.date)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Containers</p>
+                        <p className="text-[var(--text)]">{row.containers ?? '---'}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/operations/${encodeURIComponent(row.id)}/overview`)}
+                        className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                      >
+                        <FileText className="w-4 h-4 mr-1.5" /> Containers
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { void exportOverviewPdf(row); }}
+                        className="inline-flex w-full items-center justify-center rounded-lg bg-gray-700 px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                      >
+                        <Download className="w-4 h-4 mr-1.5" /> Exportar
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
                 <table className="min-w-full divide-y divide-[var(--border)]">
                   <thead className="bg-[var(--hover)]">
                     <tr>
@@ -941,12 +996,14 @@ const Reports: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
-                <div className="px-6 py-3 text-xs text-[var(--muted)] bg-[var(--hover)] border-t border-[var(--border)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              </div>
+
+                <div className="px-4 py-3 text-xs text-[var(--muted)] bg-[var(--hover)] border-t border-[var(--border)] flex flex-col gap-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
                   <span>
                     Mostrando {rowsForTable.length} nesta página |  Total: {totalElements}
                   </span>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label className="flex items-center justify-between gap-2 sm:justify-start">
                       <span>Linhas por página</span>
                       <select
                         value={pageSize}
@@ -963,7 +1020,7 @@ const Reports: React.FC = () => {
                         ))}
                       </select>
                     </label>
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                       <button
                         type="button"
                         onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
@@ -972,7 +1029,7 @@ const Reports: React.FC = () => {
                       >
                         Anterior
                       </button>
-                      <span>
+                      <span className="col-span-2 text-center sm:col-span-1">
                         Página {totalPages === 0 ? 0 : page + 1} de {totalPages}
                       </span>
                       <button
@@ -986,7 +1043,7 @@ const Reports: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
           </section>
         </main>

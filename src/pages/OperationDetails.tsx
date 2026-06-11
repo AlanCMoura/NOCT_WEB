@@ -45,6 +45,13 @@ interface Container {
   apiStatus?: ApiContainerStatus;
 }
 
+interface OperationVehicleForm {
+  id: string;
+  plate: string;
+  invoice: string;
+  sacksQuantity: string;
+}
+
 interface ImportProgressState {
   phase: string;
   processed: number;
@@ -175,58 +182,59 @@ const normalizeVehicles = (vehicles: unknown): ApiOperationVehicle[] =>
     ? vehicles.filter((vehicle): vehicle is ApiOperationVehicle => Boolean(vehicle) && typeof vehicle === 'object')
     : [];
 
-const mapApiVehicleToPayload = (
-  vehicle?: ApiOperationVehicle
-): NonNullable<UpdateOperationPayload['vehicles']>[number] | null => {
-  if (!vehicle) return null;
-  const plate = coalesceText(vehicle.plate).trim();
-  const invoice = coalesceText(vehicle.invoice).trim();
-  const sacksQuantity = toOptionalNumber(vehicle.sacksQuantity ?? vehicle.sacks_quantity);
+const createVehicleFormId = () => `vehicle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  if (!plate && !invoice && sacksQuantity === undefined) return null;
+const createEmptyVehicleForm = (): OperationVehicleForm => ({
+  id: createVehicleFormId(),
+  plate: '',
+  invoice: '',
+  sacksQuantity: '',
+});
 
-  return {
-    plate: plate || undefined,
-    invoice: invoice || undefined,
-    sacksQuantity: sacksQuantity === undefined ? undefined : Math.trunc(sacksQuantity),
+const mapApiVehicleToForm = (vehicle: ApiOperationVehicle, index: number): OperationVehicleForm => ({
+  id: `vehicle-${index}-${coalesceText(vehicle.plate, vehicle.invoice, index)}`,
+  plate: coalesceText(vehicle.plate),
+  invoice: coalesceText(vehicle.invoice),
+  sacksQuantity: coalesceText(vehicle.sacksQuantity, vehicle.sacks_quantity),
+});
+
+const mapOperationVehicles = (op: ApiOperation): OperationVehicleForm[] => {
+  const vehicles = normalizeVehicles(op.vehicles).map(mapApiVehicleToForm);
+  if (vehicles.length) return vehicles;
+
+  const fallbackVehicle = {
+    plate: coalesceText(op.plate),
+    invoice: coalesceText(op.invoice),
+    sacksQuantity: op.sacksQuantity ?? op.sacks_quantity,
   };
-};
 
-const buildPrimaryVehiclePayload = (
-  data: OperationInfo
-): NonNullable<UpdateOperationPayload['vehicles']>[number] | null => {
-  const plate = data.vehiclePlate.trim();
-  const invoice = data.vehicleInvoice.trim();
-  const sacksQuantity = toOptionalNumber(data.vehicleSacksQuantity);
+  if (!fallbackVehicle.plate && !fallbackVehicle.invoice && fallbackVehicle.sacksQuantity === undefined) {
+    return [];
+  }
 
-  if (!plate && !invoice && sacksQuantity === undefined) return null;
-
-  return {
-    plate: plate || undefined,
-    invoice: invoice || undefined,
-    sacksQuantity: sacksQuantity === undefined ? undefined : Math.trunc(sacksQuantity),
-  };
+  return [mapApiVehicleToForm(fallbackVehicle, 0)];
 };
 
 const buildVehiclesPayload = (
-  data: OperationInfo,
-  baseVehicles: ApiOperationVehicle[] = []
+  vehicles: OperationVehicleForm[]
 ): NonNullable<UpdateOperationPayload['vehicles']> => {
-  const primaryVehicle = buildPrimaryVehiclePayload(data);
-  const extraVehicles = normalizeVehicles(baseVehicles)
-    .slice(1)
-    .map((vehicle) => mapApiVehicleToPayload(vehicle))
-    .filter((vehicle): vehicle is NonNullable<UpdateOperationPayload['vehicles']>[number] => Boolean(vehicle));
+  const payload: NonNullable<UpdateOperationPayload['vehicles']> = [];
 
-  if (primaryVehicle) {
-    return [primaryVehicle, ...extraVehicles];
-  }
+  vehicles.forEach((vehicle) => {
+    const plate = vehicle.plate.trim();
+    const invoice = vehicle.invoice.trim();
+    const sacksQuantity = toOptionalNumber(vehicle.sacksQuantity);
 
-  if (extraVehicles.length) {
-    return [{ plate: '', invoice: '', sacksQuantity: undefined }, ...extraVehicles];
-  }
+    if (!plate && !invoice && sacksQuantity === undefined) return;
 
-  return [];
+    payload.push({
+      plate: plate || undefined,
+      invoice: invoice || undefined,
+      sacksQuantity: sacksQuantity === undefined ? undefined : Math.trunc(sacksQuantity),
+    });
+  });
+
+  return payload;
 };
 
 const formatApiError = (err: unknown): string => {
@@ -417,7 +425,8 @@ const OperationDetails: React.FC = () => {
   const [containersLoading, setContainersLoading] = useState<boolean>(true);
   const [containerSearch, setContainerSearch] = useState<string>('');
   const opBackupRef = useRef<OperationInfo>(emptyOperation);
-  const operationVehiclesRef = useRef<ApiOperationVehicle[]>([]);
+  const vehiclesBackupRef = useRef<OperationVehicleForm[]>([]);
+  const [operationVehicles, setOperationVehicles] = useState<OperationVehicleForm[]>([]);
   const [operationStatus, setOperationStatus] = useState<'Aberta' | 'Fechada'>('Aberta');
   const isOperationClosed = operationStatus === 'Fechada';
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
@@ -593,6 +602,15 @@ const OperationDetails: React.FC = () => {
 
       const fmt = (val: string | number | undefined) => (val === undefined || val === null || val === '' ? '-' : String(val));
       const opTitle = `Relatório Operação ${opInfo.ctv || decodedOperationId || '---'}`;
+      const vehicleRows = operationVehicles.length
+        ? operationVehicles.flatMap((vehicle, index) => [
+            { label: `Veículo ${index + 1} - Placa`, value: vehicle.plate },
+            { label: `Veículo ${index + 1} - Nota fiscal`, value: vehicle.invoice },
+            { label: `Veículo ${index + 1} - Quantidade de sacas`, value: vehicle.sacksQuantity },
+          ])
+        : [
+            { label: 'Veículos', value: 'Nenhum veículo cadastrado' },
+          ];
       const opRows = [
         { label: 'CTV', value: opInfo.ctv || decodedOperationId },
         { label: 'Reserva', value: opInfo.reserva },
@@ -605,9 +623,7 @@ const OperationDetails: React.FC = () => {
         { label: 'Data de Chegada', value: formatDatePt(opInfo.data) },
         { label: 'Deadline de Carregamento', value: formatDatePt(opInfo.entrega) },
         { label: 'Marcacao da sacaria', value: opInfo.sackDescription },
-        { label: 'Veículo - Placa', value: opInfo.vehiclePlate },
-        { label: 'Veículo - Nota fiscal', value: opInfo.vehicleInvoice },
-        { label: 'Veículo - Quantidade de sacas', value: opInfo.vehicleSacksQuantity },
+        ...vehicleRows,
         { label: 'Status', value: operationStatus },
       ];
 
@@ -791,7 +807,7 @@ const OperationDetails: React.FC = () => {
     } finally {
       setExportingPdf(false);
     }
-  }, [containerSearch, containers, decodedOperationId, exportingPdf, fetchContainerImages, fetchSacariaImages, isContainerFilterMode, loadAllContainers, opInfo, operationStatus, sectionsLoading, statusKey, statusOf]);
+  }, [containerSearch, containers, decodedOperationId, exportingPdf, fetchContainerImages, fetchSacariaImages, isContainerFilterMode, loadAllContainers, opInfo, operationStatus, operationVehicles, sectionsLoading, statusKey, statusOf]);
 
   const filteredContainers = useMemo(() => {
     const q = containerSearch.trim().toLowerCase();
@@ -1060,13 +1076,13 @@ const OperationDetails: React.FC = () => {
       setApiTotalPages(1);
       setApiTotalContainers(0);
       allContainersRef.current = null;
-      operationVehiclesRef.current = [];
+      setOperationVehicles([]);
 
       try {
         const data = await getOperationById(decodedOperationId);
         if (!active) return;
 
-        operationVehiclesRef.current = normalizeVehicles(data.vehicles);
+        setOperationVehicles(mapOperationVehicles(data));
         dispatch({ type: 'hydrate', opInfo: mapOperation(data) });
         setOperationStatus(normalizeStatus(data.status));
 
@@ -1156,7 +1172,11 @@ const OperationDetails: React.FC = () => {
     };
   }, [decodedOperationId, isContainerFilterMode, loadAllContainers, page, containersReloadKey]);
 
-const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
+const buildUpdatePayload = (data: OperationInfo, vehicles: OperationVehicleForm[]): UpdateOperationPayload => {
+  const vehiclePayload = buildVehiclesPayload(vehicles);
+  const primaryVehicle = vehiclePayload[0];
+
+  return {
   ctv: data.ctv,
   ship: data.ship,
   terminal: data.local,
@@ -1168,14 +1188,12 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
   loadDeadline: toDateOnly(data.entrega),
   exporter: data.exporter,
   sackDescription: data.sackDescription.trim() || undefined,
-  plate: data.vehiclePlate.trim() || undefined,
-  invoice: data.vehicleInvoice.trim() || undefined,
-  sacksQuantity: (() => {
-    const value = toOptionalNumber(data.vehicleSacksQuantity);
-    return value === undefined ? undefined : Math.trunc(value);
-  })(),
-  vehicles: buildVehiclesPayload(data, operationVehiclesRef.current),
-});
+  plate: primaryVehicle?.plate,
+  invoice: primaryVehicle?.invoice,
+  sacksQuantity: primaryVehicle?.sacksQuantity,
+  vehicles: vehiclePayload,
+};
+};
 
   const startIdx = (page - 1) * PAGE_SIZE;
   const endIdx = isContainerFilterMode
@@ -1190,11 +1208,27 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
     setSaveMessage(null);
     setSaveError(null);
     opBackupRef.current = opInfo;
+    vehiclesBackupRef.current = operationVehicles.map((vehicle) => ({ ...vehicle }));
     dispatch({ type: 'startEdit' });
   };
 
   const cancelEdit = () => {
+    setOperationVehicles(vehiclesBackupRef.current.map((vehicle) => ({ ...vehicle })));
     dispatch({ type: 'cancelEdit', backup: opBackupRef.current });
+  };
+
+  const addVehicle = () => {
+    setOperationVehicles((current) => [...current, createEmptyVehicleForm()]);
+  };
+
+  const removeVehicle = (vehicleId: string) => {
+    setOperationVehicles((current) => current.filter((vehicle) => vehicle.id !== vehicleId));
+  };
+
+  const updateVehicle = (vehicleId: string, field: keyof Omit<OperationVehicleForm, 'id'>, value: string) => {
+    setOperationVehicles((current) =>
+      current.map((vehicle) => (vehicle.id === vehicleId ? { ...vehicle, [field]: value } : vehicle))
+    );
   };
 
   const handleDeleteOperation = async () => {
@@ -1226,9 +1260,9 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
 
     try {
       setSavingOp(true);
-      const payload = buildUpdatePayload(opInfo);
+      const payload = buildUpdatePayload(opInfo, operationVehicles);
       const updated = await updateOperation(decodedOperationId, payload);
-      operationVehiclesRef.current = normalizeVehicles(updated.vehicles);
+      setOperationVehicles(mapOperationVehicles(updated));
       dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
       setOperationStatus(normalizeStatus(updated.status));
       setSaveMessage('Operação atualizada com sucesso.');
@@ -1265,7 +1299,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
     try {
       setStatusLoading(true);
       const updated = await completeOperationStatus(numericId);
-      operationVehiclesRef.current = normalizeVehicles(updated.vehicles);
+      setOperationVehicles(mapOperationVehicles(updated));
       dispatch({ type: 'hydrate', opInfo: mapOperation(updated) });
       setOperationStatus(normalizeStatus(updated.status));
     } catch (err) {
@@ -1657,59 +1691,110 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
           </section>
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Veículo</h2>
+            <div className="p-6 border-b border-[var(--border)] flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Veículos da Operação</h2>
+                <p className="mt-1 text-xs text-[var(--muted)]">Placa, nota fiscal e quantidade de sacas vinculadas a esta operação.</p>
+              </div>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={addVehicle}
+                  className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-100"
+                >
+                  <Plus className="h-4 w-4" />
+                  Veículo
+                </button>
+              )}
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
-              <div>
-                <span className="text-[var(--muted)] block">Placa</span>
-                {isEditing ? (
-                  <input
-                    value={opInfo.vehiclePlate}
-                    onChange={(e) => dispatch({ type: 'update', field: 'vehiclePlate', value: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.vehiclePlate || '-'}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Nota fiscal</span>
-                {isEditing ? (
-                  <input
-                    value={opInfo.vehicleInvoice}
-                    onChange={(e) => dispatch({ type: 'update', field: 'vehicleInvoice', value: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.vehicleInvoice || '-'}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[var(--muted)] block">Quantidade de sacas</span>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={opInfo.vehicleSacksQuantity}
-                    onChange={(e) => dispatch({ type: 'update', field: 'vehicleSacksQuantity', value: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                ) : (
-                  <span className="text-[var(--text)] font-medium">{opInfo.vehicleSacksQuantity || '-'}</span>
-                )}
-              </div>
+            <div className="p-6">
+              {operationVehicles.length ? (
+                <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+                  <table className="min-w-full divide-y divide-[var(--border)] text-sm">
+                    <thead className="bg-[var(--hover)]">
+                      <tr>
+                        <th className="w-20 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">#</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Placa</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">NF</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Sacas</th>
+                        {isEditing && (
+                          <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Ações</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
+                      {operationVehicles.map((vehicle, index) => (
+                        <tr key={vehicle.id} className="hover:bg-[var(--hover)]">
+                          <td className="px-4 py-3 text-sm font-medium text-[var(--text)]">
+                            {index + 1}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditing ? (
+                              <input
+                                value={vehicle.plate}
+                                onChange={(e) => updateVehicle(vehicle.id, 'plate', e.target.value)}
+                                className="w-full min-w-[140px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              />
+                            ) : (
+                              <span className="font-medium text-[var(--text)]">{vehicle.plate || '-'}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditing ? (
+                              <input
+                                value={vehicle.invoice}
+                                onChange={(e) => updateVehicle(vehicle.id, 'invoice', e.target.value)}
+                                className="w-full min-w-[140px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              />
+                            ) : (
+                              <span className="font-medium text-[var(--text)]">{vehicle.invoice || '-'}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={vehicle.sacksQuantity}
+                                onChange={(e) => updateVehicle(vehicle.id, 'sacksQuantity', e.target.value)}
+                                className="w-full min-w-[120px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              />
+                            ) : (
+                              <span className="font-medium text-[var(--text)]">{vehicle.sacksQuantity || '-'}</span>
+                            )}
+                          </td>
+                          {isEditing && (
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => removeVehicle(vehicle.id)}
+                                className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100"
+                              >
+                                Remover
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-[var(--border)] px-4 py-6 text-center text-sm text-[var(--muted)]">
+                  Nenhum veículo cadastrado para esta operação.
+                </div>
+              )}
             </div>
           </section>
 
           {/* Sacaria upload dorment (moved to dedicated page) */}
 
           <section className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)]">
-            <div className="p-6 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+            <div className="p-6 border-b border-[var(--border)] flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <h2 className="text-lg font-semibold text-[var(--text)]">Containers da Operação</h2>
-                <div className="flex flex-1 sm:flex-initial gap-3 items-center">
-                  <div className="flex-1 relative">
+                <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(220px,1fr)_180px_auto_auto_auto] xl:w-auto xl:min-w-[760px] xl:flex-1">
+                  <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
                     <input
                       type="text"
@@ -1721,7 +1806,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                       className={`w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-[var(--surface)] text-[var(--text)] ${controlsDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                     />
                   </div>
-                  <div className="w-64">
+                  <div>
                     <select
                       value={statusKey as any}
                       onChange={(e) => setStatusKey(e.target.value as any)}
@@ -1740,16 +1825,16 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                   type="button"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/containers/new`)}
                   disabled={controlsDisabled}
-                  className="inline-flex items-center px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] transition-colors hover:opacity-90 disabled:opacity-60"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4" />
                   Novo Container
                 </button>
                 <button
                   type="button"
                   onClick={openImportModal}
                   disabled={controlsDisabled}
-                  className="inline-flex items-center px-4 py-2 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] rounded-lg text-sm font-medium hover:bg-[var(--hover)] transition-colors gap-2"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-60"
                   title="Importar containers via planilha XLSX"
                 >
                   <FileUp className="w-4 h-4" />
@@ -1759,7 +1844,7 @@ const buildUpdatePayload = (data: OperationInfo): UpdateOperationPayload => ({
                   aria-label="Ver overview da operação"
                   onClick={() => navigate(`/operations/${encodeURIComponent(decodedOperationId)}/overview`)}
                   disabled={controlsDisabled}
-                  className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--hover)] disabled:opacity-60"
                 >
                   Overview
                 </button>

@@ -19,6 +19,7 @@ import OperationOverview from './pages/OperationOverview';
 import Reports from './pages/Reports';
 import ReportBuilder from './pages/ReportBuilder';
 import ProtectedRoute from './components/ProtectedRoute';
+import AuditLogs from './pages/AuditLogs';
 
 const App: React.FC = () => {
   return (
@@ -44,6 +45,7 @@ const App: React.FC = () => {
                 <Route path="/operations/:operationId/overview" element={<OperationOverview />} />
                 <Route path="/operations/:operationId/containers/:containerId" element={<ContainerDetails />} />
                 <Route path="/users" element={<Users />} />
+                <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/generate" element={<ReportBuilder />} />
                 <Route path="/profile" element={<Profile />} />

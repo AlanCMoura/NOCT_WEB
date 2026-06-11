@@ -6,6 +6,7 @@ export type SidebarPage =
   | 'dashboard'
   | 'operations'
   | 'usuarios'
+  | 'auditoria'
   | 'relatorios'
   | 'perfil'
   | 'cadastrar'
@@ -34,6 +35,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (path.startsWith('/dashboard')) return 'dashboard';
     if (path.startsWith('/operations')) return 'operations';
     if (path.startsWith('/users')) return 'usuarios';
+    if (path.startsWith('/audit-logs')) return 'auditoria';
     if (path.startsWith('/reports')) return 'relatorios';
     if (path.startsWith('/profile')) return 'perfil';
     return 'dashboard';
@@ -61,6 +63,9 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
           break;
         case 'usuarios':
           navigate('/users');
+          break;
+        case 'auditoria':
+          navigate('/audit-logs');
           break;
         case 'relatorios':
           navigate('/reports');
